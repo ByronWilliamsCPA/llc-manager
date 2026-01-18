@@ -20,11 +20,21 @@ services:
     environment:
       # Core settings
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      JSON_LOGS: ${JSON_LOGS:-false}
+      LLC_MANAGER_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LLC_MANAGER_JSON_LOGS: ${JSON_LOGS:-false}
 
       # Database configuration
-      DATABASE_URL: ${DATABASE_URL:-postgresql://llc_manager:password@db:5432/llc_manager}
+      LLC_MANAGER_DATABASE_HOST: db
+      LLC_MANAGER_DATABASE_PORT: 5432
+      LLC_MANAGER_DATABASE_USER: llc_manager
+      LLC_MANAGER_DATABASE_PASSWORD: ${DB_PASSWORD:-password}
+      LLC_MANAGER_DATABASE_NAME: llc_manager
+
+      # API configuration
+      LLC_MANAGER_API_HOST: "0.0.0.0"
+      LLC_MANAGER_API_PORT: 8000
+      LLC_MANAGER_CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173"]'
+
       # Redis cache (if applicable)
       # REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
 

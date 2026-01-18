@@ -263,10 +263,12 @@ secrets.json
 logs/
 *.log
 
-# Data and models (customize as needed)
+# Data and ML models (customize as needed)
 data/raw/
 data/processed/
-models/
+# Note: /models/ is not ignored as it contains SQLAlchemy models
+# Ignore ML model weights instead
+ml_models/
 weights/
 
 # Notebooks
