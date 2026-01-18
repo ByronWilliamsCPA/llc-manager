@@ -143,7 +143,7 @@ def validate_adr(content: str, filepath: Path) -> list[str]:
     issues.extend(_check_common_issues(content, filepath, required))
 
     if not re.search(
-        r"Status.*:.*\b(Proposed|Accepted|Deprecated|Superseded)\b",
+        r"Status.*:.*\b(Proposed|Published|Accepted|Deprecated|Superseded)\b",
         content,
         re.IGNORECASE,
     ):
@@ -214,6 +214,9 @@ def _validate_adr_files(docs_dir: Path) -> ValidationResult:
         result.files_checked += 1
 
         if "Awaiting Generation" in content:
+            result.add_issues(
+                [f"{adr_file}: ADR not yet generated (still placeholder)"]
+            )
             continue
 
         result.add_issues(validate_adr(content, adr_file))
