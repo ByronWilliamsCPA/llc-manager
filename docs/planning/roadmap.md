@@ -4,7 +4,7 @@
 
 ## TL;DR
 
-Build an LLC entity management dashboard in four phases: foundation setup, core CRUD with authentication, compliance calendar with notifications, and Phase 2 LLM integration preparation.
+Build an LLC entity management dashboard in three phases: foundation setup (Week 1), core CRUD with authentication (Weeks 2-4), and compliance calendar with notifications (Weeks 5-6). LLM integration planned for future Phase 3.
 
 ## Timeline Overview
 
@@ -12,7 +12,7 @@ Build an LLC entity management dashboard in four phases: foundation setup, core 
 Phase 0: Foundation     ████░░░░░░░░░░░░ (1 week)   - Project setup, DB migrations
 Phase 1: Core MVP       ░░░░████████░░░░ (3 weeks)  - Entity CRUD, Auth, Dashboard
 Phase 2: Compliance     ░░░░░░░░░░░░████ (2 weeks)  - Calendar, Notifications
-Phase 3: LLM Prep       ░░░░░░░░░░░░░░░░ (Future)   - Vector DB, Document Q&A
+Phase 3: LLM Integration ░░░░░░░░░░░░░░░░ (Future)  - Vector DB, Document Q&A
 ```
 
 ## Milestones
@@ -265,7 +265,7 @@ Vector DB, PDF ingestion, LLM Q&A interface, document semantic search. *Detailed
 
 ## Data Entry Strategy
 
-Data entry via **manual user input** with inline editing (admin role). Phase 2 adds PDF extraction.
+Data entry via **manual user input** with inline editing (admin role). PDF extraction planned for Phase 3.
 
 - Fields display read-only by default; click edit icon to unlock (admin only)
 - HTMX partial updates on save; all edits logged with timestamp/user

@@ -205,12 +205,11 @@ class AdrFM(CommonFM):
     Attributes:
         schema_type: Discriminator field, always "adr".
         status: ADR lifecycle status.
-        authors: List of authors with contact info.
     """
 
     schema_type: Literal["adr"] = "adr"  # type: ignore[assignment]
     status: Literal["proposed", "published", "deprecated", "superseded"]  # type: ignore[assignment]
-    authors: list[Author]
+    # authors is inherited from CommonFM as optional
 
 
 # Discriminated union type for all front matter schemas

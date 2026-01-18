@@ -23,8 +23,8 @@ ADRs document significant architectural decisions along with their context and c
 
 ## ADR Index
 
-| ADR | Title | Status | Date |
-|-----|-------|--------|------|
+| ADR                                        | Title                               | Status   | Date       |
+|--------------------------------------------|-------------------------------------|----------|------------|
 | [ADR-001](adr-001-initial-architecture.md) | FastAPI Monolith with HTMX Frontend | Accepted | 2026-01-18 |
 
 ## Creating ADRs
@@ -83,5 +83,4 @@ See `.claude/skills/project-planning/templates/adr-template.md` for the full tem
 
 ## More Information
 
-- [Document Guide](../.claude/skills/project-planning/reference/document-guide.md)
-- [Prompting Patterns](../.claude/skills/project-planning/reference/prompting-patterns.md)
+See the project's `.claude/skills/` directory for additional planning templates and reference materials.
