@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import re
 import sys
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -91,86 +93,55 @@ def check_cross_references(content: str, filepath: Path, docs_dir: Path) -> list
     return issues
 
 
+def _check_common_issues(
+    content: str, filepath: Path, required_sections: list[str]
+) -> list[str]:
+    """Run common validation checks shared by all document types."""
+    issues = []
+    issues.extend(check_required_sections(content, filepath, required_sections))
+    issues.extend(check_tldr(content, filepath))
+    issues.extend(check_placeholders(content, filepath))
+    return issues
+
+
+def _check_word_count(content: str, filepath: Path, max_words: int) -> list[str]:
+    """Check document word count against maximum."""
+    word_count = count_words(content)
+    if word_count > max_words:
+        return [f"{filepath}: Too long ({word_count} words, max {max_words})"]
+    return []
+
+
 def validate_pvs(content: str, filepath: Path) -> list[str]:
     """Validate Project Vision & Scope document."""
-    issues = []
-
-    # Check length (target 500-800, max 1000)
-    word_count = count_words(content)
-    if word_count > 1000:
-        issues.append(f"{filepath}: Too long ({word_count} words, max 1000)")
-
-    # Required sections
+    issues = _check_word_count(content, filepath, max_words=1000)
     required = ["Problem", "Solution", "Scope", "Constraints"]
-    issues.extend(check_required_sections(content, filepath, required))
-
-    # TL;DR
-    issues.extend(check_tldr(content, filepath))
-
-    # Placeholders
-    issues.extend(check_placeholders(content, filepath))
-
+    issues.extend(_check_common_issues(content, filepath, required))
     return issues
 
 
 def validate_tech_spec(content: str, filepath: Path) -> list[str]:
     """Validate Technical Specification document."""
-    issues = []
-
-    # Check length (target 1000-1500, max 2000)
-    word_count = count_words(content)
-    if word_count > 2000:
-        issues.append(f"{filepath}: Too long ({word_count} words, max 2000)")
-
-    # Required sections
+    issues = _check_word_count(content, filepath, max_words=2000)
     required = ["Technology Stack", "Architecture", "Data Model"]
-    issues.extend(check_required_sections(content, filepath, required))
-
-    # TL;DR
-    issues.extend(check_tldr(content, filepath))
-
-    # Placeholders
-    issues.extend(check_placeholders(content, filepath))
-
+    issues.extend(_check_common_issues(content, filepath, required))
     return issues
 
 
 def validate_roadmap(content: str, filepath: Path) -> list[str]:
     """Validate Development Roadmap document."""
-    issues = []
-
-    # Check length (target 800-1200, max 1500)
-    word_count = count_words(content)
-    if word_count > 1500:
-        issues.append(f"{filepath}: Too long ({word_count} words, max 1500)")
-
-    # Required sections
+    issues = _check_word_count(content, filepath, max_words=1500)
     required = ["Timeline", "Phase", "Milestone"]
-    issues.extend(check_required_sections(content, filepath, required))
-
-    # TL;DR
-    issues.extend(check_tldr(content, filepath))
-
-    # Placeholders
-    issues.extend(check_placeholders(content, filepath))
-
+    issues.extend(_check_common_issues(content, filepath, required))
     return issues
 
 
 def validate_adr(content: str, filepath: Path) -> list[str]:
     """Validate Architecture Decision Record."""
-    issues = []
-
-    # Check length (target 300-600, max 800)
-    word_count = count_words(content)
-    if word_count > 800:
-        issues.append(f"{filepath}: Too long ({word_count} words, max 800)")
-
-    # Required sections
+    issues = _check_word_count(content, filepath, max_words=800)
     required = ["Context", "Decision", "Consequences"]
-    issues.extend(check_required_sections(content, filepath, required))
+    issues.extend(_check_common_issues(content, filepath, required))
 
-    # Check for status
     if not re.search(
         r"Status.*:.*\b(Proposed|Accepted|Deprecated|Superseded)\b",
         content,
@@ -178,18 +149,100 @@ def validate_adr(content: str, filepath: Path) -> list[str]:
     ):
         issues.append(f"{filepath}: Missing or invalid Status field")
 
-    # TL;DR
-    issues.extend(check_tldr(content, filepath))
-
-    # Placeholders
-    issues.extend(check_placeholders(content, filepath))
-
     return issues
+
+
+ValidatorFunc = Callable[[str, Path], list[str]]
+
+
+@dataclass
+class ValidationResult:
+    """Container for validation results."""
+
+    issues: list[str] = field(default_factory=list)
+    files_checked: int = 0
+
+    def add_issues(self, new_issues: list[str]) -> None:
+        """Add issues to the result."""
+        self.issues.extend(new_issues)
+
+
+def _validate_required_files(
+    docs_dir: Path,
+    required_files: list[tuple[str, ValidatorFunc]],
+) -> ValidationResult:
+    """Validate required planning documents."""
+    result = ValidationResult()
+
+    for filename, validator in required_files:
+        filepath = docs_dir / filename
+        if not filepath.exists():
+            result.add_issues([f"Missing required file: {filepath}"])
+            continue
+
+        content = filepath.read_text()
+        result.files_checked += 1
+
+        if "Awaiting Generation" in content:
+            result.add_issues(
+                [f"{filepath}: Document not yet generated (still placeholder)"]
+            )
+            continue
+
+        result.add_issues(validator(content, filepath))
+        result.add_issues(check_cross_references(content, filepath, docs_dir))
+
+    return result
+
+
+def _validate_adr_files(docs_dir: Path) -> ValidationResult:
+    """Validate ADR files in the adr directory."""
+    result = ValidationResult()
+    adr_dir = docs_dir / "adr"
+
+    if not adr_dir.exists():
+        result.add_issues(["Missing ADR directory: docs/planning/adr/"])
+        return result
+
+    adr_files = list(adr_dir.glob("adr-*.md"))
+    if not adr_files:
+        result.add_issues(["No ADR files found in docs/planning/adr/"])
+        return result
+
+    for adr_file in adr_files:
+        content = adr_file.read_text()
+        result.files_checked += 1
+
+        if "Awaiting Generation" in content:
+            continue
+
+        result.add_issues(validate_adr(content, adr_file))
+        result.add_issues(check_cross_references(content, adr_file, docs_dir))
+
+    return result
+
+
+def _print_report(result: ValidationResult) -> int:
+    """Print validation report and return exit code."""
+    print(f"\n{'=' * 60}")
+    print("Project Planning Documents Validation Report")
+    print(f"{'=' * 60}\n")
+    print(f"Files checked: {result.files_checked}")
+
+    if result.issues:
+        print(f"Issues found: {len(result.issues)}\n")
+        for issue in result.issues:
+            print(f"  - {issue}")
+        print(f"\n{'=' * 60}")
+        return 1
+
+    print("Status: All documents valid")
+    print(f"\n{'=' * 60}")
+    return 0
 
 
 def main() -> int:
     """Run validation on planning documents."""
-    # Find docs/planning directory
     project_root = Path.cwd()
     docs_dir = project_root / "docs" / "planning"
 
@@ -197,72 +250,21 @@ def main() -> int:
         print("ERROR: docs/planning/ directory not found")
         return 1
 
-    all_issues: list[str] = []
-    files_checked = 0
-
-    # Check required files exist
-    required_files = [
+    required_files: list[tuple[str, ValidatorFunc]] = [
         ("project-vision.md", validate_pvs),
         ("tech-spec.md", validate_tech_spec),
         ("roadmap.md", validate_roadmap),
     ]
 
-    for filename, validator in required_files:
-        filepath = docs_dir / filename
-        if not filepath.exists():
-            all_issues.append(f"Missing required file: {filepath}")
-            continue
+    file_result = _validate_required_files(docs_dir, required_files)
+    adr_result = _validate_adr_files(docs_dir)
 
-        content = filepath.read_text()
-        files_checked += 1
+    combined = ValidationResult(
+        issues=file_result.issues + adr_result.issues,
+        files_checked=file_result.files_checked + adr_result.files_checked,
+    )
 
-        # Check if still placeholder
-        if "Awaiting Generation" in content:
-            all_issues.append(
-                f"{filepath}: Document not yet generated (still placeholder)"
-            )
-            continue
-
-        # Run document-specific validation
-        all_issues.extend(validator(content, filepath))
-
-        # Check cross-references
-        all_issues.extend(check_cross_references(content, filepath, docs_dir))
-
-    # Check ADR directory
-    adr_dir = docs_dir / "adr"
-    if not adr_dir.exists():
-        all_issues.append("Missing ADR directory: docs/planning/adr/")
-    else:
-        adr_files = list(adr_dir.glob("adr-*.md"))
-        if not adr_files:
-            all_issues.append("No ADR files found in docs/planning/adr/")
-        else:
-            for adr_file in adr_files:
-                content = adr_file.read_text()
-                files_checked += 1
-
-                if "Awaiting Generation" in content:
-                    continue
-
-                all_issues.extend(validate_adr(content, adr_file))
-                all_issues.extend(check_cross_references(content, adr_file, docs_dir))
-
-    # Report results
-    print(f"\n{'=' * 60}")
-    print("Project Planning Documents Validation Report")
-    print(f"{'=' * 60}\n")
-    print(f"Files checked: {files_checked}")
-
-    if all_issues:
-        print(f"Issues found: {len(all_issues)}\n")
-        for issue in all_issues:
-            print(f"  - {issue}")
-        print(f"\n{'=' * 60}")
-        return 1
-    print("Status: All documents valid")
-    print(f"\n{'=' * 60}")
-    return 0
+    return _print_report(combined)
 
 
 if __name__ == "__main__":

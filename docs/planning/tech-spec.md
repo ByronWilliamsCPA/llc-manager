@@ -85,7 +85,7 @@ Server-rendered monolith with progressive enhancement via HTMX - See [ADR-001](.
 ### Component Responsibilities
 
 | Component | Purpose | Key Functions |
-|-----------|---------|---------------|
+| --------- | ------- | ------------- |
 | FastAPI Routers | HTTP handling | Route requests, auth guards, validation |
 | Jinja2 Templates | UI rendering | HTML generation, HTMX partials |
 | Service Layer | Business logic | CRUD operations, compliance checks |
@@ -172,7 +172,7 @@ class Document:
 ### HTML Endpoints (Browser)
 
 | Method | Path | Purpose | Auth |
-|--------|------|---------|------|
+| ------ | ---- | ------- | ---- |
 | GET | `/` | Dashboard with entity list | Yes |
 | GET | `/entities` | Entity list (HTMX partial) | Yes |
 | GET | `/entities/{id}` | Entity detail view | Yes |
@@ -187,7 +187,7 @@ class Document:
 ### Auth Endpoints
 
 | Method | Path | Purpose | Auth |
-|--------|------|---------|------|
+| ------ | ---- | ------- | ---- |
 | GET | `/auth/login` | Redirect to Authentik | No |
 | GET | `/auth/callback` | OIDC callback | No |
 | POST | `/auth/logout` | Logout, clear session | Yes |
@@ -195,7 +195,7 @@ class Document:
 ### API Endpoints (JSON)
 
 | Method | Path | Purpose | Auth |
-|--------|------|---------|------|
+| ------ | ---- | ------- | ---- |
 | GET | `/api/v1/health` | Health check | No |
 | GET | `/api/v1/entities` | List entities JSON | Yes |
 | GET | `/api/v1/entities/{id}` | Entity detail JSON | Yes |
@@ -239,10 +239,10 @@ volumes:
 
 ### Document Endpoint
 
-| Method | Path | Purpose | Auth |
-|--------|------|---------|------|
-| GET | `/api/v1/documents/{id}/download` | Stream document file | Yes |
-| GET | `/api/v1/documents/{id}/metadata` | Get document metadata | Yes |
+| Method | Path                               | Purpose                | Auth |
+| ------ | ---------------------------------- | ---------------------- | ---- |
+| GET    | `/api/v1/documents/{id}/download`  | Stream document file   | Yes  |
+| GET    | `/api/v1/documents/{id}/metadata`  | Get document metadata  | Yes  |
 
 ## Notification Scheduler
 
@@ -449,5 +449,5 @@ CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn llc_manager.main
 ## Related Documents
 
 - [Project Vision](./project-vision.md)
-- [Architecture Decisions](./adr/)
+- [Architecture Decisions](./adr/README.md)
 - [Development Roadmap](./roadmap.md)

@@ -18,7 +18,7 @@ Phase 3: LLM Integration ░░░░░░░░░░░░░░░░ (Futur
 ## Milestones
 
 | Milestone | Target | Status | Dependencies |
-|-----------|--------|--------|--------------|
+| --------- | ------ | ------ | ------------ |
 | M0: Dev Environment Ready | Week 1 | ⏸️ Planned | None |
 | M1: Database & Migrations | Week 1 | ⏸️ Planned | M0 |
 | M2: Authentik SSO Working | Week 2 | ⏸️ Planned | M1 |
@@ -32,11 +32,11 @@ Phase 3: LLM Integration ░░░░░░░░░░░░░░░░ (Futur
 
 ## Phase 0: Foundation (Week 1)
 
-### Objective
+### Phase 0 Objective
 
 Establish development environment, database schema, and CI/CD pipeline.
 
-### Deliverables
+### Phase 0 Deliverables
 
 - [ ] Development environment documented and working
 - [ ] Database migrations created from existing models
@@ -44,7 +44,7 @@ Establish development environment, database schema, and CI/CD pipeline.
 - [ ] Docker development setup working
 - [ ] Pre-commit hooks installed
 
-### Success Criteria
+### Phase 0 Success Criteria
 
 - ✅ `uv sync && uv run pytest` passes
 - ✅ Alembic migrations apply cleanly to fresh PostgreSQL
@@ -54,7 +54,7 @@ Establish development environment, database schema, and CI/CD pipeline.
 ### Tasks
 
 | Task | Branch | Status |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | Configure Alembic and create initial migration | `feat/phase-0-alembic` | ⏸️ |
 | Add asyncpg and SQLAlchemy async session | `feat/phase-0-db-async` | ⏸️ |
 | Create docker-compose.yml for local dev | `feat/phase-0-docker-dev` | ⏸️ |
@@ -65,11 +65,11 @@ Establish development environment, database schema, and CI/CD pipeline.
 
 ## Phase 1: Core MVP (Weeks 2-4)
 
-### Objective
+### Phase 1 Objective
 
 Implement entity CRUD operations with Authentik authentication and a functional dashboard.
 
-### Deliverables
+### Phase 1 Deliverables
 
 - [ ] Authentik OIDC authentication working
 - [ ] Entity list view with search/filter
@@ -77,7 +77,7 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 - [ ] Entity create/edit forms (Admin role)
 - [ ] Role-based access control (Admin vs Viewer)
 
-### Success Criteria
+### Phase 1 Success Criteria
 
 - ✅ User can log in via Authentik SSO
 - ✅ Dashboard displays all entities with search
@@ -103,7 +103,7 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 **Tasks**:
 
 | Task | Branch | Status |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | Implement OIDC client with authlib | `feat/phase-1-oidc` | ⏸️ |
 | Create auth routes (login, callback, logout) | `feat/phase-1-auth-routes` | ⏸️ |
 | Add session middleware with secure cookies | `feat/phase-1-sessions` | ⏸️ |
@@ -125,7 +125,7 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 **Tasks**:
 
 | Task | Branch | Status |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | Create base Jinja2 templates with HTMX | `feat/phase-1-templates` | ⏸️ |
 | Implement entity list router | `feat/phase-1-entity-list` | ⏸️ |
 | Add search/filter functionality | `feat/phase-1-search` | ⏸️ |
@@ -150,7 +150,7 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 **Tasks**:
 
 | Task | Branch | Status |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | Create entity detail template | `feat/phase-1-entity-detail` | ⏸️ |
 | Implement entity service with eager loading | `feat/phase-1-entity-service` | ⏸️ |
 | Add collapsible sections for related data | `feat/phase-1-detail-ui` | ⏸️ |
@@ -171,7 +171,7 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 **Tasks**:
 
 | Task | Branch | Status |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | Create entity forms with Pydantic validation | `feat/phase-1-entity-forms` | ⏸️ |
 | Implement create/update routes | `feat/phase-1-entity-crud` | ⏸️ |
 | Add inline editing for related entities | `feat/phase-1-inline-edit` | ⏸️ |
@@ -181,25 +181,25 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 
 ## Phase 2: Compliance & Notifications (Weeks 5-6)
 
-### Objective
+### Phase 2 Objective
 
 Add compliance calendar showing upcoming deadlines with Apprise notifications.
 
-### Deliverables
+### Phase 2 Deliverables
 
 - [ ] Compliance dashboard (90-day grouped list)
 - [ ] Apprise notification integration
 - [ ] Configurable notification schedules (7, 14, 30 days)
 - [ ] Production Docker deployment
 
-### Success Criteria
+### Phase 2 Success Criteria
 
 - ✅ Dashboard shows all upcoming deadlines in grouped list (RA, state, tax)
 - ✅ Notifications fire via Apprise on schedule
 - ✅ Users can configure notification preferences
 - ✅ Docker image deploys to Portainer from ghcr.io
 
-### User Stories
+### Phase 2 User Stories
 
 #### US-005: Compliance Dashboard
 
@@ -214,7 +214,7 @@ Add compliance calendar showing upcoming deadlines with Apprise notifications.
 **Tasks**:
 
 | Task | Branch | Status |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | Create compliance service (aggregate deadlines) | `feat/phase-2-compliance-svc` | ⏸️ |
 | Build 90-day grouped list component | `feat/phase-2-deadline-list` | ⏸️ |
 | Add deadline filtering and sorting | `feat/phase-2-deadline-filter` | ⏸️ |
@@ -231,7 +231,7 @@ Add compliance calendar showing upcoming deadlines with Apprise notifications.
 **Tasks**:
 
 | Task | Branch | Status |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | Implement Apprise client | `feat/phase-2-apprise` | ⏸️ |
 | Create notification scheduler (background task) | `feat/phase-2-scheduler` | ⏸️ |
 | Build notification preferences UI | `feat/phase-2-notif-prefs` | ⏸️ |
@@ -249,7 +249,7 @@ Add compliance calendar showing upcoming deadlines with Apprise notifications.
 **Tasks**:
 
 | Task | Branch | Status |
-|------|--------|--------|
+| ---- | ------ | ------ |
 | Create production Dockerfile | `feat/phase-2-dockerfile` | ⏸️ |
 | Configure GHCR publish workflow | `feat/phase-2-ghcr` | ⏸️ |
 | Write Portainer deployment guide | `docs/portainer-deploy` | ⏸️ |
@@ -275,7 +275,7 @@ Data entry via **manual user input** with inline editing (admin role). PDF extra
 ## Risk Register
 
 | Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
+| ---- | ----------- | ------ | ---------- |
 | Authentik OIDC config complexity | M | H | Test auth flow early in Phase 1 |
 | HTMX learning curve | L | M | Use simple patterns, reference docs |
 | Apprise connectivity from Docker | M | M | Test network config in Phase 0 |
@@ -297,4 +297,4 @@ A feature is complete when:
 
 - [Project Vision](./project-vision.md)
 - [Technical Spec](./tech-spec.md)
-- [Architecture Decisions](./adr/)
+- [Architecture Decisions](./adr/README.md)
