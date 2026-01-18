@@ -1,0 +1,4 @@
+[darglint]
+docstring_style=google
+strictness=long
+ignore=DAR101,DAR102,DAR201,DAR301,DAR401

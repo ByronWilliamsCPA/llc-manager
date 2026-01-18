@@ -25,7 +25,7 @@ ADRs document significant architectural decisions along with their context and c
 
 | ADR | Title | Status | Date |
 |-----|-------|--------|------|
-| *No ADRs yet* | Generate with `/plan` command | - | - |
+| [ADR-001](adr-001-initial-architecture.md) | FastAPI Monolith with HTMX Frontend | Accepted | 2026-01-18 |
 
 ## Creating ADRs
 
