@@ -17,16 +17,16 @@ Phase 3: LLM Integration ░░░░░░░░░░░░░░░░ (Futur
 
 ## Milestones
 
-| Milestone | Target | Status | Dependencies |
-| --------- | ------ | ------ | ------------ |
-| M0: Dev Environment Ready | Week 1 | ⏸️ Planned | None |
-| M1: Database & Migrations | Week 1 | ⏸️ Planned | M0 |
-| M2: Authentik SSO Working | Week 2 | ⏸️ Planned | M1 |
-| M3: Entity CRUD Complete | Week 3 | ⏸️ Planned | M2 |
-| M4: Dashboard & Search | Week 4 | ⏸️ Planned | M3 |
-| M5: Compliance Calendar | Week 5 | ⏸️ Planned | M4 |
-| M6: Apprise Notifications | Week 6 | ⏸️ Planned | M5 |
-| M7: Docker Deployment | Week 6 | ⏸️ Planned | M6 |
+| Milestone                 | Target | Status     | Dependencies |
+| ------------------------- | ------ | ---------- | ------------ |
+| M0: Dev Environment Ready | Week 1 | ⏸️ Planned | None         |
+| M1: Database & Migrations | Week 1 | ⏸️ Planned | M0           |
+| M2: Authentik SSO Working | Week 2 | ⏸️ Planned | M1           |
+| M3: Entity CRUD Complete  | Week 3 | ⏸️ Planned | M2           |
+| M4: Dashboard & Search    | Week 4 | ⏸️ Planned | M3           |
+| M5: Compliance Calendar   | Week 5 | ⏸️ Planned | M4           |
+| M6: Apprise Notifications | Week 6 | ⏸️ Planned | M5           |
+| M7: Docker Deployment     | Week 6 | ⏸️ Planned | M6           |
 
 ---
 
@@ -53,13 +53,13 @@ Establish development environment, database schema, and CI/CD pipeline.
 
 ### Tasks
 
-| Task | Branch | Status |
-| ---- | ------ | ------ |
-| Configure Alembic and create initial migration | `feat/phase-0-alembic` | ⏸️ |
-| Add asyncpg and SQLAlchemy async session | `feat/phase-0-db-async` | ⏸️ |
-| Create docker-compose.yml for local dev | `feat/phase-0-docker-dev` | ⏸️ |
-| Configure GitHub Actions CI workflow | `feat/phase-0-ci` | ⏸️ |
-| Write local development guide | `docs/local-dev-guide` | ⏸️ |
+| Task                                           | Branch                    | Status |
+| ---------------------------------------------- | ------------------------- | ------ |
+| Configure Alembic and create initial migration | `feat/phase-0-alembic`    | ⏸️     |
+| Add asyncpg and SQLAlchemy async session       | `feat/phase-0-db-async`   | ⏸️     |
+| Create docker-compose.yml for local dev        | `feat/phase-0-docker-dev` | ⏸️     |
+| Configure GitHub Actions CI workflow           | `feat/phase-0-ci`         | ⏸️     |
+| Write local development guide                  | `docs/local-dev-guide`    | ⏸️     |
 
 ---
 
@@ -102,12 +102,12 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 
 **Tasks**:
 
-| Task | Branch | Status |
-| ---- | ------ | ------ |
-| Implement OIDC client with authlib | `feat/phase-1-oidc` | ⏸️ |
-| Create auth routes (login, callback, logout) | `feat/phase-1-auth-routes` | ⏸️ |
-| Add session middleware with secure cookies | `feat/phase-1-sessions` | ⏸️ |
-| Create role extraction from group claims | `feat/phase-1-rbac` | ⏸️ |
+| Task                                         | Branch                     | Status |
+| -------------------------------------------- | -------------------------- | ------ |
+| Implement OIDC client with authlib           | `feat/phase-1-oidc`        | ⏸️     |
+| Create auth routes (login, callback, logout) | `feat/phase-1-auth-routes` | ⏸️     |
+| Add session middleware with secure cookies   | `feat/phase-1-sessions`    | ⏸️     |
+| Create role extraction from group claims     | `feat/phase-1-rbac`        | ⏸️     |
 
 #### US-002: Entity Dashboard
 
@@ -124,12 +124,12 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 
 **Tasks**:
 
-| Task | Branch | Status |
-| ---- | ------ | ------ |
-| Create base Jinja2 templates with HTMX | `feat/phase-1-templates` | ⏸️ |
-| Implement entity list router | `feat/phase-1-entity-list` | ⏸️ |
-| Add search/filter functionality | `feat/phase-1-search` | ⏸️ |
-| Style with Tailwind CSS | `feat/phase-1-styling` | ⏸️ |
+| Task                                   | Branch                     | Status |
+| -------------------------------------- | -------------------------- | ------ |
+| Create base Jinja2 templates with HTMX | `feat/phase-1-templates`   | ⏸️     |
+| Implement entity list router           | `feat/phase-1-entity-list` | ⏸️     |
+| Add search/filter functionality        | `feat/phase-1-search`      | ⏸️     |
+| Style with Tailwind CSS                | `feat/phase-1-styling`     | ⏸️     |
 
 #### US-003: Entity Detail View
 
@@ -149,11 +149,11 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 
 **Tasks**:
 
-| Task | Branch | Status |
-| ---- | ------ | ------ |
-| Create entity detail template | `feat/phase-1-entity-detail` | ⏸️ |
-| Implement entity service with eager loading | `feat/phase-1-entity-service` | ⏸️ |
-| Add collapsible sections for related data | `feat/phase-1-detail-ui` | ⏸️ |
+| Task                                        | Branch                        | Status |
+| ------------------------------------------- | ----------------------------- | ------ |
+| Create entity detail template               | `feat/phase-1-entity-detail`  | ⏸️     |
+| Implement entity service with eager loading | `feat/phase-1-entity-service` | ⏸️     |
+| Add collapsible sections for related data   | `feat/phase-1-detail-ui`      | ⏸️     |
 
 #### US-004: Entity CRUD (Admin)
 
@@ -170,12 +170,12 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 
 **Tasks**:
 
-| Task | Branch | Status |
-| ---- | ------ | ------ |
-| Create entity forms with Pydantic validation | `feat/phase-1-entity-forms` | ⏸️ |
-| Implement create/update routes | `feat/phase-1-entity-crud` | ⏸️ |
-| Add inline editing for related entities | `feat/phase-1-inline-edit` | ⏸️ |
-| Implement admin-only route guards | `feat/phase-1-admin-guards` | ⏸️ |
+| Task                                         | Branch                      | Status |
+| -------------------------------------------- | --------------------------- | ------ |
+| Create entity forms with Pydantic validation | `feat/phase-1-entity-forms` | ⏸️     |
+| Implement create/update routes               | `feat/phase-1-entity-crud`  | ⏸️     |
+| Add inline editing for related entities      | `feat/phase-1-inline-edit`  | ⏸️     |
+| Implement admin-only route guards            | `feat/phase-1-admin-guards` | ⏸️     |
 
 ---
 
@@ -213,11 +213,11 @@ Add compliance calendar showing upcoming deadlines with Apprise notifications.
 
 **Tasks**:
 
-| Task | Branch | Status |
-| ---- | ------ | ------ |
-| Create compliance service (aggregate deadlines) | `feat/phase-2-compliance-svc` | ⏸️ |
-| Build 90-day grouped list component | `feat/phase-2-deadline-list` | ⏸️ |
-| Add deadline filtering and sorting | `feat/phase-2-deadline-filter` | ⏸️ |
+| Task                                            | Branch                         | Status |
+| ----------------------------------------------- | ------------------------------ | ------ |
+| Create compliance service (aggregate deadlines) | `feat/phase-2-compliance-svc`  | ⏸️     |
+| Build 90-day grouped list component             | `feat/phase-2-deadline-list`   | ⏸️     |
+| Add deadline filtering and sorting              | `feat/phase-2-deadline-filter` | ⏸️     |
 
 #### US-006: Apprise Notifications
 
@@ -230,12 +230,12 @@ Add compliance calendar showing upcoming deadlines with Apprise notifications.
 
 **Tasks**:
 
-| Task | Branch | Status |
-| ---- | ------ | ------ |
-| Implement Apprise client | `feat/phase-2-apprise` | ⏸️ |
-| Create notification scheduler (background task) | `feat/phase-2-scheduler` | ⏸️ |
-| Build notification preferences UI | `feat/phase-2-notif-prefs` | ⏸️ |
-| Add notification history log | `feat/phase-2-notif-log` | ⏸️ |
+| Task                                             | Branch                     | Status |
+| ------------------------------------------------ | -------------------------- | ------ |
+| Implement Apprise client                         | `feat/phase-2-apprise`     | ⏸️     |
+| Create notification scheduler (background task)  | `feat/phase-2-scheduler`   | ⏸️     |
+| Build notification preferences UI                | `feat/phase-2-notif-prefs` | ⏸️     |
+| Add notification history log                     | `feat/phase-2-notif-log`   | ⏸️     |
 
 #### US-007: Docker Deployment
 
@@ -248,12 +248,12 @@ Add compliance calendar showing upcoming deadlines with Apprise notifications.
 
 **Tasks**:
 
-| Task | Branch | Status |
-| ---- | ------ | ------ |
-| Create production Dockerfile | `feat/phase-2-dockerfile` | ⏸️ |
-| Configure GHCR publish workflow | `feat/phase-2-ghcr` | ⏸️ |
-| Write Portainer deployment guide | `docs/portainer-deploy` | ⏸️ |
-| Add health check endpoint | `feat/phase-2-health` | ⏸️ |
+| Task                             | Branch                    | Status |
+| -------------------------------- | ------------------------- | ------ |
+| Create production Dockerfile     | `feat/phase-2-dockerfile` | ⏸️     |
+| Configure GHCR publish workflow  | `feat/phase-2-ghcr`       | ⏸️     |
+| Write Portainer deployment guide | `docs/portainer-deploy`   | ⏸️     |
+| Add health check endpoint        | `feat/phase-2-health`     | ⏸️     |
 
 ---
 
@@ -274,13 +274,13 @@ Data entry via **manual user input** with inline editing (admin role). PDF extra
 
 ## Risk Register
 
-| Risk | Probability | Impact | Mitigation |
-| ---- | ----------- | ------ | ---------- |
-| Authentik OIDC config complexity | M | H | Test auth flow early in Phase 1 |
-| HTMX learning curve | L | M | Use simple patterns, reference docs |
-| Apprise connectivity from Docker | M | M | Test network config in Phase 0 |
-| PostgreSQL connection pool exhaustion | L | H | Set pool limits, add monitoring |
-| Manual data entry volume | M | L | Prioritize critical entities first |
+| Risk                                  | Probability | Impact | Mitigation                          |
+| ------------------------------------- | ----------- | ------ | ----------------------------------- |
+| Authentik OIDC config complexity      | M           | H      | Test auth flow early in Phase 1     |
+| HTMX learning curve                   | L           | M      | Use simple patterns, reference docs |
+| Apprise connectivity from Docker      | M           | M      | Test network config in Phase 0      |
+| PostgreSQL connection pool exhaustion | L           | H      | Set pool limits, add monitoring     |
+| Manual data entry volume              | M           | L      | Prioritize critical entities first  |
 
 ## Definition of Done
 

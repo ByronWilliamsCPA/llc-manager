@@ -171,35 +171,35 @@ class Document:
 
 ### HTML Endpoints (Browser)
 
-| Method | Path | Purpose | Auth |
-| ------ | ---- | ------- | ---- |
-| GET | `/` | Dashboard with entity list | Yes |
-| GET | `/entities` | Entity list (HTMX partial) | Yes |
-| GET | `/entities/{id}` | Entity detail view | Yes |
-| GET | `/entities/new` | New entity form | Admin |
-| POST | `/entities` | Create entity | Admin |
-| GET | `/entities/{id}/edit` | Edit entity form | Admin |
-| PUT | `/entities/{id}` | Update entity | Admin |
-| DELETE | `/entities/{id}` | Delete entity | Admin |
-| GET | `/compliance` | Compliance calendar | Yes |
-| GET | `/search` | Search results (HTMX) | Yes |
+| Method | Path                  | Purpose                    | Auth  |
+| ------ | --------------------- | -------------------------- | ----- |
+| GET    | `/`                   | Dashboard with entity list | Yes   |
+| GET    | `/entities`           | Entity list (HTMX partial) | Yes   |
+| GET    | `/entities/{id}`      | Entity detail view         | Yes   |
+| GET    | `/entities/new`       | New entity form            | Admin |
+| POST   | `/entities`           | Create entity              | Admin |
+| GET    | `/entities/{id}/edit` | Edit entity form           | Admin |
+| PUT    | `/entities/{id}`      | Update entity              | Admin |
+| DELETE | `/entities/{id}`      | Delete entity              | Admin |
+| GET    | `/compliance`         | Compliance calendar        | Yes   |
+| GET    | `/search`             | Search results (HTMX)      | Yes   |
 
 ### Auth Endpoints
 
-| Method | Path | Purpose | Auth |
-| ------ | ---- | ------- | ---- |
-| GET | `/auth/login` | Redirect to Authentik | No |
-| GET | `/auth/callback` | OIDC callback | No |
-| POST | `/auth/logout` | Logout, clear session | Yes |
+| Method | Path             | Purpose               | Auth |
+| ------ | ---------------- | --------------------- | ---- |
+| GET    | `/auth/login`    | Redirect to Authentik | No   |
+| GET    | `/auth/callback` | OIDC callback         | No   |
+| POST   | `/auth/logout`   | Logout, clear session | Yes  |
 
 ### API Endpoints (JSON)
 
-| Method | Path | Purpose | Auth |
-| ------ | ---- | ------- | ---- |
-| GET | `/api/v1/health` | Health check | No |
-| GET | `/api/v1/entities` | List entities JSON | Yes |
-| GET | `/api/v1/entities/{id}` | Entity detail JSON | Yes |
-| GET | `/api/v1/compliance/upcoming` | Upcoming deadlines | Yes |
+| Method | Path                          | Purpose            | Auth |
+| ------ | ----------------------------- | ------------------ | ---- |
+| GET    | `/api/v1/health`              | Health check       | No   |
+| GET    | `/api/v1/entities`            | List entities JSON | Yes  |
+| GET    | `/api/v1/entities/{id}`       | Entity detail JSON | Yes  |
+| GET    | `/api/v1/compliance/upcoming` | Upcoming deadlines | Yes  |
 
 ### Response Format (JSON API)
 
@@ -272,13 +272,13 @@ class NotificationLog:
 
 ### Alert Triggers
 
-| Days Before | Alert Type |
-|-------------|------------|
-| 30 | Early warning |
-| 14 | Reminder |
-| 7 | Urgent |
-| 0 | Due today |
-| -N | Overdue (daily until resolved) |
+| Days Before | Alert Type                     |
+| ----------- | ------------------------------ |
+| 30          | Early warning                  |
+| 14          | Reminder                       |
+| 7           | Urgent                         |
+| 0           | Due today                      |
+| -N          | Overdue (daily until resolved) |
 
 ## Security
 
@@ -294,19 +294,19 @@ class NotificationLog:
 
 **Role-Based Access Control (RBAC)**:
 
-| Role | Permissions |
-|------|-------------|
-| `admin` | Full CRUD on all entities |
+| Role     | Permissions                      |
+| -------- | -------------------------------- |
+| `admin`  | Full CRUD on all entities        |
 | `viewer` | Read-only access to all entities |
 
 ### RBAC Details
 
 **Authentik Group Claims**:
 
-| Authentik Group | Application Role | Notes |
-|-----------------|------------------|-------|
-| `llc-manager-admins` | `admin` | Full CRUD access |
-| `llc-manager-viewers` | `viewer` | Read-only access |
+| Authentik Group        | Application Role | Notes            |
+| ---------------------- | ---------------- | ---------------- |
+| `llc-manager-admins`   | `admin`          | Full CRUD access |
+| `llc-manager-viewers`  | `viewer`         | Read-only access |
 
 **Claim Extraction**: Roles sourced from `groups` claim in OIDC token. Map group names to application roles.
 
@@ -351,13 +351,13 @@ Fail-fast with user-friendly error pages. Log all errors with correlation IDs.
 
 ### Error Codes
 
-| Code | Meaning | User Action |
-|------|---------|-------------|
-| 400 | Validation error | Check form inputs |
-| 401 | Not authenticated | Login required |
-| 403 | Not authorized | Contact admin for access |
-| 404 | Entity not found | Check URL or search |
-| 500 | Server error | Retry or contact support |
+| Code | Meaning           | User Action              |
+| ---- | ----------------- | ------------------------ |
+| 400  | Validation error  | Check form inputs        |
+| 401  | Not authenticated | Login required           |
+| 403  | Not authorized    | Contact admin for access |
+| 404  | Entity not found  | Check URL or search      |
+| 500  | Server error      | Retry or contact support |
 
 ### Logging
 
@@ -368,13 +368,13 @@ Fail-fast with user-friendly error pages. Log all errors with correlation IDs.
 
 ## Performance Requirements
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Dashboard load | < 2s | Time to first contentful paint |
-| Entity detail | < 1s | HTMX swap complete |
-| Search results | < 500ms | HTMX response time |
-| Memory usage | < 512MB | Container limit |
-| Database connections | ≤ 10 | Connection pool max |
+| Metric               | Target   | Measurement                    |
+| -------------------- | -------- | ------------------------------ |
+| Dashboard load       | < 2s     | Time to first contentful paint |
+| Entity detail        | < 1s     | HTMX swap complete             |
+| Search results       | < 500ms  | HTMX response time             |
+| Memory usage         | < 512MB  | Container limit                |
+| Database connections | ≤ 10     | Connection pool max            |
 
 ## Testing Strategy
 
@@ -433,18 +433,18 @@ CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn llc_manager.main
 
 ### Environment Variables
 
-| Variable | Purpose | Example |
-|----------|---------|---------|
-| `DATABASE_URL` | PostgreSQL connection | `postgresql+asyncpg://user:pass@host/db` |
-| `AUTHENTIK_ISSUER` | OIDC issuer URL | `https://auth.example.com/application/o/llc-manager/` |
-| `AUTHENTIK_CLIENT_ID` | OAuth client ID | `llc-manager` |
-| `AUTHENTIK_CLIENT_SECRET` | OAuth client secret | (secret) |
-| `APPRISE_URL` | Apprise notification URL | `http://apprise:8000/notify` |
-| `SECRET_KEY` | Session encryption | (32+ byte random) |
-| `LOCAL_ADMIN_USERNAME` | Local admin username | `localadmin` |
-| `LOCAL_ADMIN_PASSWORD` | Local admin password (argon2 hash) | (secret) |
-| `AUTH_DEV_MODE` | Bypass OIDC for local dev | `true` or `false` |
-| `TZ` | Timezone for scheduler | `America/New_York` |
+| Variable                  | Purpose                             | Example                                                 |
+| ------------------------- | ----------------------------------- | ------------------------------------------------------- |
+| `DATABASE_URL`            | PostgreSQL connection               | `postgresql+asyncpg://user:pass@host/db`                |
+| `AUTHENTIK_ISSUER`        | OIDC issuer URL                     | `https://auth.example.com/application/o/llc-manager/`   |
+| `AUTHENTIK_CLIENT_ID`     | OAuth client ID                     | `llc-manager`                                           |
+| `AUTHENTIK_CLIENT_SECRET` | OAuth client secret                 | (secret)                                                |
+| `APPRISE_URL`             | Apprise notification URL            | `http://apprise:8000/notify`                            |
+| `SECRET_KEY`              | Session encryption                  | (32+ byte random)                                       |
+| `LOCAL_ADMIN_USERNAME`    | Local admin username                | `localadmin`                                            |
+| `LOCAL_ADMIN_PASSWORD`    | Local admin password (argon2 hash)  | (secret)                                                |
+| `AUTH_DEV_MODE`           | Bypass OIDC for local dev           | `true` or `false`                                       |
+| `TZ`                      | Timezone for scheduler              | `America/New_York`                                      |
 
 ## Related Documents
 

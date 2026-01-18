@@ -25,43 +25,68 @@ from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def init_sentry(
-    dsn: str | None = None,
-    environment: str | None = None,
-    release: str | None = None,
-    traces_sample_rate: float = 0.1,
-    profiles_sample_rate: float = 0.1,
-    enable_tracing: bool = True,
-    enable_profiling: bool = True,
-    debug: bool = False,
-) -> None:
-    """Initialize Sentry error tracking and performance monitoring.
+@dataclass(frozen=True)
+class SentryConfig:
+    """Configuration for Sentry initialization.
 
-    Args:
+    Attributes:
         dsn: Sentry DSN (Data Source Name). Defaults to SENTRY_DSN env var.
         environment: Deployment environment (e.g., production, staging).
             Defaults to SENTRY_ENVIRONMENT or ENVIRONMENT env var.
         release: Application release version. Defaults to git SHA or version.
         traces_sample_rate: Percentage of transactions to sample (0.0-1.0).
-            Default 0.1 = 10% of requests.
         profiles_sample_rate: Percentage of profiling data to collect (0.0-1.0).
-            Default 0.1 = 10% of traces.
         enable_tracing: Enable performance monitoring (APM).
         enable_profiling: Enable profiling data collection.
         debug: Enable Sentry SDK debug logging.
+    """
+
+    dsn: str | None = None
+    environment: str | None = None
+    release: str | None = None
+    traces_sample_rate: float = 0.1
+    profiles_sample_rate: float = 0.1
+    enable_tracing: bool = True
+    enable_profiling: bool = True
+    debug: bool = False
+
+    @classmethod
+    def from_env(cls) -> SentryConfig:
+        """Create configuration from environment variables."""
+        return cls(
+            dsn=os.getenv("SENTRY_DSN"),
+            environment=os.getenv("SENTRY_ENVIRONMENT")
+            or os.getenv("ENVIRONMENT", "development"),
+            release=os.getenv("SENTRY_RELEASE"),
+        )
+
+
+def init_sentry(config: SentryConfig | None = None) -> None:
+    """Initialize Sentry error tracking and performance monitoring.
+
+    Args:
+        config: Sentry configuration. If None, configuration is loaded from
+            environment variables.
 
     Example:
-        >>> from llc_manager.core.sentry import init_sentry
-        >>> init_sentry(
+        >>> from llc_manager.core.sentry import init_sentry, SentryConfig
+        >>> # Using environment variables (recommended)
+        >>> init_sentry()
+        >>>
+        >>> # Using explicit configuration
+        >>> init_sentry(SentryConfig(
         ...     environment="production",
         ...     traces_sample_rate=0.2,  # Sample 20% of requests
-        ... )
+        ... ))
     """
+    if config is None:
+        config = SentryConfig.from_env()
     try:
         import sentry_sdk  # noqa: PLC0415  # Import only when Sentry is configured
         from sentry_sdk.integrations.fastapi import FastApiIntegration  # noqa: PLC0415
@@ -78,18 +103,14 @@ def init_sentry(
         )
         return
 
-    # Get configuration from environment or arguments
-    dsn = dsn or os.getenv("SENTRY_DSN")
+    # Use DSN from config or environment
+    dsn = config.dsn or os.getenv("SENTRY_DSN")
     if not dsn:
         logger.info("SENTRY_DSN not set. Sentry integration disabled.")
         return
 
-    environment = (
-        environment
-        or os.getenv("SENTRY_ENVIRONMENT")
-        or os.getenv("ENVIRONMENT", "development")
-    )
-    release = release or os.getenv("SENTRY_RELEASE") or _get_release_version()
+    environment = config.environment or "development"
+    release = config.release or _get_release_version()
 
     # Configure integrations
     integrations: list[Any] = [
@@ -122,12 +143,12 @@ def init_sentry(
         release=release,
         integrations=integrations,
         # Performance monitoring
-        traces_sample_rate=traces_sample_rate if enable_tracing else 0.0,
-        profiles_sample_rate=profiles_sample_rate if enable_profiling else 0.0,
+        traces_sample_rate=config.traces_sample_rate if config.enable_tracing else 0.0,
+        profiles_sample_rate=config.profiles_sample_rate if config.enable_profiling else 0.0,
         # Error sampling
         sample_rate=1.0,  # Send all errors
         # Additional options
-        debug=debug,
+        debug=config.debug,
         attach_stacktrace=True,  # Include stack traces in messages
         send_default_pii=False,  # Don't send PII by default (GDPR compliance)
         # Custom options
@@ -139,7 +160,7 @@ def init_sentry(
         "sentry_initialized",
         environment=environment,
         release=release,
-        traces_sample_rate=traces_sample_rate,
+        traces_sample_rate=config.traces_sample_rate,
     )
 
 
@@ -180,8 +201,35 @@ def _get_release_version() -> str:
     return "llc_manager@0.1.0"
 
 
+_IGNORED_EXCEPTIONS = frozenset({"KeyboardInterrupt", "SystemExit"})
+_SENSITIVE_FIELDS = frozenset({"password", "token", "api_key", "secret"})
+
+
+def _should_ignore_exception(hint: dict[str, Any]) -> bool:
+    """Check if the exception should be ignored (not sent to Sentry)."""
+    if "exc_info" not in hint:
+        return False
+    exc_type, _exc_value, _tb = hint["exc_info"]
+    return exc_type.__name__ in _IGNORED_EXCEPTIONS
+
+
+def _scrub_sensitive_request_data(event: dict[str, Any]) -> None:
+    """Redact sensitive fields from request data in-place."""
+    request = event.get("request")
+    if request is None:
+        return
+
+    data = request.get("data")
+    if not isinstance(data, dict):
+        return
+
+    for field_name in _SENSITIVE_FIELDS:
+        if field_name in data:
+            data[field_name] = "[REDACTED]"
+
+
 def before_send_hook(
-    event: dict[str, Any], _hint: dict[str, Any]
+    event: dict[str, Any], hint: dict[str, Any]
 ) -> dict[str, Any] | None:
     """Filter and modify events before sending to Sentry.
 
@@ -198,25 +246,10 @@ def before_send_hook(
     Returns:
         Modified event dictionary, or None to drop the event
     """
-    # Example: Filter out specific exceptions
-    if "exc_info" in _hint:
-        exc_type, _exc_value, _tb = _hint["exc_info"]
+    if _should_ignore_exception(hint):
+        return None
 
-        # Don't send certain exception types
-        if exc_type.__name__ in ("KeyboardInterrupt", "SystemExit"):
-            return None
-
-    # Example: Scrub sensitive data from request bodies
-    if "request" in event:
-        request = event["request"]
-        if "data" in request:
-            # Remove sensitive fields
-            sensitive_fields = {"password", "token", "api_key", "secret"}
-            if isinstance(request["data"], dict):
-                for field in sensitive_fields:
-                    if field in request["data"]:
-                        request["data"][field] = "[REDACTED]"
-
+    _scrub_sensitive_request_data(event)
     return event
 
 

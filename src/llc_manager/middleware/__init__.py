@@ -22,6 +22,7 @@ from llc_manager.middleware.correlation import (
 )
 from llc_manager.middleware.security import (
     RateLimitMiddleware,
+    SecurityConfig,
     SecurityHeadersMiddleware,
     SSRFPreventionMiddleware,
     add_security_middleware,
@@ -35,6 +36,7 @@ __all__ = [
     "CorrelationMiddleware",
     "RateLimitMiddleware",
     "SSRFPreventionMiddleware",
+    "SecurityConfig",
     "SecurityHeadersMiddleware",
     "add_security_middleware",
     "correlation_context_processor",

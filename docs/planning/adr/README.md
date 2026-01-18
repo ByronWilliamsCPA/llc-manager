@@ -24,7 +24,7 @@ ADRs document significant architectural decisions along with their context and c
 ## ADR Index
 
 | ADR                                        | Title                               | Status    | Date       |
-|--------------------------------------------|-------------------------------------|-----------|------------|
+| ------------------------------------------ | ----------------------------------- | --------- | ---------- |
 | [ADR-001](adr-001-initial-architecture.md) | FastAPI Monolith with HTMX Frontend | Published | 2026-01-18 |
 
 ## Creating ADRs

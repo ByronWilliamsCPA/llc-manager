@@ -136,47 +136,89 @@ def cached(
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             # Build cache key
-            if key_builder:
-                cache_key = key_builder(*args, **kwargs)
-            else:
-                prefix = key_prefix or func.__name__
-                # Create unique key from function arguments
-                key_data = f"{args}:{sorted(kwargs.items())}"
-                key_hash = hashlib.md5(
-                    key_data.encode(), usedforsecurity=False
-                ).hexdigest()[:8]
-                cache_key = f"{prefix}:{key_hash}"
+            cache_key = _build_cache_key(key_builder, key_prefix, func, args, kwargs)
 
-            try:
-                redis = await get_redis()
-
-                # Try to get from cache
-                cached_value = await redis.get(cache_key)
-                if cached_value is not None:
-                    logger.debug("cache_hit", key=cache_key)
-                    return json.loads(cached_value)
-
-                # Cache miss - call original function
-                logger.debug("cache_miss", key=cache_key)
-                result = await func(*args, **kwargs)
-
-                # Store in cache
-                await redis.setex(
-                    cache_key,
-                    ttl,
-                    json.dumps(result, default=str),
-                )
-
-                return result
-
-            except RedisError as e:
-                # If Redis is unavailable, gracefully degrade (call function directly)
-                logger.warning("cache_error", error=str(e), key=cache_key)
-                return await func(*args, **kwargs)
+            # Attempt cached retrieval with fallback to direct call
+            return await _get_or_compute(cache_key, func, args, kwargs, ttl)
 
         return wrapper
 
     return decorator
+
+
+def _build_cache_key(
+    key_builder: Callable[..., str] | None,
+    key_prefix: str,
+    func: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> str:
+    """Build cache key from function arguments.
+
+    Args:
+        key_builder: Custom key building function
+        key_prefix: Prefix for cache keys
+        func: The function being cached
+        args: Positional arguments
+        kwargs: Keyword arguments
+
+    Returns:
+        Cache key string
+    """
+    if key_builder:
+        return key_builder(*args, **kwargs)
+
+    prefix = key_prefix or func.__name__
+    key_data = f"{args}:{sorted(kwargs.items())}"
+    key_hash = hashlib.md5(key_data.encode(), usedforsecurity=False).hexdigest()[:8]
+    return f"{prefix}:{key_hash}"
+
+
+async def _get_or_compute[T](
+    cache_key: str,
+    func: Callable[..., Awaitable[T]],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    ttl: int,
+) -> T:
+    """Get value from cache or compute and store it.
+
+    Args:
+        cache_key: The cache key
+        func: Function to call on cache miss
+        args: Positional arguments for func
+        kwargs: Keyword arguments for func
+        ttl: Time to live in seconds
+
+    Returns:
+        Cached or computed result
+    """
+    try:
+        redis = await get_redis()
+
+        # Try to get from cache
+        cached_value = await redis.get(cache_key)
+        if cached_value is not None:
+            logger.debug("cache_hit", key=cache_key)
+            return json.loads(cached_value)  # type: ignore[return-value]
+
+        # Cache miss - call original function
+        logger.debug("cache_miss", key=cache_key)
+        result = await func(*args, **kwargs)
+
+        # Store in cache
+        await redis.setex(
+            cache_key,
+            ttl,
+            json.dumps(result, default=str),
+        )
+
+        return result
+
+    except RedisError as e:
+        # If Redis is unavailable, gracefully degrade (call function directly)
+        logger.warning("cache_error", error=str(e), key=cache_key)
+        return await func(*args, **kwargs)
 
 
 def cache_invalidate(

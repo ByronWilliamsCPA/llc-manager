@@ -20,9 +20,11 @@ Usage:
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import time
 from collections import defaultdict
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -283,6 +285,25 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
     }
 
     @staticmethod
+    def _is_internal_ip_type(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+        """Check if an IP address object is internal (private, loopback, etc.).
+
+        Args:
+            ip: Parsed IP address object
+
+        Returns:
+            True if the IP is internal, False otherwise
+        """
+        return (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        )
+
+    @staticmethod
     def _is_private_ip(ip_str: str) -> bool:
         """Check if an IP address is private, loopback, or otherwise internal.
 
@@ -292,25 +313,18 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         Returns:
             True if the IP is private/internal, False otherwise
         """
-        import ipaddress
-
         try:
             ip = ipaddress.ip_address(ip_str)
-            # Check various internal IP properties
-            return (
-                ip.is_private
-                or ip.is_loopback
-                or ip.is_link_local
-                or ip.is_multicast
-                or ip.is_reserved
-                or ip.is_unspecified
-                # Additional check for IPv4-mapped IPv6 addresses
-                or (
-                    isinstance(ip, ipaddress.IPv6Address)
-                    and ip.ipv4_mapped is not None
-                    and SSRFPreventionMiddleware._is_private_ip(str(ip.ipv4_mapped))
-                )
-            )
+
+            # Check standard internal IP properties
+            if SSRFPreventionMiddleware._is_internal_ip_type(ip):
+                return True
+
+            # Additional check for IPv4-mapped IPv6 addresses
+            if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+                return SSRFPreventionMiddleware._is_private_ip(str(ip.ipv4_mapped))
+
+            return False
         except ValueError:
             # Not a valid IP address - let hostname checks handle it
             return False
@@ -351,6 +365,55 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         except Exception:
             return None
 
+    def _has_blocked_scheme(self, url: str) -> bool:
+        """Check if URL uses a blocked scheme.
+
+        Args:
+            url: URL string to validate
+
+        Returns:
+            True if the scheme is blocked, False otherwise
+        """
+        scheme = self._extract_scheme_from_url(url)
+        return scheme is not None and scheme in self.BLOCKED_SCHEMES
+
+    def _is_blocked_host(self, host: str) -> bool:
+        """Check if hostname is in the blocked hosts list or is a private IP.
+
+        Args:
+            host: Hostname to validate
+
+        Returns:
+            True if the host should be blocked, False otherwise
+        """
+        host_lower = host.lower()
+        return host_lower in self.BLOCKED_HOSTS or self._is_private_ip(host)
+
+    def _is_obfuscated_private_ip(self, host: str) -> bool:
+        """Check for numeric IP obfuscation (decimal notation).
+
+        Detects attempts to bypass SSRF protection using decimal IP notation,
+        e.g., 2130706433 = 127.0.0.1
+
+        Args:
+            host: Hostname to check for obfuscated IP
+
+        Returns:
+            True if host is an obfuscated private IP, False otherwise
+        """
+        if not host.isdigit():
+            return False
+
+        try:
+            ip_int = int(host)
+            if 0 <= ip_int <= 0xFFFFFFFF:
+                ip = ipaddress.ip_address(ip_int)
+                return self._is_private_ip(str(ip))
+        except (ValueError, OverflowError):
+            pass
+
+        return False
+
     def _is_blocked_url(self, url: str) -> bool:
         """Check if a URL points to a blocked destination.
 
@@ -360,42 +423,14 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         Returns:
             True if the URL should be blocked, False otherwise
         """
-        # Check scheme
-        scheme = self._extract_scheme_from_url(url)
-        if scheme and scheme in self.BLOCKED_SCHEMES:
+        if self._has_blocked_scheme(url):
             return True
 
-        # Extract and check hostname
         host = self._extract_host_from_url(url)
         if not host:
             return False
 
-        host_lower = host.lower()
-
-        # Check against blocked hostnames
-        if host_lower in self.BLOCKED_HOSTS:
-            return True
-
-        # Check if it's a private IP
-        if self._is_private_ip(host):
-            return True
-
-        # Check for numeric IP obfuscation (decimal, octal, hex)
-        # e.g., 2130706433 = 127.0.0.1, 0x7f000001 = 127.0.0.1
-        try:
-            import ipaddress
-
-            # Try parsing as integer (decimal IP notation)
-            if host.isdigit():
-                ip_int = int(host)
-                if 0 <= ip_int <= 0xFFFFFFFF:
-                    ip = ipaddress.ip_address(ip_int)
-                    if self._is_private_ip(str(ip)):
-                        return True
-        except (ValueError, OverflowError):
-            pass
-
-        return False
+        return self._is_blocked_host(host) or self._is_obfuscated_private_ip(host)
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """Check for SSRF patterns in request.
@@ -419,15 +454,32 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+@dataclass(frozen=True)
+class SecurityConfig:
+    """Configuration for security middleware.
+
+    Groups all security middleware options into a single configuration object.
+
+    Attributes:
+        enable_https_redirect: Redirect HTTP to HTTPS (production only)
+        enable_rate_limiting: Enable rate limiting middleware
+        enable_ssrf_prevention: Enable SSRF prevention middleware
+        allowed_origins: CORS allowed origins (default: none)
+        allowed_hosts: Trusted host names (default: all)
+        rate_limit_rpm: Rate limit requests per minute
+    """
+
+    enable_https_redirect: bool = False
+    enable_rate_limiting: bool = True
+    enable_ssrf_prevention: bool = True
+    allowed_origins: list[str] = field(default_factory=list)
+    allowed_hosts: list[str] = field(default_factory=list)
+    rate_limit_rpm: int = 60
+
+
 def add_security_middleware(
     app: FastAPI,
-    *,
-    enable_https_redirect: bool = False,
-    enable_rate_limiting: bool = True,
-    enable_ssrf_prevention: bool = True,
-    allowed_origins: list[str] | None = None,
-    allowed_hosts: list[str] | None = None,
-    rate_limit_rpm: int = 60,
+    config: SecurityConfig | None = None,
 ) -> None:
     """Add all security middleware to FastAPI application.
 
@@ -435,39 +487,37 @@ def add_security_middleware(
 
     Args:
         app: FastAPI application instance
-        enable_https_redirect: Redirect HTTP to HTTPS (production only)
-        enable_rate_limiting: Enable rate limiting middleware
-        enable_ssrf_prevention: Enable SSRF prevention middleware
-        allowed_origins: CORS allowed origins (default: none)
-        allowed_hosts: Trusted host names (default: all)
-        rate_limit_rpm: Rate limit requests per minute
+        config: Security configuration options (uses defaults if not provided)
 
     Example:
         >>> from fastapi import FastAPI
         >>> app = FastAPI()
-        >>> add_security_middleware(
-        ...     app,
+        >>> config = SecurityConfig(
         ...     enable_https_redirect=True,
         ...     allowed_origins=["https://example.com"],
         ...     allowed_hosts=["example.com", "api.example.com"],
         ...     rate_limit_rpm=100,
         ... )
+        >>> add_security_middleware(app, config)
     """
+    if config is None:
+        config = SecurityConfig()
+
     # HTTPS redirect (production only)
-    if enable_https_redirect:
+    if config.enable_https_redirect:
         app.add_middleware(HTTPSRedirectMiddleware)
 
     # Trusted hosts (OWASP A05)
-    if allowed_hosts:
+    if config.allowed_hosts:
         app.add_middleware(
             TrustedHostMiddleware,
-            allowed_hosts=allowed_hosts,
+            allowed_hosts=config.allowed_hosts,
         )
 
     # CORS configuration (OWASP A05)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=allowed_origins or [],
+        allow_origins=config.allowed_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
         allow_headers=["*"],
@@ -479,28 +529,27 @@ def add_security_middleware(
     app.add_middleware(SecurityHeadersMiddleware)
 
     # Rate limiting (OWASP A07)
-    if enable_rate_limiting:
+    if config.enable_rate_limiting:
         app.add_middleware(
             RateLimitMiddleware,
-            requests_per_minute=rate_limit_rpm,
+            requests_per_minute=config.rate_limit_rpm,
             burst_size=10,
         )
 
     # SSRF prevention (OWASP A10)
-    if enable_ssrf_prevention:
+    if config.enable_ssrf_prevention:
         app.add_middleware(SSRFPreventionMiddleware)
 
 
 # Example usage in main.py:
 """
 from fastapi import FastAPI
-from llc_manager.middleware.security import add_security_middleware
+from llc_manager.middleware.security import add_security_middleware, SecurityConfig
 
 app = FastAPI()
 
-# Add all security middleware
-add_security_middleware(
-    app,
+# Add all security middleware with custom configuration
+config = SecurityConfig(
     enable_https_redirect=True,  # Production only
     enable_rate_limiting=True,
     allowed_origins=[
@@ -513,6 +562,10 @@ add_security_middleware(
     ],
     rate_limit_rpm=100,
 )
+add_security_middleware(app, config)
+
+# Or use defaults:
+# add_security_middleware(app)
 
 # Your routes here
 @app.get("/")
