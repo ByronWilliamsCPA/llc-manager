@@ -1,0 +1,45 @@
+# Codecov Coverage Upload for LLC Manager
+# Uploads test coverage reports to Codecov after CI workflow completion.
+#
+# This is a thin caller to the org-level reusable workflow.
+# Security: Downloads artifacts only, no source checkout.
+#
+# Documentation: https://docs.codecov.com/
+name: Codecov Upload
+
+on:
+  # Trigger after CI workflow completes
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main, master, develop]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  codecov:
+    name: Upload Coverage
+    # Only run on successful CI completion
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-codecov.yml@main
+    with:
+      artifact-name: 'coverage-reports'
+      coverage-files: '*.xml'
+      name: 'LLC Manager Coverage'
+      workflow-run-id: ${{ github.event.workflow_run.id }}
+      commit-sha: ${{ github.event.workflow_run.head_sha }}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  report-failure:
+    name: Report CI Failure
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - name: Report status
+        run: |
+          echo "## Coverage Upload Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ CI workflow failed - coverage upload skipped" >> $GITHUB_STEP_SUMMARY

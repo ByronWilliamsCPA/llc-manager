@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://llc-manager.readthedocs.io
+    about: Check our documentation for usage guides and API reference
+  - name: Discussions
+    url: https://github.com/ByronWilliamsCPA/llc_manager/discussions
+    about: Ask questions and share ideas in GitHub Discussions
