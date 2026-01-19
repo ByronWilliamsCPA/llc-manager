@@ -3,7 +3,6 @@
 from datetime import date
 from enum import StrEnum
 from typing import TYPE_CHECKING
-from uuid import UUID
 
 from sqlalchemy import Date, Enum, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -105,6 +104,7 @@ class Entity(Base, UUIDPrimaryKeyMixin, AuditMixin):
     owners: Mapped[list["Owner"]] = relationship(
         "Owner",
         back_populates="entity",
+        foreign_keys="Owner.entity_id",
         cascade="all, delete-orphan",
         lazy="selectin",
     )

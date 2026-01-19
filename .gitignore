@@ -291,3 +291,10 @@ tmp_cleanup/.tmp-*
 # Local tool caches
 .qlty/
 .sonarlint/
+
+# Tailwind CSS standalone CLI binary
+tailwindcss
+tailwindcss-*
+
+# Generated CSS (rebuild with: ./tailwindcss -i src/llc_manager/static/css/input.css -o src/llc_manager/static/css/output.css)
+src/llc_manager/static/css/output.css

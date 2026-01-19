@@ -493,12 +493,13 @@ class TestAPIError:
         assert error.error_code == "API_ERROR"
 
     @pytest.mark.unit
-    def test_initialization_with_retry_after(self) -> None:
-        """Verify initialization with retry_after parameter."""
+    def test_initialization_with_details(self) -> None:
+        """Verify initialization with details parameter including retry_after."""
         from llc_manager.core.exceptions import APIError
 
-        error = APIError("Rate limited", retry_after=60)
+        error = APIError("Rate limited", details={"retry_after": 60})
 
+        assert error.details is not None
         assert error.details["retry_after"] == 60
 
     @pytest.mark.unit
@@ -510,9 +511,11 @@ class TestAPIError:
             "GitHub API rate limit exceeded",
             service_name="GitHub",
             status_code=429,
-            retry_after=60,
+            details={"retry_after": 60},
         )
 
+        # service_name and status_code are stored in details dict
+        assert error.details is not None
         assert error.details["service_name"] == "GitHub"
         assert error.details["status_code"] == 429
         assert error.details["retry_after"] == 60
