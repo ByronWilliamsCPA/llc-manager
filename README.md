@@ -1,6 +1,7 @@
 # LLC Manager
 
 ## Quality & Security
+
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ByronWilliamsCPA/llc_manager/badge)](https://securityscorecards.dev/viewer/?uri=github.com/ByronWilliamsCPA/llc_manager)
 [![codecov](https://codecov.io/gh/ByronWilliamsCPA/llc_manager/graph/badge.svg)](https://codecov.io/gh/ByronWilliamsCPA/llc_manager)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc_manager&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc_manager)
@@ -9,6 +10,7 @@
 [![REUSE Compliance](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/reuse.yml/badge.svg)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/reuse.yml)
 
 ## CI/CD Status
+
 [![CI Pipeline](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/ci.yml?query=branch%3Amain)
 [![Security Analysis](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/security-analysis.yml/badge.svg?branch=main)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/security-analysis.yml?query=branch%3Amain)
 [![Documentation](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/docs.yml?query=branch%3Amain)
@@ -24,10 +26,10 @@
 [![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](https://github.com/ByronWilliamsCPA/.github/blob/main/CODE_OF_CONDUCT.md)
 
-| | |
-|---|---|
-| **Author** | Byron Williams |
-| **Created** | 2026-01-18 |
+|                |                                                                               |
+| -------------- | ----------------------------------------------------------------------------- |
+| **Author**     | Byron Williams                                                                |
+| **Created**    | 2026-01-18                                                                    |
 | **Repository** | [ByronWilliamsCPA/llc-manager](https://github.com/ByronWilliamsCPA/llc-manager) |
 
 ---
@@ -37,6 +39,7 @@
 A web application for managing LLC entities, tracking compliance dates, ownership structures, and associated documentation
 
 This project provides:
+
 - Core functionality for a web application for managing llc entities, tracking compliance dates, ownership structures, and associated documentation
 - Production-ready code with comprehensive testing
 - Well-documented API and architecture
@@ -102,7 +105,7 @@ print(result)
 
 The frontend is a React + TypeScript application built with Vite.
 
-### Quick Start
+### Frontend Quick Start
 
 ```bash
 cd frontend
@@ -110,18 +113,18 @@ pnpm install
 pnpm run dev
 ```
 
-Frontend runs at http://localhost:3000 with hot reload.
+Frontend runs at <http://localhost:3000> with hot reload.
 
 ### Available Scripts
 
-| Command | Description |
-|---------|-------------|
-| `pnpm run dev` | Start dev server with HMR |
-| `pnpm run build` | Build for production |
-| `pnpm run test` | Run tests in watch mode |
-| `pnpm run lint` | Lint code |
-| `pnpm run typecheck` | Run TypeScript type checking |
-| `pnpm run generate-client` | Generate API client from OpenAPI |
+| Command                     | Description                         |
+| --------------------------- | ----------------------------------- |
+| `pnpm run dev`              | Start dev server with HMR           |
+| `pnpm run build`            | Build for production                |
+| `pnpm run test`             | Run tests in watch mode             |
+| `pnpm run lint`             | Lint code                           |
+| `pnpm run typecheck`        | Run TypeScript type checking        |
+| `pnpm run generate-client`  | Generate API client from OpenAPI    |
 
 ### API Client Generation
 
@@ -163,7 +166,7 @@ This project implements enterprise-grade supply chain security with a multi-tier
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Quick Start
+### Supply Chain Quick Start
 
 ```bash
 # Run the setup script
@@ -177,11 +180,11 @@ pip install keyrings.google-artifactregistry-auth
 
 ### Package Indexes
 
-| Index | SLSA Level | Purpose | Default |
-|-------|------------|---------|---------|
-| PyPI | - | Standard packages | Yes (default) |
-| Google Assured OSS | 3 | Verified third-party packages | Opt-in |
-| Internal Registry | 2+ | Organization-maintained packages | Opt-in |
+| Index              | SLSA Level | Purpose                          | Default       |
+| ------------------ | ---------- | -------------------------------- | ------------- |
+| PyPI               | -          | Standard packages                | Yes (default) |
+| Google Assured OSS | 3          | Verified third-party packages    | Opt-in        |
+| Internal Registry  | 2+         | Organization-maintained packages | Opt-in        |
 
 **How It Works:**
 
@@ -287,10 +290,10 @@ pip-audit --require-hashes
 
 ### Required GCP Permissions
 
-| Role | Purpose |
-|------|---------|
-| `roles/artifactregistry.reader` | Read from Assured OSS and internal registry |
-| `roles/artifactregistry.writer` | Publish to internal registry (CI only) |
+| Role                             | Purpose                                      |
+| -------------------------------- | -------------------------------------------- |
+| `roles/artifactregistry.reader`  | Read from Assured OSS and internal registry  |
+| `roles/artifactregistry.writer`  | Publish to internal registry (CI only)       |
 
 ### Troubleshooting
 
@@ -363,7 +366,7 @@ All code must meet these requirements:
 This project uses **PyStrict-aligned Ruff rules** for stricter code quality enforcement beyond standard Python linting:
 
 | Rule | Category | Purpose |
-|------|----------|---------|
+| --- | --- | --- |
 | **BLE** | Blind except | Prevent bare `except:` clauses |
 | **EM** | Error messages | Enforce descriptive error messages |
 | **SLF** | Private access | Prevent access to private members |
@@ -384,7 +387,8 @@ These rules catch bugs that standard linting misses and enforce production-quali
 This project includes standardized Claude Code configuration via git subtree:
 
 **Directory Structure**:
-```
+
+```text
 .claude/
 ├── claude.md          # Project-specific Claude guidelines
 └── standard/          # Standard Claude configuration (git subtree)
@@ -395,6 +399,7 @@ This project includes standardized Claude Code configuration via git subtree:
 ```
 
 **Updating Standards**:
+
 ```bash
 # Pull latest standards from upstream
 ./scripts/update-claude-standards.sh
@@ -405,6 +410,7 @@ git subtree pull --prefix .claude/standard \
 ```
 
 **What's Included**:
+
 - Universal development best practices
 - Response-Aware Development (RAD) system for assumption tagging
 - Agent assignment patterns and workflow
@@ -506,7 +512,7 @@ qlty check --plugin osv_scanner
 
 ## Project Structure
 
-```
+```text
 llc_manager/
 ├── src/llc_manager/     # Main package
 │   ├── __init__.py
@@ -516,7 +522,6 @@ llc_manager/
 │   ├── unit/                             # Unit tests
 │   └── integration/                      # Integration tests
 ├── docs/                                 # Documentation
-│   ├── ADRs/                             # Architecture Decision Records
 │   ├── planning/                         # Project planning docs
 │   └── guides/                           # User guides
 ├── pyproject.toml                        # Dependencies & tool config
@@ -576,7 +581,7 @@ uv run pytest --cov=llc_manager --cov-fail-under=80
 
 ### Reporting Security Issues
 
-Please report security vulnerabilities to byron@williamscpa.com rather than using the public issue tracker.
+Please report security vulnerabilities to <byron@williamscpa.com> rather than using the public issue tracker.
 
 See the [ByronWilliamsCPA Security Policy](https://github.com/ByronWilliamsCPA/.github/blob/main/SECURITY.md) for complete disclosure policy and response timelines.
 
@@ -688,7 +693,7 @@ python scripts/cleanup_conditional_files.py --dry-run
 Files that may need cleanup when features are disabled:
 
 | Feature | Files to Remove |
-|---------|-----------------|
+| --- | --- |
 | `include_api_framework: no` | `src/*/api/`, `src/*/middleware/` |
 | `include_sentry: no` | `src/*/core/sentry.py` |
 | `include_background_jobs: no` | `src/*/jobs/` |
@@ -706,7 +711,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - **Issues**: [GitHub Issues](https://github.com/ByronWilliamsCPA/llc-manager/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/ByronWilliamsCPA/llc-manager/discussions)
-- **Email**: byron@williamscpa.com
+- **Email**: <byron@williamscpa.com>
 
 ## Acknowledgments
 

@@ -3,7 +3,9 @@
   "MD013": false,
   "MD033": false,
   "MD041": false,
+  "MD060": false,
   "line-length": false,
   "no-inline-html": false,
-  "first-line-heading": false
+  "first-line-heading": false,
+  "table-column-style": false
 }

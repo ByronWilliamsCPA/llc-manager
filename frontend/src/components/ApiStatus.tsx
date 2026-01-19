@@ -16,7 +16,7 @@ interface StatusDisplayProps {
   error: string | null
 }
 
-function StatusDisplay({ state, health, error }: StatusDisplayProps) {
+function StatusDisplay({ state, health, error }: Readonly<StatusDisplayProps>) {
   const config = {
     loading: {
       className: 'api-status--loading',
@@ -84,10 +84,20 @@ function useHealthCheck() {
   return { health, error, loading }
 }
 
+function deriveConnectionState(loading: boolean, error: string | null): ConnectionState {
+  if (loading) {
+    return 'loading'
+  }
+  if (error) {
+    return 'error'
+  }
+  return 'connected'
+}
+
 export function ApiStatus() {
   const { health, error, loading } = useHealthCheck()
 
-  const state: ConnectionState = loading ? 'loading' : error ? 'error' : 'connected'
+  const state = deriveConnectionState(loading, error)
 
   return <StatusDisplay state={state} health={health} error={error} />
 }
