@@ -137,10 +137,12 @@ What aspects are neither good nor bad?
 **Approach**: How this approach would work
 
 **Advantages**:
+
 - Specific benefit 1
 - Specific benefit 2
 
 **Disadvantages**:
+
 - Specific drawback 1
 - Specific drawback 2
 
@@ -153,10 +155,12 @@ What aspects are neither good nor bad?
 **Approach**: How this approach would work
 
 **Advantages**:
+
 - Specific benefit 1
 - Specific benefit 2
 
 **Disadvantages**:
+
 - Specific drawback 1
 - Specific drawback 2
 
@@ -169,10 +173,12 @@ What aspects are neither good nor bad?
 **Approach**: How this approach would work
 
 **Advantages**:
+
 - Specific benefit 1
 - Specific benefit 2
 
 **Disadvantages**:
+
 - Specific drawback 1
 - Specific drawback 2
 
@@ -233,7 +239,7 @@ If applicable, document performance implications:
 ### Performance Benchmarks
 
 | Metric | Before | After | Impact |
-|--------|--------|-------|--------|
+| ------ | ------ | ----- | ------ |
 | Operation latency | XXms | XXms | YY% improvement |
 | Memory usage | XXMb | XXMb | YY% reduction |
 | Throughput | XX/sec | XX/sec | YY% improvement |

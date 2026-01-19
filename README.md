@@ -528,15 +528,15 @@ llc_manager/
 ## Documentation
 
 - **[CONTRIBUTING.md](CONTRIBUTING.md)**: How to contribute to the project
-- **[docs/ADRs/README.md](docs/ADRs/README.md)**: Architecture Decision Records documentation
-- **[docs/planning/project-plan-template.md](docs/planning/project-plan-template.md)**: Project planning guide
+- **[docs/planning/](docs/planning/)**: Project planning documents
+- **[docs/planning/adr/](docs/planning/adr/)**: Architecture Decision Records
 
 ### Writing Documentation
 
 - Use Markdown for all documentation
 - Include code examples for clarity
 - Update README.md when adding major features
-- Maintain architecture documentation (see [docs/ADRs/](docs/ADRs/))
+- Maintain architecture documentation (see [docs/planning/adr/](docs/planning/adr/))
 
 ## Testing
 
