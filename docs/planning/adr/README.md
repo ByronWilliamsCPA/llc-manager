@@ -29,19 +29,12 @@ ADRs document significant architectural decisions along with their context and c
 
 ## Creating ADRs
 
-### Automatic Generation
-
-Run `/plan <project description>` to generate initial ADRs alongside other planning documents.
-
-### Manual Creation
-
 When making a new architectural decision:
 
-```text
-Create an ADR for [decision topic].
-Use template: .claude/skills/project-planning/templates/adr-template.md
-Save to: docs/planning/adr/adr-NNN-[decision-slug].md
-```
+1. Copy the ADR template from [adr-template.md](adr-template.md)
+2. Name the new file: `adr-NNN-[decision-slug].md` (use next available number)
+3. Fill in all sections with project-specific information
+4. Update the ADR index table above
 
 ## Naming Convention
 
@@ -79,8 +72,4 @@ Proposed → Published → [Deprecated | Superseded]
 
 ## Template Reference
 
-See `.claude/skills/project-planning/templates/adr-template.md` for the full template structure.
-
-## More Information
-
-See the project's `.claude/skills/` directory for additional planning templates and reference materials.
+See [adr-template.md](adr-template.md) for the full template structure with all required sections.

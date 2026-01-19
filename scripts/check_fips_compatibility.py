@@ -24,7 +24,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -122,8 +122,10 @@ class FipsCodeVisitor(ast.NodeVisitor):
                 severity=severity,
                 category="hash",
                 message=f"hashlib.{func_name}() is not FIPS-approved",
-                fix_hint=f"Add usedforsecurity=False if not used for security: "
-                f"hashlib.{func_name}(..., usedforsecurity=False)",
+                fix_hint=(
+                    f"Add usedforsecurity=False if not used for security: "
+                    f"hashlib.{func_name}(..., usedforsecurity=False)"
+                ),
             )
         )
 
@@ -406,6 +408,30 @@ def print_issue(issue: FipsIssue, show_hints: bool = False) -> None:
     print()
 
 
+@dataclass
+class CliArgs:
+    """Parsed command-line arguments."""
+
+    strict: bool
+    fix_hints: bool
+    src_dir: Path
+    include_tests: bool
+    json: bool
+
+
+def _parse_arguments() -> CliArgs:
+    """Parse and return typed CLI arguments."""
+    parser = _create_argument_parser()
+    args = parser.parse_args()
+    return CliArgs(
+        strict=cast("bool", args.strict),
+        fix_hints=cast("bool", args.fix_hints),
+        src_dir=cast("Path", args.src_dir),
+        include_tests=cast("bool", args.include_tests),
+        json=cast("bool", args.json),
+    )
+
+
 def _create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser."""
     parser = argparse.ArgumentParser(
@@ -527,10 +553,11 @@ def _output_text(
         print()
 
     print("-" * 60)
-    print(
+    summary = (
         f"Summary: {len(counts.errors)} error(s), "
         f"{len(counts.warnings)} warning(s), {len(counts.infos)} info"
     )
+    print(summary)
     print()
 
     _print_compliance_status(counts)
@@ -550,8 +577,7 @@ def _print_compliance_status(counts: IssueCounts) -> None:
 
 def main() -> int:
     """Main entry point."""
-    parser = _create_argument_parser()
-    args = parser.parse_args()
+    args = _parse_arguments()
 
     all_issues = _collect_all_issues(args.src_dir, args.include_tests)
     counts = IssueCounts.from_issues(all_issues)
