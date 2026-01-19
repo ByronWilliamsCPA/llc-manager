@@ -57,13 +57,12 @@ path = [
 SPDX-License-Identifier = "CC0-1.0"
 SPDX-FileCopyrightText = "2025 Byron Williams"
 
-# Data files and models - ODbL-1.0 (Open Database License)
+# Data files - CC0-1.0 (public domain for data placeholder files)
 [[annotations]]
 path = [
     "data/**",
-    "models/**",
 ]
-SPDX-License-Identifier = "ODbL-1.0"
+SPDX-License-Identifier = "CC0-1.0"
 SPDX-FileCopyrightText = "2025 Byron Williams"
 
 # Build artifacts and generated files - excluded from licensing
@@ -91,8 +90,10 @@ SPDX-FileCopyrightText = "2025 Byron Williams"
 [[annotations]]
 path = [
     ".claude/settings.local.json",
+    ".claude/settings.local.json.example",  # Example settings file
     ".claude/**/*.json",  # Claude configuration files
     ".claude/**/*.md",  # Claude documentation files
+    ".claude/**/*.py",  # Claude skill scripts
     ".standards/**",  # Baseline standards (auto-updated by cruft)
     ".clusterfuzzlite/**",
     ".sonarlint/**",  # SonarLint IDE configuration
@@ -114,6 +115,25 @@ path = [
     "Makefile",  # Build automation
     "justfile",  # Just command runner
     "Taskfile.yml",  # Task runner configuration
+    # Cruft template metadata
+    ".cruft.json",
+    # Linter and tool configuration files
+    ".darglint",
+    ".dockerignore",
+    ".env.example",
+    ".infisical.json",
+    ".markdownlint.json",
+    ".mutmut_config",
+    ".prettierrc",
+    ".shellcheckrc",
+    ".yamllint",
+    # Docker files
+    "Dockerfile",
+    # Alembic migrations
+    "alembic/**",
+    "alembic.ini",
+    # Lock files
+    "uv.lock",
 ]
 SPDX-License-Identifier = "CC0-1.0"
 SPDX-FileCopyrightText = "2025 Byron Williams"
@@ -129,4 +149,51 @@ path = [
     "notebooks/**/*.ipynb",  # Jupyter notebooks (Colab training examples)
 ]
 SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileCopyrightText = "2025 Byron Williams"
+
+# Frontend files - MIT
+[[annotations]]
+path = [
+    "frontend/**/*.ts",
+    "frontend/**/*.tsx",
+    "frontend/**/*.js",
+    "frontend/**/*.jsx",
+]
+SPDX-License-Identifier = "MIT"
+SPDX-FileCopyrightText = "2025 Byron Williams"
+
+# Frontend configuration and build files - CC0-1.0
+[[annotations]]
+path = [
+    "frontend/.env.example",
+    "frontend/.gitignore",
+    "frontend/.prettierrc",
+    "frontend/Dockerfile",
+    "frontend/README.md",
+    "frontend/eslint.config.js",
+    "frontend/index.html",
+    "frontend/nginx.conf",
+    "frontend/package.json",
+    "frontend/tsconfig*.json",
+    "frontend/vite.config.ts",
+]
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileCopyrightText = "2025 Byron Williams"
+
+# Frontend assets - CC0-1.0
+[[annotations]]
+path = [
+    "frontend/public/**",
+    "frontend/src/**/*.css",
+    "frontend/src/assets/**",  # Asset placeholder files
+]
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileCopyrightText = "2025 Byron Williams"
+
+# Scripts documentation - CC-BY-4.0
+[[annotations]]
+path = [
+    "scripts/README.md",
+]
+SPDX-License-Identifier = "CC-BY-4.0"
 SPDX-FileCopyrightText = "2025 Byron Williams"

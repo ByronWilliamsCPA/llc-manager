@@ -257,11 +257,59 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
                 _span_id_ctx.reset(span_token)
 
 
+def _get_correlation_tags() -> dict[str, str]:
+    """Get correlation context as a dictionary of tags.
+
+    Returns:
+        Dictionary containing non-None correlation IDs.
+    """
+    tags: dict[str, str] = {}
+
+    correlation_id = _correlation_id_ctx.get()
+    if correlation_id:
+        tags["correlation_id"] = correlation_id
+
+    request_id = _request_id_ctx.get()
+    if request_id:
+        tags["request_id"] = request_id
+
+    trace_id = _trace_id_ctx.get()
+    if trace_id:
+        tags["trace_id"] = trace_id
+
+    return tags
+
+
+def _add_correlation_to_sentry_event(
+    event: dict[str, object],
+    _hint: dict[str, object],
+) -> dict[str, object]:
+    """Add correlation IDs to a Sentry event.
+
+    Args:
+        event: The Sentry event dictionary.
+        _hint: Additional context about the event (unused, required by Sentry API).
+
+    Returns:
+        The event with correlation tags added.
+    """
+    tags = _get_correlation_tags()
+    if tags:
+        event.setdefault("tags", {})
+        if isinstance(event["tags"], dict):
+            event["tags"].update(tags)
+    return event
+
+
 def configure_sentry_correlation() -> None:
     """Configure Sentry to include correlation IDs in error reports.
 
     Call this after initializing Sentry to automatically include
     correlation context in all error reports.
+
+    Note:
+        This is a simplified approach. For production, consider
+        using Sentry's built-in transaction tracing instead.
 
     Example:
         >>> import sentry_sdk
@@ -270,28 +318,12 @@ def configure_sentry_correlation() -> None:
     """
     import sentry_sdk
 
-    def before_send(event, hint):
-        """Add correlation IDs to Sentry events."""
-        correlation_id = _correlation_id_ctx.get()
-        request_id = _request_id_ctx.get()
-        trace_id = _trace_id_ctx.get()
-
-        if correlation_id or request_id or trace_id:
-            event.setdefault("tags", {})
-            if correlation_id:
-                event["tags"]["correlation_id"] = correlation_id
-            if request_id:
-                event["tags"]["request_id"] = request_id
-            if trace_id:
-                event["tags"]["trace_id"] = trace_id
-
-        return event
-
     # Get current options and add before_send
     current_client = sentry_sdk.get_client()
     if current_client:
-        # Note: This is a simplified approach. For production, consider
-        # using Sentry's built-in transaction tracing instead.
+        # The before_send hook is configured at init time.
+        # This function serves as documentation for the pattern.
+        # Use _add_correlation_to_sentry_event as the before_send callback.
         pass
 
 

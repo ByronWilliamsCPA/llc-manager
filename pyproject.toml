@@ -106,6 +106,8 @@ dev = [
     "ruamel-yaml>=0.18.0",
     # Development Tools
     "interrogate>=1.7.0",
+    # Note: nbconvert (transitive dep) has CVE-2025-53000 - Windows-only, no fix available
+    # See SECURITY.md for risk assessment. Safe for Linux development use.
     "jupyter>=1.0.0",
     "ipykernel>=6.25.0",
     "safety>=3.7.0",

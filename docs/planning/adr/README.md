@@ -23,9 +23,9 @@ ADRs document significant architectural decisions along with their context and c
 
 ## ADR Index
 
-| ADR | Title | Status | Date |
-|-----|-------|--------|------|
-| *No ADRs yet* | Generate with `/plan` command | - | - |
+| ADR                                        | Title                               | Status    | Date       |
+| ------------------------------------------ | ----------------------------------- | --------- | ---------- |
+| [ADR-001](adr-001-initial-architecture.md) | FastAPI Monolith with HTMX Frontend | Published | 2026-01-18 |
 
 ## Creating ADRs
 
@@ -69,11 +69,11 @@ Create an ADR when:
 ## ADR Lifecycle
 
 ```text
-Proposed → Accepted → [Deprecated | Superseded]
+Proposed → Published → [Deprecated | Superseded]
 ```
 
 - **Proposed**: Under discussion
-- **Accepted**: Decision made and in use
+- **Published**: Decision made and in use
 - **Deprecated**: No longer relevant
 - **Superseded**: Replaced by another ADR
 
@@ -83,5 +83,4 @@ See `.claude/skills/project-planning/templates/adr-template.md` for the full tem
 
 ## More Information
 
-- [Document Guide](../.claude/skills/project-planning/reference/document-guide.md)
-- [Prompting Patterns](../.claude/skills/project-planning/reference/prompting-patterns.md)
+See the project's `.claude/skills/` directory for additional planning templates and reference materials.

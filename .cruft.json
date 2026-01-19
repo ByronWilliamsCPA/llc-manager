@@ -1,5 +1,5 @@
 {
-  "template": "/home/byron/dev/cookiecutter-python-template",
+  "template": "https://github.com/ByronWilliamsCPA/cookiecutter-python-template",
   "commit": "53a8c49cf273409f1471c8c4363f0cf96f865336",
   "checkout": null,
   "context": {
@@ -109,7 +109,7 @@
       "repo_url": "https://github.com/ByronWilliamsCPA/llc-manager",
       "docs_url": "https://llc-manager.readthedocs.io",
       "pypi_package_name": "llc-manager",
-      "_template": "/home/byron/dev/cookiecutter-python-template",
+      "_template": "https://github.com/ByronWilliamsCPA/cookiecutter-python-template",
       "_commit": "53a8c49cf273409f1471c8c4363f0cf96f865336"
     }
   },

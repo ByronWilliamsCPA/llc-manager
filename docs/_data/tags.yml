@@ -86,9 +86,14 @@ allowed:
   - planning
   - roadmap
   - project_management
+  - project
   - changelog
   - releases
   - version_history
   - mvp
   - scope
   - boundaries
+  - feedback
+  - template
+  - decision
+  - adr_template

@@ -9,6 +9,7 @@ Schema Types:
     - script: Tool/script documentation pages
     - knowledge: Knowledge base entries
     - planning: Planning and strategy documents
+    - adr: Architecture Decision Records
 """
 
 from __future__ import annotations
@@ -196,8 +197,23 @@ class PlanningFM(CommonFM):
     source: str
 
 
+class AdrFM(CommonFM):
+    """Front matter schema for Architecture Decision Records.
+
+    Extends CommonFM with ADR-specific metadata.
+
+    Attributes:
+        schema_type: Discriminator field, always "adr".
+        status: ADR lifecycle status.
+    """
+
+    schema_type: Literal["adr"] = "adr"  # type: ignore[assignment]
+    status: Literal["proposed", "published", "deprecated", "superseded"]  # type: ignore[assignment]
+    # authors is inherited from CommonFM as optional
+
+
 # Discriminated union type for all front matter schemas
 DiscriminatedFM = Annotated[
-    ScriptSpecFM | KnowledgeFM | PlanningFM | CommonFM,
+    ScriptSpecFM | KnowledgeFM | PlanningFM | AdrFM | CommonFM,
     Field(discriminator="schema_type"),
 ]

@@ -305,7 +305,7 @@ class APIError(ExternalServiceError):
         ...     "GitHub API rate limit exceeded",
         ...     service_name="GitHub",
         ...     status_code=429,
-        ...     retry_after=60,
+        ...     details={"retry_after": 60},
         ... )
     """
 
@@ -315,7 +315,6 @@ class APIError(ExternalServiceError):
         *,
         service_name: str | None = None,
         status_code: int | None = None,
-        retry_after: int | None = None,
         details: dict[str, Any] | None = None,
         error_code: str | None = None,
     ) -> None:
@@ -325,13 +324,9 @@ class APIError(ExternalServiceError):
             message: Description of the API error.
             service_name: Name of the external API.
             status_code: HTTP status code from the API.
-            retry_after: Seconds to wait before retrying (for rate limits).
-            details: Additional context.
+            details: Additional context (use "retry_after" key for rate limits).
             error_code: Machine-readable error code.
         """
-        details = details or {}
-        if retry_after:
-            details["retry_after"] = retry_after
         super().__init__(
             message,
             service_name=service_name,
