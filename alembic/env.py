@@ -2,11 +2,11 @@
 
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from alembic import context
 from llc_manager.core.config import settings
 from llc_manager.db.base import Base
 
@@ -94,7 +94,7 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine
     and associate a connection with the context.
     """
-    import asyncio
+    import asyncio  # noqa: PLC0415  # Late import required for Alembic async pattern
 
     asyncio.run(run_async_migrations())
 

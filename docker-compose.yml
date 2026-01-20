@@ -1,8 +1,6 @@
 # Docker Compose configuration for LLC Manager
 # Development and production-ready setup with common services
 
-version: '3.9'
-
 services:
   # =============================================================================
   # Application Service
@@ -158,9 +156,9 @@ services:
 # Volumes (Persistent Storage)
 # =============================================================================
 volumes:
-postgres-data:
+  postgres-data:
     driver: local
-# redis-data:
+  # redis-data:
   #   driver: local
 
 # =============================================================================
@@ -169,9 +167,6 @@ postgres-data:
 networks:
   llc_manager-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.25.0.0/16
 
 # =============================================================================
 # Usage Instructions

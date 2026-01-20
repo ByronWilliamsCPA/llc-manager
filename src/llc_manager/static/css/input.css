@@ -1,0 +1,48 @@
+/* Tailwind CSS v4 input file */
+/* Run: ./tailwindcss -i src/llc_manager/static/css/input.css -o src/llc_manager/static/css/output.css --watch */
+
+@import "tailwindcss";
+
+/* Configure content paths for class detection */
+@source "../../../templates/**/*.html";
+@source "../../../templates/**/*.jinja2";
+
+/* Custom theme extensions */
+@theme {
+  --color-brand-50: oklch(97% 0.02 250);
+  --color-brand-100: oklch(93% 0.04 250);
+  --color-brand-500: oklch(55% 0.2 250);
+  --color-brand-600: oklch(48% 0.2 250);
+  --color-brand-700: oklch(42% 0.18 250);
+}
+
+/* Custom base styles */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-gray-50);
+    color: var(--color-gray-900);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom utility classes */
+@layer utilities {
+  /* HTMX loading indicators */
+  .htmx-indicator {
+    opacity: 0;
+    transition: opacity 200ms ease-in;
+  }
+
+  .htmx-request .htmx-indicator {
+    opacity: 1;
+  }
+
+  .htmx-request.htmx-indicator {
+    opacity: 1;
+  }
+}
