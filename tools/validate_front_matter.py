@@ -209,7 +209,7 @@ def validate_file(
     if h1_match:
         h1_text = h1_match.group(1).strip()
         errors.append(
-            f"redundant H1 found: '# {h1_text}' — remove it; 'title' renders automatically"
+            f"redundant H1 found: '# {h1_text}'; remove it ('title' renders automatically)"
         )
 
     # Strict Pydantic validation

@@ -107,7 +107,7 @@ def setup_logging(
     # Add correlation ID processor for request tracing
     if include_correlation:
         try:
-            from llc_manager.middleware.correlation import (  # noqa: PLC0415
+            from llc_manager.middleware.correlation import (  # noqa: PLC0415  # Late import avoids circular dep when correlation disabled
                 correlation_context_processor,
             )
 
@@ -157,7 +157,7 @@ def get_logger(name: str) -> BoundLogger:
     """
     # Cast to BoundLogger for type checking - structlog.get_logger returns
     # a BoundLogger when configured with stdlib LoggerFactory
-    result: BoundLogger = structlog.get_logger(name)  # pyright: ignore[reportAssignmentType]
+    result: BoundLogger = structlog.get_logger(name)  # pyright: ignore[reportAssignmentType]  # structlog returns Any; stdlib LoggerFactory config makes BoundLogger the real runtime type
     return result
 
 

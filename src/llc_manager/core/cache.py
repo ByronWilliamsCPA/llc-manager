@@ -200,7 +200,7 @@ async def _get_or_compute[T](
         cached_value = await redis.get(cache_key)
         if cached_value is not None:
             logger.debug("cache_hit", key=cache_key)
-            return json.loads(cached_value)  # type: ignore[return-value]
+            return json.loads(cached_value)  # type: ignore[return-value]  # json.loads returns Any; decorator generic narrows it at the call site
 
         # Cache miss - call original function
         logger.debug("cache_miss", key=cache_key)

@@ -36,17 +36,17 @@ Goal: one branch off `feat/phase-0-foundation` that (a) imports the handful of f
 
 | Prior plan claim | Verified reality |
 |---|---|
-| `.claude/commands/plan.md` exists in underscore | **Missing in both** — do not copy |
-| `.claude/skills/project-planning/` is a full skill with templates and scripts | **Only `SKILL.md`** in underscore — evaluate whether it's worth importing |
-| `docs/ADRs/` in underscore is distinct content | **Only `README.md` + `adr-template.md`** — process scaffolding, not decisions. Dashed's `docs/planning/adr/` is the real ADR home and already has ADR-001 and a template. **Skip the import.** |
-| `docs/planning/tech-spec.md` is 62 lines in dashed, 453 in underscore — take underscore | **Reversed**: dashed is 453 lines, underscore is 59 lines — **keep dashed** |
+| `.claude/commands/plan.md` exists in underscore | **Missing in both** - do not copy |
+| `.claude/skills/project-planning/` is a full skill with templates and scripts | **Only `SKILL.md`** in underscore - evaluate whether it's worth importing |
+| `docs/ADRs/` in underscore is distinct content | **Only `README.md` + `adr-template.md`** - process scaffolding, not decisions. Dashed's `docs/planning/adr/` is the real ADR home and already has ADR-001 and a template. **Skip the import.** |
+| `docs/planning/tech-spec.md` is 62 lines in dashed, 453 in underscore - take underscore | **Reversed**: dashed is 453 lines, underscore is 59 lines - **keep dashed** |
 | Underscore has an extra merge commit `91170ba` merging PR #3 that must be rebased | Underscore `main` is only 2 commits; no merge commit is unique. Remote state is unchanged. |
 | Build artifacts (`coverage.xml`, `htmlcov/`, `site/`, `.pytest_cache/`, `.sonarlint/`) are just on disk | **Tracked in git** despite being in `.gitignore`. Requires `git rm --cached -r`, not just `rm`. |
-| `.coverage` is tracked | Not present — ignore that row |
+| `.coverage` is tracked | Not present - ignore that row |
 
 Files that still hold unique value in underscore (verified):
 
-- `CLAUDE.md` (25,836 bytes vs dashed's 5,477 — dashed is the truncated one)
+- `CLAUDE.md` (25,836 bytes vs dashed's 5,477 - dashed is the truncated one)
 - `docs/PROJECT_SETUP.md`
 - `.github/workflows/sonarcloud.yml`
 - `docs/planning/project-plan-template.md`
@@ -61,7 +61,7 @@ One long-lived branch, executed in ordered phases. Per-file drift review (user-s
 
 Branch name: `chore/consolidate-with-underscore-clone`
 Base: `feat/phase-0-foundation`
-PR target: `feat/phase-0-foundation` (not `main` — Phase 0 PR is still the integration path)
+PR target: `feat/phase-0-foundation` (not `main` - Phase 0 PR is still the integration path)
 
 ---
 
@@ -74,7 +74,7 @@ git pull --ff-only
 git checkout -b chore/consolidate-with-underscore-clone
 ```
 
-Verify working tree clean except for `MIGRATION-PLAN.md` (untracked); leave that file in place for now — it is replaced by this document at commit time.
+Verify working tree clean except for `MIGRATION-PLAN.md` (untracked); leave that file in place for now - it is replaced by this document at commit time.
 
 ---
 
@@ -90,7 +90,7 @@ diff -u "$DST/<path>" "$SRC/<path>" | less
 
 Then apply the direction in the `Action` column. Commit each logical group separately.
 
-### B.1 — Documentation and project guidance
+### B.1 - Documentation and project guidance
 
 | Path | Action | Rationale |
 |---|---|---|
@@ -100,10 +100,10 @@ Then apply the direction in the `Action` column. Commit each logical group separ
 | `docs/planning/adr/README.md` | Diff and choose newer | Not analyzed previously |
 | `docs/planning/project-vision.md` | Diff and choose newer | Not analyzed previously |
 | `docs/planning/roadmap.md` | Diff and choose newer | Not analyzed previously |
-| `docs/planning/tech-spec.md` | **Take dashed** | Dashed is 453 lines (richer) — **prior plan had direction reversed** |
+| `docs/planning/tech-spec.md` | **Take dashed** | Dashed is 453 lines (richer) - **prior plan had direction reversed** |
 | `docs/api-reference.md` | Diff and choose newer | Not analyzed previously |
 
-### B.2 — Configuration files
+### B.2 - Configuration files
 
 | Path | Action | Verify before accepting |
 |---|---|---|
@@ -118,7 +118,7 @@ Then apply the direction in the `Action` column. Commit each logical group separ
 | `alembic/env.py` | Diff | Not previously analyzed |
 | `.github/workflows/fips-compatibility.yml` | Take dashed | Verify permission scoping |
 
-### B.3 — Source code (dashed is authoritative: has Phase 0 refactors)
+### B.3 - Source code (dashed is authoritative: has Phase 0 refactors)
 
 | Path | Action |
 |---|---|
@@ -149,7 +149,7 @@ cp "$SRC/docs/PROJECT_SETUP.md" "$DST/docs/"
 cp "$SRC/docs/planning/project-plan-template.md" "$DST/docs/planning/"
 cp "$SRC/.github/workflows/sonarcloud.yml" "$DST/.github/workflows/"
 
-# LICENSES — only the three dashed is missing
+# LICENSES - only the three dashed is missing
 cp "$SRC/LICENSES/Apache-2.0.txt" "$DST/LICENSES/"
 cp "$SRC/LICENSES/BSD-3-Clause.txt" "$DST/LICENSES/"
 cp "$SRC/LICENSES/GPL-3.0-or-later.txt" "$DST/LICENSES/"
@@ -193,21 +193,21 @@ Commit suggestion: `chore(consolidate): untrack generated build artifacts`
 
 ## Phase E: Fix hard-rule blockers
 
-### E.1 — Em-dash in source
+### E.1 - Em-dash in source
 
-`tools/validate_front_matter.py:212` contains `'# {h1_text}' — remove it;`. Global CLAUDE.md forbids em-dash (`—`) in any output.
+`tools/validate_front_matter.py:212` contains the em-dash character (U+2014) in the error-message format string. Global CLAUDE.md forbids this character in any output.
 
 ```bash
-sed -i "s/'# {h1_text}' — remove it/'# {h1_text}'; remove it/" tools/validate_front_matter.py
+sed -i $'s/\u2014/-/g' tools/validate_front_matter.py
 ```
 
 Then grep the whole repo for stray em-dashes and fix any others found:
 
 ```bash
-grep -rn "—" --include="*.py" --include="*.md" --include="*.yml" --include="*.yaml" .
+grep -rn $'\u2014' --include="*.py" --include="*.md" --include="*.yml" --include="*.yaml" .
 ```
 
-### E.2 — Create `docs/known-vulnerabilities.md`
+### E.2 - Create `docs/known-vulnerabilities.md`
 
 Required by global CLAUDE.md (unfixed-CVE policy). Create an empty entry file; do not leave missing:
 
@@ -222,7 +222,7 @@ is merged.
 EOF
 ```
 
-### E.3 — Suppressions audit
+### E.3 - Suppressions audit
 
 Grep `src/` for suppressions without ticket references and either fix or annotate:
 
@@ -232,7 +232,7 @@ grep -rn "pytest.mark.skip" tests/
 grep -rn "\-\-no-verify" .pre-commit-config.yaml .github/ scripts/
 ```
 
-Each hit must either be removed (fix the underlying cause) or paired with a tracking comment like `# noqa: E501 — tracked in #ISSUE-NUM`.
+Each hit must either be removed (fix the underlying cause) or paired with a tracking comment like `# noqa: E501 - tracked in #ISSUE-NUM`.
 
 Commit suggestion: `fix(consolidate): resolve hard-rule blockers (em-dash, known-vulns, suppressions)`
 
@@ -240,7 +240,7 @@ Commit suggestion: `fix(consolidate): resolve hard-rule blockers (em-dash, known
 
 ## Phase F: Standards alignment
 
-### F.1 — Ruff sweep
+### F.1 - Ruff sweep
 
 ```bash
 uv run ruff format .
@@ -251,9 +251,9 @@ uv run ruff check .   # address remaining, especially DTZ011, INP001
 Common residual fixes:
 
 - `date.today()` → `datetime.now(UTC).date()` (DTZ011)
-- Missing `__init__.py` in Python packages (INP001) — verify `alembic/` and `alembic/versions/` still have theirs after the migration
+- Missing `__init__.py` in Python packages (INP001) - verify `alembic/` and `alembic/versions/` still have theirs after the migration
 
-### F.2 — BasedPyright strict sweep
+### F.2 - BasedPyright strict sweep
 
 ```bash
 uv run basedpyright src/
@@ -261,7 +261,7 @@ uv run basedpyright src/
 
 Address all errors; warnings may be triaged in follow-ups but must be at zero before merging the PR. Start with unused imports (e.g., unused `UUID` import in `entity.py`) and explicit type annotations for `Any` usages.
 
-### F.3 — Codecov tiers
+### F.3 - Codecov tiers
 
 Open `codecov.yml` and confirm all four tiers are defined:
 
@@ -272,18 +272,18 @@ Open `codecov.yml` and confirm all four tiers are defined:
 
 If any tier is missing, add it per `~/.claude/standards/packages.md` guidance.
 
-### F.4 — RAD assumption tags
+### F.4 - RAD assumption tags
 
 Add `#CRITICAL`, `#ASSUME`, `#EDGE`, `#VERIFY` markers per `docs/response-aware-development.md` (global reference) to these priority files:
 
-- `src/llc_manager/db/session.py` — async session lifecycle, connection pool assumptions
-- `src/llc_manager/core/sentry.py` — Sentry SDK init timing and DSN fallback
-- `src/llc_manager/middleware/security.py` — SSRF protection assumptions
-- `src/llc_manager/middleware/correlation.py` — async-context propagation
+- `src/llc_manager/db/session.py` - async session lifecycle, connection pool assumptions
+- `src/llc_manager/core/sentry.py` - Sentry SDK init timing and DSN fallback
+- `src/llc_manager/middleware/security.py` - SSRF protection assumptions
+- `src/llc_manager/middleware/correlation.py` - async-context propagation
 
 Focus on timing, external resources, data integrity, concurrency, and security paths. Pair each assumption tag with a `#VERIFY` instruction so the next reader knows how to confirm it.
 
-### F.5 — Pre-commit em-dash hook
+### F.5 - Pre-commit em-dash hook
 
 Add a local em-dash detection hook to `.pre-commit-config.yaml`:
 
@@ -292,7 +292,7 @@ Add a local em-dash detection hook to `.pre-commit-config.yaml`:
   hooks:
     - id: no-em-dash
       name: Reject em-dash characters
-      entry: bash -c 'grep -rn "—" --include="*.py" --include="*.md" --include="*.yml" --include="*.yaml" --include="*.toml" . && exit 1 || exit 0'
+      entry: bash -c 'grep -rn $'"'"'\u2014'"'"' --include="*.py" --include="*.md" --include="*.yml" --include="*.yaml" --include="*.toml" . && exit 1 || exit 0'
       language: system
       pass_filenames: false
 ```
@@ -365,7 +365,7 @@ Run this checklist before marking the consolidation done:
 - [ ] `git ls-files | grep -E '(coverage\.xml|htmlcov/|site/|\.pytest_cache/|\.sonarlint/|tailwindcss$)'` returns empty
 - [ ] `diff <(wc -c < CLAUDE.md) <(echo 25836)` closes on the merged CLAUDE.md size (or larger, if dashed-only content was preserved)
 - [ ] `ls docs/PROJECT_SETUP.md .github/workflows/sonarcloud.yml docs/planning/project-plan-template.md LICENSES/Apache-2.0.txt LICENSES/BSD-3-Clause.txt LICENSES/GPL-3.0-or-later.txt` all exist
-- [ ] `grep -c "—" tools/validate_front_matter.py` returns 0
+- [ ] `grep -c $'\u2014' tools/validate_front_matter.py` returns 0
 - [ ] `test -f docs/known-vulnerabilities.md`
 - [ ] `uv run ruff check .` exits 0
 - [ ] `uv run basedpyright src/` exits 0 errors
@@ -378,19 +378,19 @@ Run this checklist before marking the consolidation done:
 
 ## Critical files referenced
 
-- `/home/byron/dev/llc-manager/MIGRATION-PLAN.md` — prior plan, to be deleted by this work
-- `/home/byron/dev/llc-manager/tools/validate_front_matter.py` — em-dash fix at line 212
-- `/home/byron/dev/llc-manager/CLAUDE.md` — target of cross-clone merge
-- `/home/byron/dev/llc-manager/.pre-commit-config.yaml` — add em-dash hook here
-- `/home/byron/dev/llc-manager/.gitignore` — verify it still covers everything being untracked
-- `/home/byron/dev/llc-manager/codecov.yml` — verify four-tier coverage
-- `/home/byron/.claude/CLAUDE.md` v1.4.0 — global standards source of truth
-- `/home/byron/dev/llc-manager/docs/response-aware-development.md` — RAD tagging syntax (if present; otherwise fall back to global reference)
+- `/home/byron/dev/llc-manager/MIGRATION-PLAN.md` - prior plan, to be deleted by this work
+- `/home/byron/dev/llc-manager/tools/validate_front_matter.py` - em-dash fix at line 212
+- `/home/byron/dev/llc-manager/CLAUDE.md` - target of cross-clone merge
+- `/home/byron/dev/llc-manager/.pre-commit-config.yaml` - add em-dash hook here
+- `/home/byron/dev/llc-manager/.gitignore` - verify it still covers everything being untracked
+- `/home/byron/dev/llc-manager/codecov.yml` - verify four-tier coverage
+- `/home/byron/.claude/CLAUDE.md` v1.4.0 - global standards source of truth
+- `/home/byron/dev/llc-manager/docs/response-aware-development.md` - RAD tagging syntax (if present; otherwise fall back to global reference)
 
 ---
 
 ## Open items for the maintainer (carry-overs)
 
-1. `.claude/skills/project-planning/SKILL.md` in underscore — import only if the skill content is relevant to this project; otherwise drop
-2. `.vscode/` — decide whether to gitignore (currently committed in dashed)
-3. `LICENSES/` — confirm Apache-2.0, BSD-3-Clause, GPL-3.0-or-later are genuinely required by source headers; if not, do not import
+1. `.claude/skills/project-planning/SKILL.md` in underscore - import only if the skill content is relevant to this project; otherwise drop
+2. `.vscode/` - decide whether to gitignore (currently committed in dashed)
+3. `LICENSES/` - confirm Apache-2.0, BSD-3-Clause, GPL-3.0-or-later are genuinely required by source headers; if not, do not import

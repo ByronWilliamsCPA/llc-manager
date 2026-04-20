@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     database_max_overflow: int = 10
 
     # API settings
-    api_host: str = "0.0.0.0"  # noqa: S104
+    api_host: str = "0.0.0.0"  # noqa: S104  # Containerized app requires 0.0.0.0 to accept ingress traffic
     api_port: int = 8000
     api_reload: bool = False
     api_workers: int = 1
@@ -57,10 +57,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     # Security settings
-    secret_key: str = "change-me-in-production"  # noqa: S105
+    secret_key: str = "change-me-in-production"  # noqa: S105  # Placeholder default; real value MUST come from LLC_MANAGER_SECRET_KEY env var
     access_token_expire_minutes: int = 30
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # type: ignore[prop-decorator]  # Pydantic pattern: decorator composition confuses pyright
     @property
     def database_url(self) -> str:
         """Construct the async database URL from components."""
@@ -75,7 +75,7 @@ class Settings(BaseSettings):
             )
         )
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field  # type: ignore[prop-decorator]  # Pydantic pattern: decorator composition confuses pyright
     @property
     def database_url_sync(self) -> str:
         """Construct the sync database URL for Alembic migrations."""
