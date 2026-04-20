@@ -21,7 +21,6 @@ Usage:
 from __future__ import annotations
 
 import ipaddress
-import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -33,7 +32,11 @@ from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import JSONResponse, Response
 
-logger = logging.getLogger(__name__)
+from llc_manager.utils.logging import get_logger
+
+# Structlog logger so correlation IDs propagate into security-relevant events
+# (rate-limit warnings, SSRF classifications).
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from fastapi import FastAPI, Request
@@ -180,18 +183,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             )
             self.requests = defaultdict(
                 list,
-                {
-                    ip: timestamps
-                    for ip, timestamps in sorted_ips[: self.max_tracked_ips]
-                },
+                dict(sorted_ips[: self.max_tracked_ips]),
             )
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """Apply rate limiting per IP address."""
         if request.client is None:
             logger.warning(
-                "request.client is None - cannot determine client IP for rate limiting. "
-                "Using 'unknown' as fallback. This may occur during testing or with certain proxy configurations."
+                "rate_limit_client_ip_unknown",
+                reason=(
+                    "request.client is None; using 'unknown' as fallback. "
+                    "Typical causes: test client or misconfigured proxy."
+                ),
             )
         client_ip = request.client.host if request.client else "unknown"
         current_time = time.time()
@@ -318,9 +321,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         # an internal-network classification here allows an attacker-supplied
         # URL to reach the link-local metadata service (169.254.169.254) or
         # private RFC1918 ranges from inside the service.
-        # #VERIFY: Property-based test with hypothesis generators for IPv4,
-        # IPv6, and IPv4-mapped IPv6 addresses asserts no private-range
-        # address returns False. Coverage gate: 90% (critical component).
+        # #VERIFY (pending): property-based test with hypothesis generators
+        # for IPv4, IPv6, and IPv4-mapped IPv6 addresses asserting no
+        # private-range address returns False. Coverage gate: 90% (critical
+        # component). Test does not yet exist; tracked for Phase 1 test uplift.
         try:
             ip = ipaddress.ip_address(ip_str)
 
@@ -355,9 +359,13 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
 
         try:
             parsed = urlparse(url)
-            return parsed.hostname
-        except Exception:
+        except ValueError:
+            # urlparse raises ValueError on malformed inputs (e.g. embedded
+            # control chars). Treat as "no host" so downstream checks short
+            # circuit via the caller's ``if not host`` guard.
+            logger.warning("ssrf_url_parse_failed_host", url_len=len(url))
             return None
+        return parsed.hostname
 
     @staticmethod
     def _extract_scheme_from_url(url: str) -> str | None:
@@ -373,9 +381,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
 
         try:
             parsed = urlparse(url)
-            return parsed.scheme.lower() if parsed.scheme else None
-        except Exception:
+        except ValueError:
+            logger.warning("ssrf_url_parse_failed_scheme", url_len=len(url))
             return None
+        return parsed.scheme.lower() if parsed.scheme else None
 
     def _has_blocked_scheme(self, url: str) -> bool:
         """Check if URL uses a blocked scheme.
@@ -551,36 +560,3 @@ def add_security_middleware(
     # SSRF prevention (OWASP A10)
     if config.enable_ssrf_prevention:
         app.add_middleware(SSRFPreventionMiddleware)
-
-
-# Example usage in main.py:
-"""
-from fastapi import FastAPI
-from llc_manager.middleware.security import add_security_middleware, SecurityConfig
-
-app = FastAPI()
-
-# Add all security middleware with custom configuration
-config = SecurityConfig(
-    enable_https_redirect=True,  # Production only
-    enable_rate_limiting=True,
-    allowed_origins=[
-        "https://example.com",
-        "https://app.example.com",
-    ],
-    allowed_hosts=[
-        "api.example.com",
-        "localhost",  # Development only
-    ],
-    rate_limit_rpm=100,
-)
-add_security_middleware(app, config)
-
-# Or use defaults:
-# add_security_middleware(app)
-
-# Your routes here
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-"""

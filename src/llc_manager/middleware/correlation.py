@@ -70,6 +70,37 @@ REQUEST_ID_HEADER = "X-Request-ID"
 TRACE_ID_HEADER = "X-Trace-ID"
 SPAN_ID_HEADER = "X-Span-ID"
 
+# Defense against log injection and forged trace identifiers. Incoming
+# correlation headers arrive from untrusted clients and are both echoed in
+# response headers and written to structured log fields; unvalidated CR/LF
+# would let a caller inject fake log lines, and an unbounded value would let
+# a caller bloat log storage per request. A UUID4 is 36 chars, so 128 is
+# generous headroom for propagated IDs from upstream services.
+_MAX_CORRELATION_ID_LENGTH = 128
+
+
+def _sanitize_header_value(value: str | None) -> str | None:
+    """Return a correlation header value safe for logs and response echo.
+
+    Rejects values containing CR or LF characters (log-injection defense)
+    and truncates values longer than ``_MAX_CORRELATION_ID_LENGTH``. The
+    caller treats ``None`` as "no client value supplied" and generates a
+    fresh correlation ID.
+
+    Args:
+        value: Raw header value supplied by the client, or ``None``.
+
+    Returns:
+        The sanitized value, or ``None`` if the input was absent or invalid.
+    """
+    if value is None:
+        return None
+    if "\r" in value or "\n" in value:
+        return None
+    if len(value) > _MAX_CORRELATION_ID_LENGTH:
+        return value[:_MAX_CORRELATION_ID_LENGTH]
+    return value
+
 
 def get_correlation_id() -> str | None:
     """Get the current request's correlation ID.
@@ -212,26 +243,33 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
         Returns:
             The HTTP response with correlation headers added.
         """
-        # Extract or generate correlation ID
+        # Extract or generate correlation ID. Values from untrusted clients
+        # are sanitized (CR/LF stripped, length capped); invalid values fall
+        # through to a freshly generated UUID.
         correlation_id = (
-            request.headers.get(CORRELATION_ID_HEADER)
-            or request.headers.get(REQUEST_ID_HEADER)
+            _sanitize_header_value(request.headers.get(CORRELATION_ID_HEADER))
+            or _sanitize_header_value(request.headers.get(REQUEST_ID_HEADER))
             or generate_correlation_id()
         )
 
         # Generate unique request ID for this specific request
-        request_id = request.headers.get(REQUEST_ID_HEADER) or generate_correlation_id()
+        request_id = (
+            _sanitize_header_value(request.headers.get(REQUEST_ID_HEADER))
+            or generate_correlation_id()
+        )
 
-        # Extract distributed tracing headers
-        trace_id = request.headers.get(TRACE_ID_HEADER)
-        span_id = request.headers.get(SPAN_ID_HEADER)
+        # Extract distributed tracing headers (sanitized; rejected values
+        # become None and are simply not echoed back).
+        trace_id = _sanitize_header_value(request.headers.get(TRACE_ID_HEADER))
+        span_id = _sanitize_header_value(request.headers.get(SPAN_ID_HEADER))
 
         # #CRITICAL: Concurrency - ContextVar tokens MUST be reset in the
         # finally block below, or correlation IDs leak across async tasks
         # that reuse the same thread, producing false attribution in logs
         # and Sentry events under load.
-        # #VERIFY: Concurrent test with two overlapping requests asserts the
-        # second request's logs do not see the first request's correlation_id.
+        # #VERIFY (pending): concurrent test with two overlapping requests
+        # asserting the second request's logs do not see the first request's
+        # correlation_id. Tracked for the Phase 1 test uplift.
         correlation_token = _correlation_id_ctx.set(correlation_id)
         request_token = _request_id_ctx.set(request_id)
         trace_token = _trace_id_ctx.set(trace_id) if trace_id else None
