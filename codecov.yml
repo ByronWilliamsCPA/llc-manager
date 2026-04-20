@@ -16,15 +16,17 @@ coverage:
   status:
     project:
       default:
-        # Current baseline: ~80%, targeting 80%+
+        # Line coverage per global CLAUDE.md: 80%
+        # Branch coverage target 70% is enforced at the coverage tool level;
+        # see [tool.coverage.report] fail_under and --cov-branch in pyproject.toml.
         target: 80%
         threshold: 2%
         if_ci_failed: error
 
     patch:
       default:
-        # New code should meet 80% target
-        target: 80%
+        # Patch coverage per global CLAUDE.md: 90%
+        target: 90%
         threshold: 5%
         if_ci_failed: error
 
@@ -112,6 +114,28 @@ component_management:
       name: Core Module
       paths:
         - src/llc_manager/**
+
+    # Critical-path component per global CLAUDE.md: 90% target.
+    # Covers modules whose failure has outsized blast radius: auth/security,
+    # DB sessions, request middleware, core exception handling.
+    - component_id: critical
+      name: Critical Path
+      paths:
+        - src/llc_manager/core/exceptions.py
+        - src/llc_manager/core/config.py
+        - src/llc_manager/db/session.py
+        - src/llc_manager/db/base.py
+        - src/llc_manager/middleware/security.py
+        - src/llc_manager/middleware/correlation.py
+      statuses:
+        - type: project
+          target: 90%
+          threshold: 2%
+          if_ci_failed: error
+        - type: patch
+          target: 90%
+          threshold: 2%
+          if_ci_failed: error
 
 # Paths to ignore from coverage
 ignore:

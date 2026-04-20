@@ -90,6 +90,10 @@ def init_sentry(config: SentryConfig | None = None) -> None:
         ...     )
         ... )
     """
+    # #EDGE: External resource - sentry_sdk is an optional install. Missing
+    # package must fail soft (log + return) so the app boots without it.
+    # #VERIFY: Unit test initialize path with sentry_sdk uninstalled (mock
+    # ImportError) asserts no exception propagates.
     if config is None:
         config = SentryConfig.from_env()
     try:
@@ -108,7 +112,11 @@ def init_sentry(config: SentryConfig | None = None) -> None:
         )
         return
 
-    # Use DSN from config or environment
+    # #ASSUME: Security - SENTRY_DSN absent is interpreted as "telemetry off",
+    # not an error state. Silent telemetry-off is safe for local dev but must
+    # not mask a misconfigured prod deployment.
+    # #VERIFY: Deployment smoke test asserts SENTRY_DSN is set in staging and
+    # production environments via env-specific CI checks.
     dsn = config.dsn or os.getenv("SENTRY_DSN")
     if not dsn:
         logger.info("SENTRY_DSN not set. Sentry integration disabled.")

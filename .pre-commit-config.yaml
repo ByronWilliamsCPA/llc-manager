@@ -178,6 +178,15 @@ repos:
           - pydantic>=2.0
           - ruamel.yaml>=0.18
 
+      # Global CLAUDE.md forbids the em-dash character (U+2014) in any output.
+      # This hook enforces the rule automatically on every commit.
+      - id: no-em-dash
+        name: Reject em-dash characters (U+2014)
+        entry: python tools/check_no_em_dash.py
+        language: python
+        types_or: [python, markdown, yaml, toml]
+        stages: [pre-commit]
+
 
   # ============================================================================
   # Python Docstring Coverage

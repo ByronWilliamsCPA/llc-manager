@@ -226,7 +226,12 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
         trace_id = request.headers.get(TRACE_ID_HEADER)
         span_id = request.headers.get(SPAN_ID_HEADER)
 
-        # Set context variables
+        # #CRITICAL: Concurrency - ContextVar tokens MUST be reset in the
+        # finally block below, or correlation IDs leak across async tasks
+        # that reuse the same thread, producing false attribution in logs
+        # and Sentry events under load.
+        # #VERIFY: Concurrent test with two overlapping requests asserts the
+        # second request's logs do not see the first request's correlation_id.
         correlation_token = _correlation_id_ctx.set(correlation_id)
         request_token = _request_id_ctx.set(request_id)
         trace_token = _trace_id_ctx.set(trace_id) if trace_id else None

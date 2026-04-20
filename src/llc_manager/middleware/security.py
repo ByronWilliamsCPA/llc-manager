@@ -314,6 +314,13 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         Returns:
             True if the IP is private/internal, False otherwise
         """
+        # #CRITICAL: Security - this is the SSRF defense choke point. Missing
+        # an internal-network classification here allows an attacker-supplied
+        # URL to reach the link-local metadata service (169.254.169.254) or
+        # private RFC1918 ranges from inside the service.
+        # #VERIFY: Property-based test with hypothesis generators for IPv4,
+        # IPv6, and IPv4-mapped IPv6 addresses asserts no private-range
+        # address returns False. Coverage gate: 90% (critical component).
         try:
             ip = ipaddress.ip_address(ip_str)
 
@@ -321,7 +328,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
             if SSRFPreventionMiddleware._is_internal_ip_type(ip):
                 return True
 
-            # Additional check for IPv4-mapped IPv6 addresses
+            # #EDGE: Security - IPv4-mapped IPv6 (::ffff:a.b.c.d) can be
+            # used to bypass naive IPv4-only allowlists. The recursive call
+            # re-runs the private-IP check on the mapped IPv4 form.
+            # #VERIFY: test_ssrf_ipv4_mapped_ipv6_blocks_rfc1918
             if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
                 return SSRFPreventionMiddleware._is_private_ip(str(ip.ipv4_mapped))
 
