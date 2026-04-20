@@ -20,34 +20,60 @@ import sys
 from pathlib import Path
 
 EM_DASH = "\u2014"
+REDACTION_MARKER = "[EM-DASH]"
 
 
 def main(paths: list[str]) -> int:
     """Return non-zero exit code if any file contains an em-dash.
 
+    Fails closed: a file that cannot be read is treated as a hook failure so
+    the commit blocks and the operator can investigate. A silent skip would
+    let a real violation slip through whenever the file also has an encoding
+    issue.
+
     Args:
         paths: File paths supplied by pre-commit.
 
     Returns:
-        Exit code: 0 if clean, 1 if any em-dash found or a file failed to read.
+        Exit code: 0 if clean, 1 if any em-dash found, 2 if any file failed
+        to read.
     """
     violations: list[tuple[str, int, str]] = []
+    read_errors: list[tuple[str, str]] = []
+
     for p in paths:
         path = Path(p)
         try:
-            for lineno, line in enumerate(
-                path.read_text(encoding="utf-8").splitlines(), 1
-            ):
-                if EM_DASH in line:
-                    violations.append((p, lineno, line.rstrip()))
-        except (OSError, UnicodeDecodeError):
-            # Binary or unreadable files are silently skipped; types_or
-            # filter in .pre-commit-config.yaml limits us to text files.
+            content = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            read_errors.append((p, f"read failed: {exc}"))
             continue
+        except UnicodeDecodeError as exc:
+            read_errors.append((p, f"not valid UTF-8: {exc}"))
+            continue
+
+        for lineno, line in enumerate(content.splitlines(), 1):
+            if EM_DASH in line:
+                redacted = line.replace(EM_DASH, REDACTION_MARKER).rstrip()
+                violations.append((p, lineno, redacted))
+
+    if read_errors:
+        print(
+            "check_no_em_dash: could not scan one or more files:",
+            file=sys.stderr,
+        )
+        for path_str, reason in read_errors:
+            print(f"  {path_str}: {reason}", file=sys.stderr)
 
     if violations:
         print(
-            "Em-dash character (U+2014) is not allowed per global CLAUDE.md:",
+            "Em-dash character (U+2014) is not allowed per global CLAUDE.md.",
+            file=sys.stderr,
+        )
+        print(
+            "The offending character has been replaced with "
+            f"{REDACTION_MARKER!r} in the output below so this hook's "
+            "diagnostics do not themselves contain the forbidden character:",
             file=sys.stderr,
         )
         for path_str, lineno, text in violations:
@@ -58,6 +84,10 @@ def main(paths: list[str]) -> int:
             file=sys.stderr,
         )
         return 1
+
+    if read_errors:
+        return 2
+
     return 0
 
 
