@@ -30,7 +30,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write  # Required for PR decoration
 
 jobs:
   # Check if SONAR_TOKEN is configured before running analysis
@@ -61,6 +60,9 @@ jobs:
     needs: check-secrets
     if: needs.check-secrets.outputs.has-token == 'true'
     timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write  # Required for SonarCloud PR decoration
 
     steps:
       - name: Checkout repository
@@ -106,15 +108,13 @@ jobs:
             --cov-report=term \
             --cov-branch \
             -v
-        continue-on-error: true  # Don't fail on test failures; let SonarCloud report them
 
       - name: Verify coverage report
         if: steps.check-code.outputs.has-code == 'true'
         run: |
           if [ ! -f coverage.xml ]; then
-            echo "::warning::Coverage report not found. Tests may have failed."
-            # Create empty coverage file to prevent SonarCloud error
-            echo '<?xml version="1.0" ?><coverage version="1.0"></coverage>' > coverage.xml
+            echo "::error::Coverage report missing; blocking SonarCloud analysis."
+            exit 1
           else
             echo "✓ Coverage report generated successfully"
             ls -lh coverage.xml
@@ -133,11 +133,11 @@ jobs:
             -Dsonar.python.version=3.12
 
       - name: Check Quality Gate
-        uses: sonarsource/sonarqube-quality-gate-action@master
+        if: steps.check-code.outputs.has-code == 'true'
+        uses: sonarsource/sonarqube-quality-gate-action@cf038b0e0cdecfa9e56c198bbb7d21d751d62c3b # v1.2.0
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        continue-on-error: true  # Don't fail workflow, just report status
 
       - name: Quality Gate Summary
         if: always()
