@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     database_max_overflow: int = 10
 
     # API settings
-    api_host: str = "0.0.0.0"  # noqa: S104  # Containerized app requires 0.0.0.0 to accept ingress traffic
+    api_host: str = "0.0.0.0"  # noqa: S104  # nosec B104  # Containerized app requires 0.0.0.0 to accept ingress traffic
     api_port: int = 8000
     api_reload: bool = False
     api_workers: int = 1

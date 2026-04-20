@@ -13,7 +13,7 @@ from llc_manager.middleware.correlation import CorrelationMiddleware
 from llc_manager.middleware.security import SecurityHeadersMiddleware
 
 
-@asynccontextmanager
+@asynccontextmanager  # pyright: ignore[reportDeprecated]  # FastAPI lifespan API uses the contextlib decorator; no upstream replacement yet
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan handler for startup and shutdown events.
 

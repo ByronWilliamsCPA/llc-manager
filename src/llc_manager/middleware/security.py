@@ -259,7 +259,7 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
     """
 
     # Blocked hostnames (case-insensitive)
-    BLOCKED_HOSTS: set[str] = {
+    BLOCKED_HOSTS: set[str] = {  # nosec B104  # "0.0.0.0" appears here intentionally as a *blocked* target for SSRF protection, not a bind address
         "localhost",
         "127.0.0.1",
         "0.0.0.0",
@@ -328,10 +328,11 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
             if SSRFPreventionMiddleware._is_internal_ip_type(ip):
                 return True
 
-            # #EDGE: Security - IPv4-mapped IPv6 (::ffff:a.b.c.d) can be
-            # used to bypass naive IPv4-only allowlists. The recursive call
-            # re-runs the private-IP check on the mapped IPv4 form.
-            # #VERIFY: test_ssrf_ipv4_mapped_ipv6_blocks_rfc1918
+            # #EDGE: Security - IPv4-mapped IPv6 (::ffff:a.b.c.d) can be used
+            # to bypass naive IPv4-only allowlists. The recursive call re-runs
+            # the private-IP check on the mapped IPv4 form.
+            # #VERIFY: add a regression test that an IPv4-mapped IPv6 address
+            # pointing at an RFC1918 range is classified as private.
             if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
                 return SSRFPreventionMiddleware._is_private_ip(str(ip.ipv4_mapped))
 
