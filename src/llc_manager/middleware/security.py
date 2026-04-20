@@ -21,7 +21,6 @@ Usage:
 from __future__ import annotations
 
 import ipaddress
-import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -33,7 +32,11 @@ from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import JSONResponse, Response
 
-logger = logging.getLogger(__name__)
+from llc_manager.utils.logging import get_logger
+
+# Structlog logger so correlation IDs propagate into security-relevant events
+# (rate-limit warnings, SSRF classifications).
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from fastapi import FastAPI, Request
@@ -98,7 +101,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
 
         # Remove server identification (OWASP A09)
-        response.headers.pop("Server", None)
+        if "Server" in response.headers:
+            del response.headers["Server"]
 
         return response
 
@@ -179,18 +183,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             )
             self.requests = defaultdict(
                 list,
-                {
-                    ip: timestamps
-                    for ip, timestamps in sorted_ips[: self.max_tracked_ips]
-                },
+                dict(sorted_ips[: self.max_tracked_ips]),
             )
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """Apply rate limiting per IP address."""
         if request.client is None:
             logger.warning(
-                "request.client is None - cannot determine client IP for rate limiting. "
-                "Using 'unknown' as fallback. This may occur during testing or with certain proxy configurations."
+                "rate_limit_client_ip_unknown",
+                reason=(
+                    "request.client is None; using 'unknown' as fallback. "
+                    "Typical causes: test client or misconfigured proxy."
+                ),
             )
         client_ip = request.client.host if request.client else "unknown"
         current_time = time.time()
@@ -258,7 +262,7 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
     """
 
     # Blocked hostnames (case-insensitive)
-    BLOCKED_HOSTS: set[str] = {
+    BLOCKED_HOSTS: set[str] = {  # nosec B104  # "0.0.0.0" appears here intentionally as a *blocked* target for SSRF protection, not a bind address
         "localhost",
         "127.0.0.1",
         "0.0.0.0",
@@ -313,6 +317,14 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         Returns:
             True if the IP is private/internal, False otherwise
         """
+        # #CRITICAL: Security - this is the SSRF defense choke point. Missing
+        # an internal-network classification here allows an attacker-supplied
+        # URL to reach the link-local metadata service (169.254.169.254) or
+        # private RFC1918 ranges from inside the service.
+        # #VERIFY (pending): property-based test with hypothesis generators
+        # for IPv4, IPv6, and IPv4-mapped IPv6 addresses asserting no
+        # private-range address returns False. Coverage gate: 90% (critical
+        # component). Test does not yet exist; tracked for Phase 1 test uplift.
         try:
             ip = ipaddress.ip_address(ip_str)
 
@@ -320,7 +332,11 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
             if SSRFPreventionMiddleware._is_internal_ip_type(ip):
                 return True
 
-            # Additional check for IPv4-mapped IPv6 addresses
+            # #EDGE: Security - IPv4-mapped IPv6 (::ffff:a.b.c.d) can be used
+            # to bypass naive IPv4-only allowlists. The recursive call re-runs
+            # the private-IP check on the mapped IPv4 form.
+            # #VERIFY: add a regression test that an IPv4-mapped IPv6 address
+            # pointing at an RFC1918 range is classified as private.
             if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
                 return SSRFPreventionMiddleware._is_private_ip(str(ip.ipv4_mapped))
 
@@ -343,9 +359,13 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
 
         try:
             parsed = urlparse(url)
-            return parsed.hostname
-        except Exception:
+        except ValueError:
+            # urlparse raises ValueError on malformed inputs (e.g. embedded
+            # control chars). Treat as "no host" so downstream checks short
+            # circuit via the caller's ``if not host`` guard.
+            logger.warning("ssrf_url_parse_failed_host", url_len=len(url))
             return None
+        return parsed.hostname
 
     @staticmethod
     def _extract_scheme_from_url(url: str) -> str | None:
@@ -361,9 +381,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
 
         try:
             parsed = urlparse(url)
-            return parsed.scheme.lower() if parsed.scheme else None
-        except Exception:
+        except ValueError:
+            logger.warning("ssrf_url_parse_failed_scheme", url_len=len(url))
             return None
+        return parsed.scheme.lower() if parsed.scheme else None
 
     def _has_blocked_scheme(self, url: str) -> bool:
         """Check if URL uses a blocked scheme.
@@ -539,36 +560,3 @@ def add_security_middleware(
     # SSRF prevention (OWASP A10)
     if config.enable_ssrf_prevention:
         app.add_middleware(SSRFPreventionMiddleware)
-
-
-# Example usage in main.py:
-"""
-from fastapi import FastAPI
-from llc_manager.middleware.security import add_security_middleware, SecurityConfig
-
-app = FastAPI()
-
-# Add all security middleware with custom configuration
-config = SecurityConfig(
-    enable_https_redirect=True,  # Production only
-    enable_rate_limiting=True,
-    allowed_origins=[
-        "https://example.com",
-        "https://app.example.com",
-    ],
-    allowed_hosts=[
-        "api.example.com",
-        "localhost",  # Development only
-    ],
-    rate_limit_rpm=100,
-)
-add_security_middleware(app, config)
-
-# Or use defaults:
-# add_security_middleware(app)
-
-# Your routes here
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-"""

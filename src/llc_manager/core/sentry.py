@@ -28,7 +28,9 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from llc_manager.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -80,30 +82,45 @@ def init_sentry(config: SentryConfig | None = None) -> None:
         >>> init_sentry()
         >>>
         >>> # Using explicit configuration
-        >>> init_sentry(SentryConfig(
-        ...     environment="production",
-        ...     traces_sample_rate=0.2,  # Sample 20% of requests
-        ... ))
+        >>> init_sentry(
+        ...     SentryConfig(
+        ...         environment="production",
+        ...         traces_sample_rate=0.2,  # Sample 20% of requests
+        ...     )
+        ... )
     """
+    # #EDGE: External resource - sentry_sdk is an optional install. Missing
+    # package must fail soft (log + return) so the app boots without it.
+    # #VERIFY: Unit test initialize path with sentry_sdk uninstalled (mock
+    # ImportError) asserts no exception propagates.
     if config is None:
         config = SentryConfig.from_env()
     try:
         import sentry_sdk  # noqa: PLC0415  # Import only when Sentry is configured
-        from sentry_sdk.integrations.fastapi import FastApiIntegration  # noqa: PLC0415
-        from sentry_sdk.integrations.logging import LoggingIntegration  # noqa: PLC0415
-        from sentry_sdk.integrations.sqlalchemy import (
+        from sentry_sdk.integrations.fastapi import (  # noqa: PLC0415  # Load only when Sentry is configured
+            FastApiIntegration,
+        )
+        from sentry_sdk.integrations.logging import (  # noqa: PLC0415  # Load only when Sentry is configured
+            LoggingIntegration,
+        )
+        from sentry_sdk.integrations.sqlalchemy import (  # noqa: PLC0415  # Load only when Sentry is configured
             SqlalchemyIntegration,
         )
-        from sentry_sdk.integrations.starlette import (
+        from sentry_sdk.integrations.starlette import (  # noqa: PLC0415  # Load only when Sentry is configured
             StarletteIntegration,
         )
     except ImportError:
         logger.warning(
-            "Sentry SDK not installed. Install with: uv add sentry-sdk[fastapi]"
+            "sentry_sdk_not_installed",
+            install_hint="uv add sentry-sdk[fastapi]",
         )
         return
 
-    # Use DSN from config or environment
+    # #ASSUME: Security - SENTRY_DSN absent is interpreted as "telemetry off",
+    # not an error state. Silent telemetry-off is safe for local dev but must
+    # not mask a misconfigured prod deployment.
+    # #VERIFY: Deployment smoke test asserts SENTRY_DSN is set in staging and
+    # production environments via env-specific CI checks.
     dsn = config.dsn or os.getenv("SENTRY_DSN")
     if not dsn:
         logger.info("SENTRY_DSN not set. Sentry integration disabled.")
@@ -137,14 +154,18 @@ def init_sentry(config: SentryConfig | None = None) -> None:
     # SQLAlchemy integration - track database queries
     integrations.append(SqlalchemyIntegration())
     # Initialize Sentry
-    sentry_sdk.init(
+    # pyright: ignore[reportCallIssue, reportArgumentType] justified: sentry_sdk is imported
+    # lazily above in a try/except, so pyright cannot resolve the real init() signature.
+    sentry_sdk.init(  # pyright: ignore[reportCallIssue, reportArgumentType]
         dsn=dsn,
         environment=environment,
         release=release,
         integrations=integrations,
         # Performance monitoring
         traces_sample_rate=config.traces_sample_rate if config.enable_tracing else 0.0,
-        profiles_sample_rate=config.profiles_sample_rate if config.enable_profiling else 0.0,
+        profiles_sample_rate=config.profiles_sample_rate
+        if config.enable_profiling
+        else 0.0,
         # Error sampling
         sample_rate=1.0,  # Send all errors
         # Additional options
@@ -152,7 +173,7 @@ def init_sentry(config: SentryConfig | None = None) -> None:
         attach_stacktrace=True,  # Include stack traces in messages
         send_default_pii=False,  # Don't send PII by default (GDPR compliance)
         # Custom options
-        before_send=before_send_hook,
+        before_send=before_send_hook,  # pyright: ignore[reportArgumentType]  # sentry_sdk EventProcessor uses Any-based kwargs; our typed hook is runtime-compatible
         before_breadcrumb=before_breadcrumb_hook,
     )
 
@@ -170,10 +191,14 @@ def _get_release_version() -> str:
     Returns:
         Release version string (e.g., "myapp@1.0.0" or "myapp@abc123")
     """
+    # Lazy import: the git SHA lookup is only attempted on first call, so
+    # the stdlib subprocess import cost is paid only when Sentry is actually
+    # initialised. Paying it at module load time is wasteful for processes
+    # that never reach this code path.
+    import subprocess  # noqa: PLC0415  # Lazy import; see docstring rationale
+
     # Try to get git SHA
     try:
-        import subprocess  # noqa: PLC0415  # Import only when needed (optional dependency)
-
         sha = (
             subprocess.check_output(
                 ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607  # Git is a trusted executable
@@ -188,14 +213,14 @@ def _get_release_version() -> str:
 
     # Fallback to package version
     try:
-        from importlib.metadata import (
-            version,  # Import only when needed
+        from importlib.metadata import (  # noqa: PLC0415  # Late import keeps stdlib cost out of hot path when version is cached
+            version,
         )
 
         pkg_version = version("llc-manager")
         return f"llc_manager@{pkg_version}"
-    except Exception:  # noqa: BLE001  # Intentionally broad - fallback to static version
-        pass
+    except Exception:  # noqa: BLE001  # Broad fallback to static version; logged below for observability
+        logger.debug("Version lookup failed; falling back to static version string")
 
     # Ultimate fallback
     return "llc_manager@0.1.0"
@@ -268,9 +293,12 @@ def before_breadcrumb_hook(
         Modified breadcrumb dictionary, or None to drop the breadcrumb
     """
     # Example: Don't include query parameters in HTTP breadcrumbs
-    if crumb.get("category") == "httplib":
-        if "data" in crumb and "query" in crumb["data"]:
-            crumb["data"]["query"] = "[FILTERED]"
+    if (
+        crumb.get("category") == "httplib"
+        and "data" in crumb
+        and "query" in crumb["data"]
+    ):
+        crumb["data"]["query"] = "[FILTERED]"
 
     return crumb
 
@@ -301,9 +329,17 @@ def capture_exception(
         ...     )
     """
     try:
-        import sentry_sdk
+        import sentry_sdk  # noqa: PLC0415  # Optional dep; imported lazily to avoid hard dependency
     except ImportError:
-        logger.warning("Sentry SDK not installed")
+        logger.warning("sentry_sdk_not_installed")
+        return
+
+    if sentry_sdk.Hub.current.client is None:
+        # Guard against silent loss: without an initialised client,
+        # sentry_sdk.capture_* calls become no-ops and exceptions are
+        # dropped. Log explicitly so the caller can diagnose why their
+        # error never reached Sentry.
+        logger.error("sentry_capture_attempted_before_init")
         return
 
     with sentry_sdk.push_scope() as scope:
@@ -346,9 +382,17 @@ def capture_message(
         ... )
     """
     try:
-        import sentry_sdk
+        import sentry_sdk  # noqa: PLC0415  # Optional dep; imported lazily to avoid hard dependency
     except ImportError:
-        logger.warning("Sentry SDK not installed")
+        logger.warning("sentry_sdk_not_installed")
+        return
+
+    if sentry_sdk.Hub.current.client is None:
+        # Guard against silent loss: without an initialised client,
+        # sentry_sdk.capture_* calls become no-ops and exceptions are
+        # dropped. Log explicitly so the caller can diagnose why their
+        # error never reached Sentry.
+        logger.error("sentry_capture_attempted_before_init")
         return
 
     with sentry_sdk.push_scope() as scope:
@@ -389,7 +433,7 @@ def set_user_context(
         ... )
     """
     try:
-        import sentry_sdk
+        import sentry_sdk  # noqa: PLC0415  # Optional dep; imported lazily to avoid hard dependency
     except ImportError:
         return
 
@@ -429,7 +473,7 @@ def add_breadcrumb(
         ... )
     """
     try:
-        import sentry_sdk
+        import sentry_sdk  # noqa: PLC0415  # Optional dep; imported lazily to avoid hard dependency
     except ImportError:
         return
 

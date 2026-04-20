@@ -29,16 +29,18 @@ from __future__ import annotations
 import functools
 import hashlib
 import json
-import logging
+import os
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from redis.asyncio import Redis, from_url
 from redis.exceptions import RedisError
 
+from llc_manager.utils.logging import get_logger
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 T = TypeVar("T")  # Covariant type variable for cached function return types
 
@@ -62,12 +64,9 @@ async def get_redis() -> Redis:
         >>> await redis.set("key", "value", ex=60)
         >>> value = await redis.get("key")
     """
-    global _redis_pool
+    global _redis_pool  # noqa: PLW0603  # Module-level lazy singleton; async locks would add overhead for idempotent init
 
     if _redis_pool is None:
-        # Get Redis URL from environment
-        import os
-
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
         _redis_pool = from_url(
@@ -91,7 +90,7 @@ async def close_redis() -> None:
 
     Call this on application shutdown.
     """
-    global _redis_pool
+    global _redis_pool  # noqa: PLW0603  # Shutdown path for the lazy singleton initialized in get_redis()
 
     if _redis_pool is not None:
         await _redis_pool.close()
@@ -200,7 +199,7 @@ async def _get_or_compute[T](
         cached_value = await redis.get(cache_key)
         if cached_value is not None:
             logger.debug("cache_hit", key=cache_key)
-            return json.loads(cached_value)  # type: ignore[return-value]
+            return json.loads(cached_value)  # type: ignore[return-value]  # json.loads returns Any; decorator generic narrows it at the call site
 
         # Cache miss - call original function
         logger.debug("cache_miss", key=cache_key)
@@ -216,8 +215,12 @@ async def _get_or_compute[T](
         return result
 
     except RedisError as e:
-        # If Redis is unavailable, gracefully degrade (call function directly)
-        logger.warning("cache_error", error=str(e), key=cache_key)
+        # Redis is unavailable: degrade gracefully by calling the wrapped
+        # function. `logger.exception` preserves the traceback so operators
+        # can correlate a latency spike (re-computation thundering-herd)
+        # with the underlying outage; a plain `.warning` would hide the
+        # traceback and make root-cause analysis harder.
+        logger.exception("cache_error", error=str(e), key=cache_key)
         return await func(*args, **kwargs)
 
 
@@ -349,9 +352,7 @@ async def invalidate_pattern(pattern: str) -> int:
         redis = await get_redis()
 
         # Find all matching keys
-        keys = []
-        async for key in redis.scan_iter(match=pattern, count=100):
-            keys.append(key)
+        keys = [key async for key in redis.scan_iter(match=pattern, count=100)]
 
         # Delete in batches
         if keys:

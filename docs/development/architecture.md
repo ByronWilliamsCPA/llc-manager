@@ -49,4 +49,4 @@ See `pyproject.toml` for the complete dependency list.
 
 ## Architecture Decision Records
 
-See the [ADRs directory](../ADRs/README.md) for documented architecture decisions.
+See the [ADRs directory](../planning/adr/README.md) for documented architecture decisions.

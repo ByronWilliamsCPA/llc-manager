@@ -11,7 +11,7 @@ from llc_manager.core.config import settings
 from llc_manager.db.base import Base
 
 # Import all models to register them with Base.metadata
-from llc_manager.models import (  # noqa: F401
+from llc_manager.models import (  # noqa: F401  # Imports required so Base.metadata picks up models for autogenerate
     BankAccount,
     Document,
     Entity,

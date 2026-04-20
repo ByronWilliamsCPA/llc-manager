@@ -1,7 +1,7 @@
 """Main FastAPI application for LLC Manager."""
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,16 +9,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from llc_manager.api.health import router as health_router
 from llc_manager.api.v1 import router as v1_router
 from llc_manager.core.config import settings
-from llc_manager.middleware.correlation import CorrelationIdMiddleware
-from llc_manager.middleware.security import SSRFProtectionMiddleware
+from llc_manager.middleware.correlation import CorrelationMiddleware
+from llc_manager.middleware.security import (
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    SSRFPreventionMiddleware,
+)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> Any:
+@asynccontextmanager  # pyright: ignore[reportDeprecated]  # typeshed flags this overload as deprecated, but FastAPI's `lifespan=` parameter still expects a contextlib-style async context manager; revisit when FastAPI ships a replacement
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan handler for startup and shutdown events.
 
     Args:
-        app: The FastAPI application instance.
+        _app: The FastAPI application instance (unused; required by FastAPI signature).
 
     Yields:
         None during the lifespan of the application.
@@ -53,9 +57,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Add custom middleware
-    app.add_middleware(CorrelationIdMiddleware)
-    app.add_middleware(SSRFProtectionMiddleware)
+    # Add custom middleware (order matters: CorrelationMiddleware must run first
+    # so correlation IDs are present in logs emitted by the later middleware).
+    app.add_middleware(CorrelationMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(SSRFPreventionMiddleware)
 
     # Include routers
     app.include_router(health_router, prefix="/api", tags=["Health"])

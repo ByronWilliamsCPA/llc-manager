@@ -81,7 +81,9 @@ class RegisteredAgent(Base, UUIDPrimaryKeyMixin, AuditMixin):
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
 
     # Relationships
-    entity: Mapped["Entity"] = relationship("Entity", back_populates="registered_agents")
+    entity: Mapped["Entity"] = relationship(
+        "Entity", back_populates="registered_agents"
+    )
 
     def __repr__(self) -> str:
         """Return string representation of the registered agent."""

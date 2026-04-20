@@ -23,9 +23,7 @@ class OwnerBase(BaseSchema):
     profit_share_percentage: Decimal | None = Field(
         None, ge=Decimal(0), le=Decimal(100)
     )
-    loss_share_percentage: Decimal | None = Field(
-        None, ge=Decimal(0), le=Decimal(100)
-    )
+    loss_share_percentage: Decimal | None = Field(None, ge=Decimal(0), le=Decimal(100))
     voting_percentage: Decimal | None = Field(None, ge=Decimal(0), le=Decimal(100))
 
     start_date: date | None = None
@@ -71,16 +69,12 @@ class OwnerUpdate(BaseSchema):
     owner_name: str | None = Field(None, min_length=1, max_length=255)
     owner_entity_id: UUID | None = None
     ownership_type: OwnershipType | None = None
-    ownership_percentage: Decimal | None = Field(
-        None, ge=Decimal(0), le=Decimal(100)
-    )
+    ownership_percentage: Decimal | None = Field(None, ge=Decimal(0), le=Decimal(100))
     capital_contribution: Decimal | None = Field(None, ge=Decimal(0))
     profit_share_percentage: Decimal | None = Field(
         None, ge=Decimal(0), le=Decimal(100)
     )
-    loss_share_percentage: Decimal | None = Field(
-        None, ge=Decimal(0), le=Decimal(100)
-    )
+    loss_share_percentage: Decimal | None = Field(None, ge=Decimal(0), le=Decimal(100))
     voting_percentage: Decimal | None = Field(None, ge=Decimal(0), le=Decimal(100))
 
     start_date: date | None = None

@@ -1,6 +1,6 @@
 """Tax filing model for tracking entity tax obligations and filings."""
 
-from datetime import date
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -134,7 +134,7 @@ class TaxFiling(Base, UUIDPrimaryKeyMixin, AuditMixin):
         if self.status == FilingStatus.FILED:
             return False
         if self.extended_due_date:
-            return date.today() > self.extended_due_date
+            return datetime.now(UTC).date() > self.extended_due_date
         if self.due_date:
-            return date.today() > self.due_date
+            return datetime.now(UTC).date() > self.due_date
         return False
