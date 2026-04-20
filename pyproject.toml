@@ -560,9 +560,10 @@ precision = 2
 show_missing = true
 
 # Coverage thresholds per global CLAUDE.md graduated coverage policy.
-# Line coverage 80% is enforced via pytest --cov-fail-under in CI.
-# Branch coverage 70% is enforced here; critical-path 90% is enforced via
-# the Codecov critical component status in codecov.yml.
+# `fail_under = 80` enforces overall line coverage at 80% at the coverage
+# tool level. Branch coverage is measured via pytest-cov `--cov-branch` and
+# reported to Codecov, but is not enforced as a separate gate here; the
+# critical-path 90% target lives in the Codecov `critical` component.
 fail_under = 80
 skip_covered = false
 

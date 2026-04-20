@@ -303,7 +303,7 @@ The OpenSSF Best Practices badge requires manual project registration:
 
 1. **Register your project**: Visit [https://www.bestpractices.dev/en](https://www.bestpractices.dev/en)
 2. **Click "Get Your Badge Now"**
-3. **Enter your repository URL**: `https://github.com/ByronWilliamsCPA/llc_manager`
+3. **Enter your repository URL**: `https://github.com/ByronWilliamsCPA/llc-manager`
 4. **Complete the questionnaire** answering questions about your project's security practices
 5. **Get your badge ID** (e.g., `12345`)
 6. **Add the badge to your README**:
@@ -325,7 +325,7 @@ The OpenSSF Best Practices badge requires manual project registration:
 
 1. **Sign up/Login**: Visit [https://sonarcloud.io](https://sonarcloud.io) and authenticate with GitHub
 2. **Import your repository**
-3. **Get your project key**: Should be `ByronWilliamsCPA_llc_manager`
+3. **Get your project key**: Should be `ByronWilliamsCPA_llc-manager`
 4. **Create a token**: Account > Security > Generate Token
 5. **Add as GitHub secret**: Repository Settings > Secrets > `SONAR_TOKEN`
 

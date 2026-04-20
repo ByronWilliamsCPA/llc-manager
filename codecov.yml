@@ -16,9 +16,11 @@ coverage:
   status:
     project:
       default:
-        # Line coverage per global CLAUDE.md: 80%
-        # Branch coverage target 70% is enforced at the coverage tool level;
-        # see [tool.coverage.report] fail_under and --cov-branch in pyproject.toml.
+        # Line coverage per global CLAUDE.md: 80% (enforced here and via
+        # [tool.coverage.report] fail_under in pyproject.toml). Branch coverage
+        # is measured (pytest-cov --cov-branch) and visible on Codecov but is
+        # not enforced as a separate gate; add a branch-specific status block
+        # below when a branch threshold is introduced.
         target: 80%
         threshold: 2%
         if_ci_failed: error

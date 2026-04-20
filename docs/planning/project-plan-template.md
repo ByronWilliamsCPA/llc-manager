@@ -75,7 +75,7 @@ LLC Manager is a [brief description of what the project does]. This document out
 
 [Describe the overall system design]
 
-```
+```text
 ┌─────────────────────────────────────┐
 │   Component/Module 1                 │
 ├─────────────────────────────────────┤
@@ -93,17 +93,17 @@ LLC Manager is a [brief description of what the project does]. This document out
 
 ### Module Responsibilities
 
-**[Module 1 Name](relative/path/to/module.py)**
+**Module 1 Name** (`relative/path/to/module.py`)
 - Core functionality description
 - Key features and capabilities
 - Dependencies and integration points
 
-**[Module 2 Name](relative/path/to/module.py)**
+**Module 2 Name** (`relative/path/to/module.py`)
 - Core functionality description
 - Key features and capabilities
 - Dependencies and integration points
 
-**[Module 3 Name](relative/path/to/module.py)**
+**Module 3 Name** (`relative/path/to/module.py`)
 - Core functionality description
 - Key features and capabilities
 - Dependencies and integration points
@@ -112,7 +112,7 @@ LLC Manager is a [brief description of what the project does]. This document out
 
 [Describe how data flows through the system]
 
-```
+```text
 Input → Processing → Output
   ↓         ↓          ↓
 Step1    Step2       Step3
@@ -172,7 +172,7 @@ git checkout -b feat/phase-1-core
 - Create baseline documentation
 
 **Key Deliverables**:
-- [ ] Project skeleton with Poetry configuration
+- [ ] Project skeleton with UV configuration
 - [ ] Git repository with branch protection
 - [ ] Pre-commit hooks and CI/CD pipeline
 - [ ] Initial documentation structure
@@ -194,7 +194,7 @@ git checkout -b feat/phase-1-core
 - [ ] All tests pass (80%+ coverage)
 - [ ] All pre-commit hooks pass
 - [ ] Documentation builds without errors
-- [ ] Team can run `poetry install` and start development
+- [ ] Team can run `uv sync --all-extras` and start development
 
 ---
 

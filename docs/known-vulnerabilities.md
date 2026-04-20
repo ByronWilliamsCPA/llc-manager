@@ -10,9 +10,12 @@ tags:
 ---
 
 Every `pip-audit` or `safety` finding that cannot be immediately resolved must
-be recorded here with a mandatory 60-day reassessment. The OpenSSF release
-gate blocks releases for any entry older than 60 days regardless of reassessment
-status (see global `~/.claude/CLAUDE.md` section on unfixed CVEs).
+be recorded here with a mandatory 60-day reassessment. Each entry tracks both
+the original `Introduced` date (when the risk was first accepted) and
+`Last reassessed` (when the acceptance rationale was most recently reviewed);
+`Reassess by` is always within 60 days of `Last reassessed`. The OpenSSF
+release gate blocks releases for any entry whose `Last reassessed` date is
+older than 60 days (see global `~/.claude/CLAUDE.md` section on unfixed CVEs).
 
 ## Format
 
@@ -26,7 +29,8 @@ status (see global `~/.claude/CLAUDE.md` section on unfixed CVEs).
 | **Severity** | Low / Medium / High / Critical (CVSS X.X) |
 | **Status** | Accepted risk |
 | **Introduced** | YYYY-MM-DD |
-| **Reassess by** | YYYY-MM-DD (within 60 days) |
+| **Last reassessed** | YYYY-MM-DD |
+| **Reassess by** | YYYY-MM-DD (within 60 days of Last reassessed) |
 
 **Description**: what the vulnerability is.
 
@@ -52,6 +56,7 @@ status (see global `~/.claude/CLAUDE.md` section on unfixed CVEs).
 | **Severity** | Medium |
 | **Status** | Accepted risk |
 | **Introduced** | 2026-01-18 |
+| **Last reassessed** | 2026-04-20 |
 | **Reassess by** | 2026-06-19 |
 
 **Description**: ReDoS in `py.path.svnwc.SvnWCCommandPath` when processing
@@ -86,7 +91,8 @@ the dep is dropped.
 | **Severity** | High (CVSS 8.5) |
 | **Status** | Accepted risk |
 | **Introduced** | 2026-01-18 |
-| **Reassess by** | 2026-06-19 (within 60 days of 2026-04-20 consolidation) |
+| **Last reassessed** | 2026-04-20 |
+| **Reassess by** | 2026-06-19 |
 
 **Description**: Uncontrolled search-path vulnerability on Windows allowing
 code execution via a malicious `inkscape.bat` file when converting notebooks
@@ -107,8 +113,8 @@ local notebook exploration, not runtime.
 **Resolution path**: await upstream fix or drop the `jupyter` dev dependency
 if no fix lands before the reassessment date.
 
-**Tracking**: [SECURITY.md](../SECURITY.md#cve-2025-53000-nbconvert---accepted-risk)
-contains the original full risk assessment.
+**Tracking**: GHSA-xm59-rqc7-hhvf upstream advisory.
+See the project `SECURITY.md` for the full risk assessment summary.
 
 ---
 
