@@ -1,6 +1,6 @@
 """Document model for tracking entity documents and files."""
 
-from datetime import date
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -135,7 +135,7 @@ class Document(Base, UUIDPrimaryKeyMixin, AuditMixin):
     def is_expired(self) -> bool:
         """Check if the document has expired."""
         if self.expiration_date:
-            return date.today() > self.expiration_date
+            return datetime.now(UTC).date() > self.expiration_date
         return False
 
     @property

@@ -80,10 +80,12 @@ def init_sentry(config: SentryConfig | None = None) -> None:
         >>> init_sentry()
         >>>
         >>> # Using explicit configuration
-        >>> init_sentry(SentryConfig(
-        ...     environment="production",
-        ...     traces_sample_rate=0.2,  # Sample 20% of requests
-        ... ))
+        >>> init_sentry(
+        ...     SentryConfig(
+        ...         environment="production",
+        ...         traces_sample_rate=0.2,  # Sample 20% of requests
+        ...     )
+        ... )
     """
     if config is None:
         config = SentryConfig.from_env()
@@ -91,10 +93,10 @@ def init_sentry(config: SentryConfig | None = None) -> None:
         import sentry_sdk  # noqa: PLC0415  # Import only when Sentry is configured
         from sentry_sdk.integrations.fastapi import FastApiIntegration  # noqa: PLC0415
         from sentry_sdk.integrations.logging import LoggingIntegration  # noqa: PLC0415
-        from sentry_sdk.integrations.sqlalchemy import (
+        from sentry_sdk.integrations.sqlalchemy import (  # noqa: PLC0415  # Load only when Sentry is configured
             SqlalchemyIntegration,
         )
-        from sentry_sdk.integrations.starlette import (
+        from sentry_sdk.integrations.starlette import (  # noqa: PLC0415  # Load only when Sentry is configured
             StarletteIntegration,
         )
     except ImportError:
@@ -144,7 +146,9 @@ def init_sentry(config: SentryConfig | None = None) -> None:
         integrations=integrations,
         # Performance monitoring
         traces_sample_rate=config.traces_sample_rate if config.enable_tracing else 0.0,
-        profiles_sample_rate=config.profiles_sample_rate if config.enable_profiling else 0.0,
+        profiles_sample_rate=config.profiles_sample_rate
+        if config.enable_profiling
+        else 0.0,
         # Error sampling
         sample_rate=1.0,  # Send all errors
         # Additional options
@@ -188,14 +192,14 @@ def _get_release_version() -> str:
 
     # Fallback to package version
     try:
-        from importlib.metadata import (
-            version,  # Import only when needed
+        from importlib.metadata import (  # noqa: PLC0415  # Late import keeps stdlib cost out of hot path when version is cached
+            version,
         )
 
         pkg_version = version("llc-manager")
         return f"llc_manager@{pkg_version}"
-    except Exception:  # noqa: BLE001  # Intentionally broad - fallback to static version
-        pass
+    except Exception:  # noqa: BLE001  # Broad fallback to static version; logged below for observability
+        logger.debug("Version lookup failed; falling back to static version string")
 
     # Ultimate fallback
     return "llc_manager@0.1.0"
@@ -268,9 +272,12 @@ def before_breadcrumb_hook(
         Modified breadcrumb dictionary, or None to drop the breadcrumb
     """
     # Example: Don't include query parameters in HTTP breadcrumbs
-    if crumb.get("category") == "httplib":
-        if "data" in crumb and "query" in crumb["data"]:
-            crumb["data"]["query"] = "[FILTERED]"
+    if (
+        crumb.get("category") == "httplib"
+        and "data" in crumb
+        and "query" in crumb["data"]
+    ):
+        crumb["data"]["query"] = "[FILTERED]"
 
     return crumb
 
@@ -301,7 +308,7 @@ def capture_exception(
         ...     )
     """
     try:
-        import sentry_sdk
+        import sentry_sdk  # noqa: PLC0415  # Optional dep; imported lazily to avoid hard dependency
     except ImportError:
         logger.warning("Sentry SDK not installed")
         return
@@ -346,7 +353,7 @@ def capture_message(
         ... )
     """
     try:
-        import sentry_sdk
+        import sentry_sdk  # noqa: PLC0415  # Optional dep; imported lazily to avoid hard dependency
     except ImportError:
         logger.warning("Sentry SDK not installed")
         return
@@ -389,7 +396,7 @@ def set_user_context(
         ... )
     """
     try:
-        import sentry_sdk
+        import sentry_sdk  # noqa: PLC0415  # Optional dep; imported lazily to avoid hard dependency
     except ImportError:
         return
 
@@ -429,7 +436,7 @@ def add_breadcrumb(
         ... )
     """
     try:
-        import sentry_sdk
+        import sentry_sdk  # noqa: PLC0415  # Optional dep; imported lazily to avoid hard dependency
     except ImportError:
         return
 

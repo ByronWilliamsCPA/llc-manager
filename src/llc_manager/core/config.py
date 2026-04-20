@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     database_host: str = "localhost"
     database_port: int = 5432
     database_user: str = "llc_manager"
-    database_password: str = "llc_manager"
+    database_password: str = "llc_manager"  # noqa: S105  # Local-dev default matching docker-compose; production overrides via LLC_MANAGER_DATABASE_PASSWORD
     database_name: str = "llc_manager"
     database_echo: bool = False
     database_pool_size: int = 5

@@ -30,6 +30,7 @@ import functools
 import hashlib
 import json
 import logging
+import os
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from redis.asyncio import Redis, from_url
@@ -62,12 +63,9 @@ async def get_redis() -> Redis:
         >>> await redis.set("key", "value", ex=60)
         >>> value = await redis.get("key")
     """
-    global _redis_pool
+    global _redis_pool  # noqa: PLW0603  # Module-level lazy singleton; async locks would add overhead for idempotent init
 
     if _redis_pool is None:
-        # Get Redis URL from environment
-        import os
-
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
         _redis_pool = from_url(
@@ -91,7 +89,7 @@ async def close_redis() -> None:
 
     Call this on application shutdown.
     """
-    global _redis_pool
+    global _redis_pool  # noqa: PLW0603  # Shutdown path for the lazy singleton initialized in get_redis()
 
     if _redis_pool is not None:
         await _redis_pool.close()
@@ -349,9 +347,7 @@ async def invalidate_pattern(pattern: str) -> int:
         redis = await get_redis()
 
         # Find all matching keys
-        keys = []
-        async for key in redis.scan_iter(match=pattern, count=100):
-            keys.append(key)
+        keys = [key async for key in redis.scan_iter(match=pattern, count=100)]
 
         # Delete in batches
         if keys:

@@ -14,11 +14,11 @@ from llc_manager.middleware.security import SSRFProtectionMiddleware
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> Any:
+async def lifespan(_app: FastAPI) -> Any:
     """Application lifespan handler for startup and shutdown events.
 
     Args:
-        app: The FastAPI application instance.
+        _app: The FastAPI application instance (unused; required by FastAPI signature).
 
     Yields:
         None during the lifespan of the application.

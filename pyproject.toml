@@ -283,6 +283,7 @@ ignore = [
     "FBT001", # Boolean positional arg (acceptable in DSLs)
     "FBT002", # Boolean default arg (acceptable in DSLs)
     "TRY003", # Long exception messages (descriptive is good)
+    "TRY300", # Success return in else block - stylistic; return-in-try is fine when except handles its own error path
 ]
 
 # McCabe Complexity Configuration (Google/Pylint alignment)

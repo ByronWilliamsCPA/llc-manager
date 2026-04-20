@@ -316,7 +316,7 @@ def configure_sentry_correlation() -> None:
         >>> sentry_sdk.init(dsn="...")
         >>> configure_sentry_correlation()
     """
-    import sentry_sdk
+    import sentry_sdk  # noqa: PLC0415  # Optional dep; imported lazily to avoid hard dependency
 
     # Get current options and add before_send
     current_client = sentry_sdk.get_client()
