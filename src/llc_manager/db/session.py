@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from llc_manager.core.config import settings
+from llc_manager.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 # #CRITICAL: Concurrency - database pool size (`database_pool_size` + `max_overflow`)
 # caps simultaneous in-flight queries. Exceeding the cap serializes requests and
@@ -46,13 +49,18 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     # #CRITICAL: Data integrity - `yield` commits only if the endpoint returns
     # cleanly; any exception rolls back. FastAPI dependencies called mid-request
     # must not swallow exceptions, or data will commit in an unexpected state.
-    # #VERIFY: Integration test that asserts session rollback on HTTPException
-    # raised by endpoint code after session mutation.
+    # #VERIFY (pending): integration test that asserts session rollback on
+    # HTTPException raised by endpoint code after session mutation. This test
+    # does not yet exist; tracked for the Phase 1 test uplift.
     async with AsyncSessionLocal() as session:
         try:
             yield session
             await session.commit()
         except Exception:
+            # logger.exception preserves the traceback so rollbacks are not
+            # invisible when the endpoint handler itself does not log. The
+            # exception is re-raised; FastAPI still maps it to a response.
+            logger.exception("db_session_rollback")
             await session.rollback()
             raise
         finally:

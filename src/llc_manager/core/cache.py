@@ -215,8 +215,12 @@ async def _get_or_compute[T](
         return result
 
     except RedisError as e:
-        # If Redis is unavailable, gracefully degrade (call function directly)
-        logger.warning("cache_error", error=str(e), key=cache_key)
+        # Redis is unavailable: degrade gracefully by calling the wrapped
+        # function. `logger.exception` preserves the traceback so operators
+        # can correlate a latency spike (re-computation thundering-herd)
+        # with the underlying outage; a plain `.warning` would hide the
+        # traceback and make root-cause analysis harder.
+        logger.exception("cache_error", error=str(e), key=cache_key)
         return await func(*args, **kwargs)
 
 

@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import logging
 import os
-import subprocess
 from dataclasses import dataclass
 from typing import Any
 
@@ -98,8 +97,12 @@ def init_sentry(config: SentryConfig | None = None) -> None:
         config = SentryConfig.from_env()
     try:
         import sentry_sdk  # noqa: PLC0415  # Import only when Sentry is configured
-        from sentry_sdk.integrations.fastapi import FastApiIntegration  # noqa: PLC0415
-        from sentry_sdk.integrations.logging import LoggingIntegration  # noqa: PLC0415
+        from sentry_sdk.integrations.fastapi import (  # noqa: PLC0415  # Load only when Sentry is configured
+            FastApiIntegration,
+        )
+        from sentry_sdk.integrations.logging import (  # noqa: PLC0415  # Load only when Sentry is configured
+            LoggingIntegration,
+        )
         from sentry_sdk.integrations.sqlalchemy import (  # noqa: PLC0415  # Load only when Sentry is configured
             SqlalchemyIntegration,
         )
@@ -108,7 +111,8 @@ def init_sentry(config: SentryConfig | None = None) -> None:
         )
     except ImportError:
         logger.warning(
-            "Sentry SDK not installed. Install with: uv add sentry-sdk[fastapi]"
+            "sentry_sdk_not_installed",
+            install_hint="uv add sentry-sdk[fastapi]",
         )
         return
 
@@ -187,6 +191,12 @@ def _get_release_version() -> str:
     Returns:
         Release version string (e.g., "myapp@1.0.0" or "myapp@abc123")
     """
+    # Lazy import: the git SHA lookup is only attempted on first call, so
+    # the stdlib subprocess import cost is paid only when Sentry is actually
+    # initialised. Paying it at module load time is wasteful for processes
+    # that never reach this code path.
+    import subprocess  # noqa: PLC0415  # Lazy import; see docstring rationale
+
     # Try to get git SHA
     try:
         sha = (
@@ -321,7 +331,15 @@ def capture_exception(
     try:
         import sentry_sdk  # noqa: PLC0415  # Optional dep; imported lazily to avoid hard dependency
     except ImportError:
-        logger.warning("Sentry SDK not installed")
+        logger.warning("sentry_sdk_not_installed")
+        return
+
+    if sentry_sdk.Hub.current.client is None:
+        # Guard against silent loss: without an initialised client,
+        # sentry_sdk.capture_* calls become no-ops and exceptions are
+        # dropped. Log explicitly so the caller can diagnose why their
+        # error never reached Sentry.
+        logger.error("sentry_capture_attempted_before_init")
         return
 
     with sentry_sdk.push_scope() as scope:
@@ -366,7 +384,15 @@ def capture_message(
     try:
         import sentry_sdk  # noqa: PLC0415  # Optional dep; imported lazily to avoid hard dependency
     except ImportError:
-        logger.warning("Sentry SDK not installed")
+        logger.warning("sentry_sdk_not_installed")
+        return
+
+    if sentry_sdk.Hub.current.client is None:
+        # Guard against silent loss: without an initialised client,
+        # sentry_sdk.capture_* calls become no-ops and exceptions are
+        # dropped. Log explicitly so the caller can diagnose why their
+        # error never reached Sentry.
+        logger.error("sentry_capture_attempted_before_init")
         return
 
     with sentry_sdk.push_scope() as scope:

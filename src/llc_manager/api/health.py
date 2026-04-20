@@ -20,7 +20,17 @@ import time
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
+from llc_manager.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/health", tags=["health"])
+
+# Generic, operator-safe readiness error message. The raw driver exception is
+# written to the structured log with full context (correlation ID, stack
+# trace); clients receive only this opaque string so internal topology does
+# not leak via the 503 response body.
+_READINESS_ERROR_MESSAGE = "database_unavailable"
 
 # Track application start time for uptime calculation
 _START_TIME = time.time()
@@ -103,73 +113,17 @@ async def check_database() -> ReadinessCheck:
             status=True,
             latency_ms=round(latency_ms, 2),
         )
-    except Exception as e:
+    except Exception:
+        # Log full driver exception with stack trace for operators; clients
+        # receive an opaque error string so DB host / port / credentials do
+        # not leak via the public readiness endpoint.
         latency_ms = (time.time() - start) * 1000
+        logger.exception("database_readiness_check_failed")
         return ReadinessCheck(
             name="database",
             status=False,
             latency_ms=round(latency_ms, 2),
-            error=str(e),
-        )
-
-
-async def check_cache() -> ReadinessCheck:
-    """Check Redis/cache connectivity.
-
-    Returns:
-        ReadinessCheck with cache status and latency
-    """
-    start = time.time()
-    try:
-        # Example Redis check - adjust based on your cache implementation
-        # from llc_manager.core.cache import redis_client
-        # await redis_client.ping()
-
-        # Placeholder - replace with actual cache check
-        latency_ms = (time.time() - start) * 1000
-        return ReadinessCheck(
-            name="cache",
-            status=True,
-            latency_ms=round(latency_ms, 2),
-        )
-    except Exception as e:
-        latency_ms = (time.time() - start) * 1000
-        return ReadinessCheck(
-            name="cache",
-            status=False,
-            latency_ms=round(latency_ms, 2),
-            error=str(e),
-        )
-
-
-async def check_external_service() -> ReadinessCheck:
-    """Check external API/service connectivity.
-
-    Returns:
-        ReadinessCheck with external service status
-    """
-    start = time.time()
-    try:
-        # Example external service check
-        # import httpx
-        # async with httpx.AsyncClient() as client:
-        #     response = await client.get("https://api.example.com/health", timeout=2.0)
-        #     response.raise_for_status()
-
-        # Placeholder - replace with actual external service check
-        latency_ms = (time.time() - start) * 1000
-        return ReadinessCheck(
-            name="external_api",
-            status=True,
-            latency_ms=round(latency_ms, 2),
-        )
-    except Exception as e:
-        latency_ms = (time.time() - start) * 1000
-        return ReadinessCheck(
-            name="external_api",
-            status=False,
-            latency_ms=round(latency_ms, 2),
-            error=str(e),
+            error=_READINESS_ERROR_MESSAGE,
         )
 
 
@@ -196,14 +150,10 @@ async def readiness() -> ReadinessStatus:
     """
     checks: dict[str, ReadinessCheck] = {}
 
-    # Run all checks in parallel for better performance
-    # For now, run sequentially - can be optimized with asyncio.gather()
+    # Run checks. Add cache / external-service probes via additional
+    # check_<name>() helpers when those dependencies are actually wired;
+    # a placeholder probe that always returns True would mislead operators.
     checks["database"] = await check_database()
-    # Uncomment if using cache:
-    # checks["cache"] = await check_cache()
-
-    # Uncomment if checking external services:
-    # checks["external_api"] = await check_external_service()
 
     # Determine overall status
     all_healthy = all(check.status for check in checks.values())
