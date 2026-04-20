@@ -25,10 +25,13 @@ from __future__ import annotations
 
 import logging
 import os
+import subprocess
 from dataclasses import dataclass
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from llc_manager.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -139,7 +142,9 @@ def init_sentry(config: SentryConfig | None = None) -> None:
     # SQLAlchemy integration - track database queries
     integrations.append(SqlalchemyIntegration())
     # Initialize Sentry
-    sentry_sdk.init(
+    # pyright: ignore[reportCallIssue, reportArgumentType] justified: sentry_sdk is imported
+    # lazily above in a try/except, so pyright cannot resolve the real init() signature.
+    sentry_sdk.init(  # pyright: ignore[reportCallIssue, reportArgumentType]
         dsn=dsn,
         environment=environment,
         release=release,
@@ -156,7 +161,7 @@ def init_sentry(config: SentryConfig | None = None) -> None:
         attach_stacktrace=True,  # Include stack traces in messages
         send_default_pii=False,  # Don't send PII by default (GDPR compliance)
         # Custom options
-        before_send=before_send_hook,
+        before_send=before_send_hook,  # pyright: ignore[reportArgumentType]  # sentry_sdk EventProcessor uses Any-based kwargs; our typed hook is runtime-compatible
         before_breadcrumb=before_breadcrumb_hook,
     )
 
@@ -176,8 +181,6 @@ def _get_release_version() -> str:
     """
     # Try to get git SHA
     try:
-        import subprocess  # noqa: PLC0415  # Import only when needed (optional dependency)
-
         sha = (
             subprocess.check_output(
                 ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607  # Git is a trusted executable

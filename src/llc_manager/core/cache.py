@@ -29,17 +29,18 @@ from __future__ import annotations
 import functools
 import hashlib
 import json
-import logging
 import os
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from redis.asyncio import Redis, from_url
 from redis.exceptions import RedisError
 
+from llc_manager.utils.logging import get_logger
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 T = TypeVar("T")  # Covariant type variable for cached function return types
 

@@ -41,8 +41,10 @@ class ReadinessCheck(BaseModel):
 
     name: str = Field(..., description="Dependency name")
     status: bool = Field(..., description="Check passed")
-    latency_ms: float | None = Field(None, description="Check latency in milliseconds")
-    error: str | None = Field(None, description="Error message if failed")
+    latency_ms: float | None = Field(
+        default=None, description="Check latency in milliseconds"
+    )
+    error: str | None = Field(default=None, description="Error message if failed")
 
 
 class ReadinessStatus(HealthStatus):
@@ -83,11 +85,17 @@ async def check_database() -> ReadinessCheck:
     start = time.time()
     try:
         # Import here to avoid circular dependencies
-        from llc_manager.core.database import get_session
+        from sqlalchemy import (
+            text,  # Local import keeps SQLAlchemy off the hot path when only liveness runs
+        )
 
-        async with get_session() as session:
+        from llc_manager.db.session import (
+            AsyncSessionLocal,  # Avoids coupling module import to DB engine init
+        )
+
+        async with AsyncSessionLocal() as session:
             # Simple query to check connectivity
-            await session.execute("SELECT 1")
+            await session.execute(text("SELECT 1"))
 
         latency_ms = (time.time() - start) * 1000
         return ReadinessCheck(
