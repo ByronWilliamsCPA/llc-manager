@@ -8,8 +8,8 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>{{ cookiecutter.project_name }}</h1>
-        <p>{{ cookiecutter.project_short_description }}</p>
+        <h1>LLC Manager</h1>
+        <p>Manage LLC entities, track compliance dates, and maintain ownership structures.</p>
       </header>
 
       <main className="app-main">
