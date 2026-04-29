@@ -210,7 +210,7 @@ These rules catch bugs that standard linting misses and enforce production-quali
 uv run pytest -v
 
 # Run specific test file
-uv run pytest tests/unit/test_entities.py -v
+uv run pytest tests/unit/test_health.py -v
 
 # Run with coverage report
 uv run pytest --cov=src --cov-report=term-missing
