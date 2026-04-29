@@ -2,8 +2,13 @@
 # OpenSSF Scorecard for LLC Manager
 # Security posture assessment and supply chain security validation.
 #
-# Dashboard: https://securityscorecards.dev/viewer/?uri=github.com/ByronWilliamsCPA/llc_manager
+# Dashboard: https://securityscorecards.dev/viewer/?uri=github.com/ByronWilliamsCPA/llc-manager
 # Documentation: https://github.com/ossf/scorecard
+#
+# publish-results is false: scorecard-action OIDC publication does not work
+# from an org-level reusable workflow callsite. The OIDC token's repository
+# claim mismatches when the action runs in the org context rather than the
+# calling repo context. Re-enable once the action supports this topology.
 name: OpenSSF Scorecard
 
 on:
@@ -27,8 +32,8 @@ permissions:
 jobs:
   scorecard:
     name: Scorecard Analysis
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-scorecard.yml@d18c93045bef4f6669488c7657543a5b7e04f8ed # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-scorecard.yml@f8b77aaa921d33519d10fbef87a2dae08872e4ed # main
     with:
-      publish-results: true
+      publish-results: false
       upload-sarif: true
       artifact-retention-days: 5
