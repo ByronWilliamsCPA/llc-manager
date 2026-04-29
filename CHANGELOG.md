@@ -78,9 +78,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `docs/planning/project-plan-template.md`
 - REUSE 3.2 compliance failure from unused license files
 - SonarCloud analysis `404` on `api.sonarcloud.io/analysis/analyses`;
-  `SONAR_HOST_URL` set to `https://sonarqube.io` in both the scan and
-  quality-gate steps of `sonarcloud.yml`, and `sonar.host.url` added to
-  `sonar-project.properties` to match the migrated SonarQube Cloud endpoint
+  `sonarqube-scan-action` upgraded from v4.0.0 (SonarScanner CLI 6.x) to
+  v7.2.0 (CLI 7.x) and `sonar.region=us` added to scanner args and
+  `sonar-project.properties`; CLI 6.x called an internal REST endpoint that
+  requires explicit region routing only available in CLI 7.1.0+
 
 ## [0.1.0] - TBD
 
