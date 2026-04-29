@@ -42,6 +42,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `health.py` that always returned `status=True`
 
 ### Fixed
+
+- README.md badge URLs corrected: GitHub Actions, Codecov, OpenSSF Scorecard,
+  and REUSE badges updated from `llc_manager` to `llc-manager` to match the
+  GitHub repository slug; SonarCloud badge project keys remain as
+  `ByronWilliamsCPA_llc_manager` to match the registered SonarCloud project;
+  Quick Start `cd` instruction corrected from `llc_manager` to `llc-manager`
 - Pre-existing Phase 0 bugs: bad import in `api/health.py`, wrong
   middleware class names in `main.py`, non-existent `.pop()` on
   Starlette `MutableHeaders` in `middleware/security.py`, wrong
