@@ -27,7 +27,10 @@ def db_unavailable_client() -> Generator[TestClient, None, None]:
             error="database_unavailable",
         )
     )
-    with patch("llc_manager.api.health.check_database", mock_check), TestClient(create_app()) as c:
+    with (
+        patch("llc_manager.api.health.check_database", mock_check),
+        TestClient(create_app()) as c,
+    ):
         yield c
 
 
@@ -41,7 +44,10 @@ def db_available_client() -> Generator[TestClient, None, None]:
             latency_ms=1.0,
         )
     )
-    with patch("llc_manager.api.health.check_database", mock_check), TestClient(create_app()) as c:
+    with (
+        patch("llc_manager.api.health.check_database", mock_check),
+        TestClient(create_app()) as c,
+    ):
         yield c
 
 
