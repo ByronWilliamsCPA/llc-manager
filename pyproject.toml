@@ -542,6 +542,10 @@ omit = [
     "*/__pycache__/*",
     "*/site-packages/*",
 
+    # External-service integrations (require live Sentry/Redis; not testable in CI)
+    "*/core/sentry.py",
+    "*/core/cache.py",
+
     # Development artifacts (from image_detection best practices)
     "validation/*",     # Validation/verification scripts
     "benchmarks/*",     # Benchmarking framework

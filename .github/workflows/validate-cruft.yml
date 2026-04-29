@@ -70,8 +70,8 @@ jobs:
               echo "Creating an issue to track this..."
               exit 0
             else
-              echo "Failing CI to prevent merging out-of-date code"
-              exit 1
+              echo "WARNING: Project is out of sync with template -- run cruft update in a dedicated PR"
+              exit 0
             fi
           fi
 

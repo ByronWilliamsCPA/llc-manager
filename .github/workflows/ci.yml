@@ -37,7 +37,7 @@ jobs:
       test-directory: 'tests'
       enable-sonarcloud: true
       sonarcloud-organization: 'ByronWilliamsCPA'
-      sonarcloud-project-key: 'ByronWilliamsCPA_llc_manager'
+      sonarcloud-project-key: 'ByronWilliamsCPA_llc-manager'
       enable-codecov: true
       run-integration-tests: true
       run-security-tests: true

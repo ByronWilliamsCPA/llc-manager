@@ -8,7 +8,7 @@
 #   - Quality gate enforcement
 #   - Pull request decoration
 #
-# SonarCloud Dashboard: https://sonarcloud.io/dashboard?id=ByronWilliamsCPA_llc_manager
+# SonarCloud Dashboard: https://sonarcloud.io/dashboard?id=ByronWilliamsCPA_llc-manager
 # Documentation: https://docs.sonarsource.com/sonarqube-cloud/
 #
 # Note: This workflow requires SONAR_TOKEN secret to be configured.
@@ -151,7 +151,7 @@ jobs:
         with:
           args: >
             -Dsonar.organization=williaby
-            -Dsonar.projectKey=ByronWilliamsCPA_llc_manager
+            -Dsonar.projectKey=ByronWilliamsCPA_llc-manager
             -Dsonar.python.version=3.12
 
       - name: Check Quality Gate
@@ -166,7 +166,7 @@ jobs:
         run: |
           echo "### SonarCloud Quality Gate" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "View detailed results: https://sonarcloud.io/dashboard?id=ByronWilliamsCPA_llc_manager" >> $GITHUB_STEP_SUMMARY
+          echo "View detailed results: https://sonarcloud.io/dashboard?id=ByronWilliamsCPA_llc-manager" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Metrics analyzed:**" >> $GITHUB_STEP_SUMMARY
           echo "- Code Quality (bugs, code smells, maintainability)" >> $GITHUB_STEP_SUMMARY
