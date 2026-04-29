@@ -22,7 +22,7 @@ A web application for managing LLC entities, tracking compliance dates, ownershi
 
 ### Quality Assurance
 
-- **pytest** with comprehensive coverage
+- **pytest** with 80%+ line coverage
 - **Pre-commit hooks** for automated checks
 - **GitHub Actions** CI/CD pipeline
 

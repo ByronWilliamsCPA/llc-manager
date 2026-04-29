@@ -8,10 +8,13 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability, please report it by:
+To report a vulnerability privately (not visible to the public), use GitHub's
+[Private Vulnerability Reporting](https://github.com/ByronWilliamsCPA/llc-manager/security/advisories/new)
+feature. Do not open a public issue for security vulnerabilities.
 
-1. **Email**: Send details to byron@williamscpa.com
-2. **GitHub**: Open a security advisory at https://github.com/ByronWilliamsCPA/llc-manager/security/advisories/new
+If you prefer email, you may also contact byron@williamscpa.com with full
+details. Email reports are treated with the same confidentiality as GitHub
+private advisories.
 
 Please include:
 
@@ -21,6 +24,7 @@ Please include:
 - Suggested fix (if any)
 
 We aim to respond within 48 hours and provide a fix timeline within 7 days.
+We commit to acknowledging all vulnerability reports within 14 days of submission (in practice we target 48 hours).
 
 ## Security Practices
 

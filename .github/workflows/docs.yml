@@ -29,7 +29,7 @@ permissions:
 jobs:
   docs:
     name: Build & Deploy Docs
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-docs.yml@main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-docs.yml@d18c93045bef4f6669488c7657543a5b7e04f8ed # main
     with:
       python-version: '3.12'
       deploy-to-pages: >-

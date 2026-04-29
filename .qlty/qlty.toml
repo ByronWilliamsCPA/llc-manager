@@ -39,11 +39,11 @@ test_patterns = [
 # Configuration: pyproject.toml [tool.ruff] section
 #
 # Note: Qlty auto-detects Ruff from pyproject.toml.
-# To enable Ruff plugin:
-#   qlty plugins enable ruff
-#
 # Ruff configuration is in pyproject.toml [tool.ruff] section.
 # See: https://docs.qlty.sh/analysis/coverage-linters#ruff
+
+[plugins]
+enabled = ["ruff", "basedpyright", "bandit"]
 
 # ============================================================================
 # Code Quality Metrics - Maintainability and Complexity

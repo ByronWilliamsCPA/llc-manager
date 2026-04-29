@@ -7,11 +7,11 @@ site_description: A web application for managing LLC entities, tracking complian
 site_author: Byron Williams
 site_url: https://llc-manager.readthedocs.io
 repo_url: https://github.com/ByronWilliamsCPA/llc-manager
-repo_name: ByronWilliamsCPA/llc_manager
+repo_name: ByronWilliamsCPA/llc-manager
 edit_uri: edit/main/docs/
 
 # Copyright
-copyright: Copyright &copy; 2025 Byron Williams
+copyright: Copyright &copy; 2025-2026 Byron Williams
 
 # Theme Configuration
 theme:
@@ -112,16 +112,15 @@ markdown_extensions:
   - admonition
   - attr_list
   - def_list
-  - footnotes
-  - md_in_html
+  # footnotes removed: no usage found in docs/
+  # md_in_html removed: no usage found in docs/
   - tables
   - toc:
       permalink: true
       toc_depth: 3
 
   # Python Markdown Extensions
-  - pymdownx.arithmatex:
-      generic: true
+  # pymdownx.arithmatex removed: no math blocks found in docs/
   - pymdownx.betterem:
       smart_enable: all
   - pymdownx.caret
@@ -180,6 +179,20 @@ nav:
       - Roadmap: project/roadmap.md
       - Changelog: project/changelog.md
       - License: project/license.md
+
+  - Planning:
+      - Project Vision: planning/project-vision.md
+      - Tech Spec: planning/tech-spec.md
+      - Roadmap: planning/roadmap.md
+      - Project Plan: planning/PROJECT-PLAN.md
+      - ADRs:
+          - Initial Architecture: planning/adr/adr-001-initial-architecture.md
+
+  - Reference:
+      - OpenSSF Compliance: OPENSSF_COMPLIANCE.md
+      - Project Setup: PROJECT_SETUP.md
+      - Python Compatibility: PYTHON_COMPATIBILITY.md
+      - Known Vulnerabilities: known-vulnerabilities.md
 
 # Validation
 # strict mode disabled to allow links to repo root files

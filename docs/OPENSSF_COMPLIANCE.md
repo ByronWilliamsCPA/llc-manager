@@ -12,12 +12,46 @@ tags:
 
 This project follows [OpenSSF (Open Source Security Foundation)](https://openssf.org/) security best practices, achieving high scores on the [Scorecard](https://github.com/ossf/scorecard) and [Best Practices Badge](https://www.bestpractices.dev/).
 
+## Best Practices Badge Application Status
+
+**Status: PENDING MANUAL SUBMISSION**
+
+The OpenSSF Best Practices Badge requires a manual web form submission at
+<https://bestpractices.coreinfrastructure.org/en/projects/new>. This cannot be
+automated. To file the application:
+
+1. Sign in at <https://bestpractices.coreinfrastructure.org> with your GitHub account.
+2. Click "Get Your Badge" and enter the repository URL:
+   `https://github.com/ByronWilliamsCPA/llc-manager`
+3. Work through the questionnaire. Most criteria are already met by the project.
+4. For criteria that do not apply (e.g., `basics_documentation_interface` for a
+   non-public-library project), select "N/A" with a brief justification.
+5. Once the badge reaches Passing level, add the badge image to `README.md`.
+
+### Criteria Requiring Attention Before Submission
+
+The following criteria needed remediation before submission. Remediation was
+completed as part of the 2026-04-28 OSSF audit:
+
+- **reporting_vulnerability_report_private** (MUST): GitHub Private Vulnerability
+  Reporting enabled; SECURITY.md updated with private reporting instructions.
+- **reporting_vulnerability_report_response** (MUST): SECURITY.md now states
+  the 14-day acknowledgement commitment.
+- **change_control_release_notes_vulns** (MUST): CLAUDE.md release standards
+  now require CVE IDs in CHANGELOG entries for security fixes.
+- **basics_documentation_interface** (MUST): `docs/reference/api.md` created.
+  Select N/A on the questionnaire if this project is classified as a non-library
+  tool; otherwise the new reference doc satisfies the criterion.
+- **security_know_secure_design / security_know_common_errors** (MUST):
+  Self-attestation only -- check "Met" on the questionnaire and cite the
+  project's documented security standards (FIPS rules, OWASP tooling, RAD tagging).
+
 ## Overview
 
 **Estimated Scorecard Score**: 9.0/10 (Excellent)
 **Best Practices Compliance**: 95%+ (Passing)
 
-This template implements comprehensive security controls including:
+This template implements security controls including:
 
 - ✅ Signed releases with Sigstore/Cosign
 - ✅ SLSA Level 3 provenance attestations

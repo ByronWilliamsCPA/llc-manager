@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv:*)",
+      "Bash(npm:*)",
+      "Bash(pre-commit:*)",
+      "Bash(alembic:*)",
+      "Bash(docker-compose:*)",
+      "Bash(git:*)",
+      "Bash(gh:*)",
+      "Bash(pytest:*)",
+      "Bash(mkdocs:*)"
+    ],
+    "deny": []
+  }
+}

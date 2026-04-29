@@ -284,6 +284,9 @@ output/
 tmp_cleanup/.tmp-*
 !tmp_cleanup/.gitkeep
 
+# Git worktrees
+.worktrees/
+
 # SonarCloud
 .scannerwork/
 .sonar/

@@ -314,7 +314,19 @@ LLC_MANAGER_LOG_LEVEL=INFO
 3. **Docs** (`.github/workflows/docs.yml`): build and deploy documentation
 4. **Publish** (`.github/workflows/publish-pypi.yml`): PyPI release automation
 5. **SonarCloud** (`.github/workflows/sonarcloud.yml`): code quality analysis
-6. **FIPS compatibility** (`.github/workflows/fips-compatibility.yml`): crypto algorithm audit
+6. **OpenSSF Scorecard** (`.github/workflows/scorecard.yml`): supply chain security assessment
+7. **SLSA Provenance** (`.github/workflows/slsa-provenance.yml`): SLSA Level 3 attestations
+8. **Release** (`.github/workflows/release.yml`): semantic versioning and GitHub release creation
+9. **Container Security** (`.github/workflows/container-security.yml`): Trivy and Hadolint scanning
+10. **Dependency Review** (`.github/workflows/dependency-review.yml`): vulnerability and license checks on PRs
+11. **FIPS Compatibility** (`.github/workflows/fips-compatibility.yml`): crypto algorithm audit
+12. **Mutation Testing** (`.github/workflows/mutation-testing.yml`): test effectiveness validation
+13. **PR Validation** (`.github/workflows/pr-validation.yml`): conventional commits, changelog, dead code, link checks
+14. **Python Compatibility** (`.github/workflows/python-compatibility.yml`): multi-version and multi-OS matrix
+15. **REUSE Compliance** (`.github/workflows/reuse.yml`): SPDX license header validation
+16. **SBOM** (`.github/workflows/sbom.yml`): CycloneDX SBOM generation and Trivy scan
+17. **Codecov Upload** (`.github/workflows/codecov.yml`): coverage report upload to Codecov
+18. **Validate Cruft** (`.github/workflows/validate-cruft.yml`): template sync status check
 
 Project-level gates (must all pass in CI):
 
@@ -323,6 +335,16 @@ Project-level gates (must all pass in CI):
 - BasedPyright strict mode clean
 - Bandit and pip-audit: no high/critical findings
 - Pre-commit hooks pass
+
+### Release Standards
+
+Before any release, confirm all CI gates above pass, then:
+
+- CHANGELOG updated with all changes for the release
+- No vulnerabilities older than 60 days (enforced by OpenSSF release gate)
+- Tests pass above 80% coverage
+- Version tag follows SemVer
+- CHANGELOG entries that fix a security vulnerability MUST include the CVE ID if one has been assigned. Format: `- fix(security): resolve CVE-YYYY-XXXXX -- [brief description]`
 
 ---
 
@@ -420,6 +442,24 @@ These contain project-specific customizations:
 | `.standards/REUSE.baseline.toml` | `REUSE.toml` | SPDX licensing |
 
 See `.standards/README.md` for detailed merge instructions.
+
+---
+
+## Model Selection
+
+Model selection follows the global CLAUDE.md standards.
+See `~/.claude/CLAUDE.md` for the full model selection table.
+Project-specific note: subagents that do read-only exploration use haiku.
+
+---
+
+## Response-Aware Development (RAD)
+
+Tag assumptions that could cause production failures using `#CRITICAL`, `#ASSUME`,
+`#EDGE`, and `#VERIFY` markers. Mandatory categories for this project: timing
+dependencies, external resources, data integrity, and payment/financial (EIN data,
+ownership percentages). See `docs/response-aware-development.md` for full tagging
+syntax and examples.
 
 ---
 

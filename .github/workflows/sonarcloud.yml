@@ -39,6 +39,11 @@ jobs:
     outputs:
       has-token: ${{ steps.check.outputs.has-token }}
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit
+
       - name: Check for SONAR_TOKEN
         id: check
         run: |
@@ -65,6 +70,11 @@ jobs:
       pull-requests: write  # Required for SonarCloud PR decoration
 
     steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -115,7 +125,9 @@ jobs:
             -v
 
       - name: Verify coverage report
+        id: verify_coverage
         if: steps.check-code.outputs.has-code == 'true'
+        continue-on-error: true
         run: |
           if [ ! -f coverage.xml ]; then
             echo "::error::Coverage report missing; blocking SonarCloud analysis."
@@ -124,6 +136,11 @@ jobs:
             echo "✓ Coverage report generated successfully"
             ls -lh coverage.xml
           fi
+
+
+      - name: Fail if coverage verification failed
+        if: steps.verify_coverage.outcome == 'failure'
+        run: exit 1
 
       - name: SonarCloud Scan
         if: steps.check-code.outputs.has-code == 'true'

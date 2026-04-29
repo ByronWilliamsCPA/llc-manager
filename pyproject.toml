@@ -11,7 +11,7 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
 license = {text = "MIT"}
-keywords = []
+keywords = ["llc", "business", "compliance", "entity-management", "fastapi"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -95,7 +95,7 @@ dev = [
     "pre-commit>=3.3.0",
     # Documentation
     "mkdocs>=1.6.0",
-    "mkdocs-material>=9.5.0",
+    "mkdocs-material>=9.5.0,<10",
     "mkdocstrings[python]>=0.26.0",
     "griffe-pydantic>=1.1.0",
     "mkdocs-gen-files>=0.5.0",
@@ -159,6 +159,12 @@ supply-chain = [
     "keyrings.google-artifactregistry-auth>=1.1.0",  # GCP Artifact Registry auth
 ]
 
+
+[project.urls]
+Homepage = "https://github.com/ByronWilliamsCPA/llc-manager"
+Repository = "https://github.com/ByronWilliamsCPA/llc-manager"
+Documentation = "https://byronwilliamscpa.github.io/llc-manager/"
+Changelog = "https://github.com/ByronWilliamsCPA/llc-manager/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]
