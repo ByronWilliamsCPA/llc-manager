@@ -77,6 +77,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Broken documentation links in `docs/development/architecture.md`
   and `docs/planning/project-plan-template.md`
 - REUSE 3.2 compliance failure from unused license files
+- SonarCloud analysis `404` on `api.sonarcloud.io/analysis/analyses`;
+  `SONAR_HOST_URL` set to `https://sonarqube.io` in both the scan and
+  quality-gate steps of `sonarcloud.yml`, and `sonar.host.url` added to
+  `sonar-project.properties` to match the migrated SonarQube Cloud endpoint
 
 ## [0.1.0] - TBD
 
