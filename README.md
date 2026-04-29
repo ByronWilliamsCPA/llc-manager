@@ -2,22 +2,22 @@
 
 ## Quality & Security
 
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ByronWilliamsCPA/llc_manager/badge)](https://securityscorecards.dev/viewer/?uri=github.com/ByronWilliamsCPA/llc_manager)
-[![codecov](https://codecov.io/gh/ByronWilliamsCPA/llc_manager/graph/badge.svg)](https://codecov.io/gh/ByronWilliamsCPA/llc_manager)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc_manager&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc_manager)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc_manager&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc_manager)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc_manager&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc_manager)
-[![REUSE Compliance](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/reuse.yml/badge.svg)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/reuse.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ByronWilliamsCPA/llc-manager/badge)](https://securityscorecards.dev/viewer/?uri=github.com/ByronWilliamsCPA/llc-manager)
+[![codecov](https://codecov.io/gh/ByronWilliamsCPA/llc-manager/graph/badge.svg)](https://codecov.io/gh/ByronWilliamsCPA/llc-manager)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc-manager&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc-manager)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc-manager&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc-manager)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc-manager&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc-manager)
+[![REUSE Compliance](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/reuse.yml/badge.svg)](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/reuse.yml)
 
 ## CI/CD Status
 
-[![CI Pipeline](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/ci.yml?query=branch%3Amain)
-[![Security Analysis](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/security-analysis.yml/badge.svg?branch=main)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/security-analysis.yml?query=branch%3Amain)
-[![Documentation](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/docs.yml?query=branch%3Amain)
-[![SBOM & Security Scan](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/sbom.yml/badge.svg?branch=main)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/sbom.yml?query=branch%3Amain)
-[![PR Validation](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/pr-validation.yml)
-[![Release](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/release.yml/badge.svg)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/release.yml)
-[![PyPI Publish](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/publish-pypi.yml/badge.svg)](https://github.com/ByronWilliamsCPA/llc_manager/actions/workflows/publish-pypi.yml)
+[![CI Pipeline](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/ci.yml?query=branch%3Amain)
+[![Security Analysis](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/security-analysis.yml/badge.svg?branch=main)](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/security-analysis.yml?query=branch%3Amain)
+[![Documentation](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/docs.yml?query=branch%3Amain)
+[![SBOM & Security Scan](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/sbom.yml/badge.svg?branch=main)](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/sbom.yml?query=branch%3Amain)
+[![PR Validation](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/pr-validation.yml)
+[![Release](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/release.yml/badge.svg)](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/release.yml)
+[![PyPI Publish](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/publish-pypi.yml/badge.svg)](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/publish-pypi.yml)
 
 ## Project Info
 
