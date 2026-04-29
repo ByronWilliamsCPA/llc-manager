@@ -155,7 +155,8 @@ secrets*.json
 # Project-Specific
 # =============================================================================
 # Add project-specific files to ignore
-README.md
+# README.md is intentionally NOT excluded: hatchling requires it to build the
+# sdist during `uv sync` in the builder stage (see Dockerfile).
 LICENSE
 CHANGELOG.md
 CONTRIBUTING.md

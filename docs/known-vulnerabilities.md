@@ -154,6 +154,106 @@ Dependabot alert #31.
 
 ---
 
+### CVE-2025-69720 - ncurses base image packages (reassess by 2026-06-28)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2025-69720 |
+| **Package** | libncursesw6, libtinfo6, ncurses-base (Debian 13 packages in `python:3.12-slim`) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-04-29 |
+| **Last reassessed** | 2026-04-29 |
+| **Reassess by** | 2026-06-28 |
+
+**Description**: Buffer overflow vulnerability in ncurses that may lead to arbitrary code
+execution or denial of service.
+
+**Rationale for accepting**: These packages ship as part of `python:3.12-slim` and Debian 13
+has not released a patched version as of 2026-04-29. The ncurses libraries are used for
+terminal handling; our FastAPI application does not expose ncurses functionality to any
+network-accessible code path. Exploitability requires local access or a code path that
+uses ncurses terminal APIs, neither of which is present in the runtime container.
+
+**Mitigation in place**:
+
+- Container runs as non-root user (`appuser`, UID 1000).
+- No terminal emulation in the runtime code path.
+- `.trivyignore` entry prevents CI failure until Debian releases a patch.
+
+**Resolution path**: upgrade the base image when Debian 13 releases a patched ncurses
+package. Monitor the Debian security tracker and re-run `trivy image` monthly.
+
+**Tracking**: Debian security tracker; no upstream patch available as of 2026-04-29.
+
+---
+
+### CVE-2026-27135 - libnghttp2-14 base image package (reassess by 2026-06-28)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-27135 |
+| **Package** | libnghttp2-14 1.64.0-1.1 (Debian 13 package in `python:3.12-slim`) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-04-29 |
+| **Last reassessed** | 2026-04-29 |
+| **Reassess by** | 2026-06-28 |
+
+**Description**: Denial of service in nghttp2 via malformed HTTP/2 frames.
+
+**Rationale for accepting**: No Debian patch is available as of 2026-04-29. Our application
+uses HTTP/1.1 between clients and the FastAPI server (via uvicorn); `libnghttp2-14` is a
+transitive dependency of `curl` installed in the runtime image for the health check probe.
+HTTP/2 frame processing is not invoked by our application.
+
+**Mitigation in place**:
+
+- uvicorn serves HTTP/1.1 by default; no HTTP/2 listener is configured.
+- Container runs as non-root user.
+- `.trivyignore` entry prevents CI failure until Debian releases a patch.
+
+**Resolution path**: upgrade the base image when Debian 13 releases a patched nghttp2
+package, or replace the health check `curl` with a minimal alternative that does not
+pull in nghttp2.
+
+**Tracking**: Debian security tracker; no upstream patch available as of 2026-04-29.
+
+---
+
+### CVE-2026-29111 - systemd base image packages (reassess by 2026-06-28)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-29111 |
+| **Package** | libsystemd0, libudev1 257.9-1~deb13u1 (Debian 13 packages in `python:3.12-slim`) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-04-29 |
+| **Last reassessed** | 2026-04-29 |
+| **Reassess by** | 2026-06-28 |
+
+**Description**: Arbitrary code execution or denial of service in systemd.
+
+**Rationale for accepting**: No Debian patch is available as of 2026-04-29. These are
+shared library packages (`libsystemd0`, `libudev1`) included in the base image; the
+container does not run systemd as PID 1 (it runs uvicorn). The vulnerabilities require
+interaction with systemd's IPC mechanisms, which are not accessible inside the container.
+
+**Mitigation in place**:
+
+- Container uses uvicorn as PID 1, not systemd.
+- Systemd socket and D-Bus interfaces are not mounted into the container.
+- Container runs as non-root user.
+- `.trivyignore` entry prevents CI failure until Debian releases a patch.
+
+**Resolution path**: upgrade the base image when Debian 13 releases a patched systemd
+package. Monitor the Debian security tracker and re-run `trivy image` monthly.
+
+**Tracking**: Debian security tracker; no upstream patch available as of 2026-04-29.
+
+---
+
 ## Archive
 
 No resolved entries yet.

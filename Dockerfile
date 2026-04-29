@@ -10,6 +10,7 @@ FROM python:3.12-slim AS builder
 WORKDIR /app
 
 # Install system dependencies for building Python packages
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
@@ -19,8 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install UV for fast dependency management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Copy dependency files (README.md required by hatchling to build the project)
+COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies to a virtual environment
 # This creates .venv/ which we'll copy to the final stage
@@ -47,6 +48,7 @@ LABEL org.opencontainers.image.source="https://github.com/ByronWilliamsCPA/llc-m
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Install runtime dependencies only
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \

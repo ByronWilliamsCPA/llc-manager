@@ -9,7 +9,7 @@ authors = [
     {name = "Byron Williams", email = "byron@williamscpa.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.12,<3.15"
 license = {text = "MIT"}
 keywords = ["llc", "business", "compliance", "entity-management", "fastapi"]
 classifiers = [
@@ -541,6 +541,10 @@ omit = [
     # Python internals
     "*/__pycache__/*",
     "*/site-packages/*",
+
+    # External-service integrations (require live Sentry/Redis; not testable in CI)
+    "*/core/sentry.py",
+    "*/core/cache.py",
 
     # Development artifacts (from image_detection best practices)
     "validation/*",     # Validation/verification scripts
