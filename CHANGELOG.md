@@ -121,5 +121,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Safety dependency vulnerability scanning
 - Pre-commit hooks for security validation
 
-[Unreleased]: https://github.com/ByronWilliamsCPA/llc_manager/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/ByronWilliamsCPA/llc_manager/releases/tag/v0.1.0
+[Unreleased]: https://github.com/ByronWilliamsCPA/llc-manager/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ByronWilliamsCPA/llc-manager/releases/tag/v0.1.0
