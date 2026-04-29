@@ -118,6 +118,42 @@ See the project `SECURITY.md` for the full risk assessment summary.
 
 ---
 
+### CVE-2026-3219 - pip (reassess by 2026-06-27)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-3219 |
+| **Package** | pip==26.0.1 (no patched version released as of 2026-04-28) |
+| **Severity** | Medium |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-04-28 |
+| **Last reassessed** | 2026-04-28 |
+| **Reassess by** | 2026-06-27 |
+
+**Description**: Interpretation conflict in pip's archive handling: concatenated
+tar and ZIP files are processed as ZIP files, allowing a crafted package to
+execute unexpected code during installation.
+
+**Rationale for accepting**: Production deployments use Docker with pre-built
+layers; pip is not invoked against untrusted sources at runtime. In CI, package
+installs come from PyPI via `uv`, which uses its own resolver and does not
+delegate to pip for the vulnerable archive-extraction path. pip is present only
+as a transitive tool dependency.
+
+**Mitigation in place**:
+
+- `uv` is the primary installer; it does not use pip's archive-extraction code.
+- All PyPI packages are integrity-checked via SHA-256 hashes in `uv.lock`.
+- No untrusted package feeds are configured in CI or production.
+
+**Resolution path**: upgrade pip automatically when a patched release is
+published. Monitor <https://github.com/pypa/pip/security/advisories> and
+Dependabot alert #31.
+
+**Tracking**: Dependabot alert #31; upstream advisory pending.
+
+---
+
 ## Archive
 
 No resolved entries yet.
