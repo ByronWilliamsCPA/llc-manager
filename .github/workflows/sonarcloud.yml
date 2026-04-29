@@ -144,7 +144,7 @@ jobs:
 
       - name: SonarCloud Scan
         if: steps.check-code.outputs.has-code == 'true'
-        uses: SonarSource/sonarqube-scan-action@55e44800a8f495208cce6e4e82f5dedb45fcf0ef # v7.2.0
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed for PR decoration
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}      # SonarCloud authentication
@@ -153,7 +153,6 @@ jobs:
             -Dsonar.organization=williaby
             -Dsonar.projectKey=ByronWilliamsCPA_llc-manager
             -Dsonar.python.version=3.12
-            -Dsonar.region=us
 
       - name: Check Quality Gate
         if: steps.check-code.outputs.has-code == 'true'
