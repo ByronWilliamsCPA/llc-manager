@@ -78,10 +78,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `docs/planning/project-plan-template.md`
 - REUSE 3.2 compliance failure from unused license files
 - SonarCloud analysis `404` on `api.sonarcloud.io/analysis/analyses`;
-  `sonarqube-scan-action` updated from v4.0.0 to v6.0.0 (the version
-  referenced in SonarCloud's own sample code); v4.0.0 bundled SonarScanner
-  CLI 6.x whose engine-bootstrap REST call is incompatible with the current
-  SonarQube Cloud endpoint
+  `sonarqube-scan-action` downgraded from v4.0.0 to v5.3.2 (the version
+  confirmed working via the org-level reusable CI workflow); v6.0.0 and v4.0.0
+  both bundle SonarScanner CLI whose engine-bootstrap REST call is incompatible
+  with this account's SonarQube Cloud endpoint
+- Dockerfile Hadolint DL3008 warnings suppressed with inline `# hadolint ignore`
+  pragmas; apt package version pinning is impractical for base-image OS packages
+  whose exact versions vary across Debian mirrors
+- Seven HIGH base-image CVEs in `python:3.12-slim` (CVE-2025-69720,
+  CVE-2026-27135, CVE-2026-29111) have no Debian patch available; added
+  `.trivyignore` to prevent CI gate failure and documented all three in
+  `docs/known-vulnerabilities.md` per project policy
 
 ## [0.1.0] - TBD
 
