@@ -59,6 +59,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for `main.py` and `api/health.py` raise overall line coverage to 80%
 - `validate-cruft` workflow changed to warning-only (exit 0) when template
   is out of sync; template sync will be addressed in a dedicated follow-up PR
+- `requires-python` corrected from `>=3.10` to `>=3.12`; the codebase uses
+  `StrEnum` (Python 3.11+) and targets Python 3.12 throughout; Python
+  compatibility matrix updated to `["3.12", "3.13"]` to match
+- `Dockerfile` builder stage now copies `README.md` alongside `pyproject.toml`
+  and `uv.lock`; hatchling requires it to build the sdist and the previous
+  `.dockerignore` exclusion caused `OSError: Readme file does not exist`
+  during `uv sync`
 - Pre-existing Phase 0 bugs: bad import in `api/health.py`, wrong
   middleware class names in `main.py`, non-existent `.pop()` on
   Starlette `MutableHeaders` in `middleware/security.py`, wrong

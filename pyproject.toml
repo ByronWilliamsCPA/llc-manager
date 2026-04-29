@@ -9,7 +9,7 @@ authors = [
     {name = "Byron Williams", email = "byron@williamscpa.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.12,<3.15"
 license = {text = "MIT"}
 keywords = ["llc", "business", "compliance", "entity-management", "fastapi"]
 classifiers = [
