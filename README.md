@@ -4,9 +4,9 @@
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ByronWilliamsCPA/llc-manager/badge)](https://securityscorecards.dev/viewer/?uri=github.com/ByronWilliamsCPA/llc-manager)
 [![codecov](https://codecov.io/gh/ByronWilliamsCPA/llc-manager/graph/badge.svg)](https://codecov.io/gh/ByronWilliamsCPA/llc-manager)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc_manager&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc_manager)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc_manager&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc_manager)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc_manager&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc_manager)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc-manager&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc-manager)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc-manager&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc-manager)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc-manager&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc-manager)
 [![REUSE Compliance](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/reuse.yml/badge.svg)](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/reuse.yml)
 
 ## CI/CD Status
@@ -36,14 +36,14 @@
 
 ## Overview
 
-A web application for managing LLC entities, tracking compliance dates, ownership structures, and associated documentation
+A web application for managing LLC entities, tracking compliance dates, ownership structures, and associated documentation.
 
 This project provides:
 
-- Core functionality for a web application for managing llc entities, tracking compliance dates, ownership structures, and associated documentation
-- Production-ready code with tested API endpoints
-- Well-documented API and architecture
-- Security-first development practices
+- CRUD API for LLC entities with pagination, search, and filtering
+- Production-ready FastAPI backend with async PostgreSQL
+- React + TypeScript frontend
+- Security-first development practices with SBOM, SLSA provenance, and supply chain hardening
 
 ## Features
 
@@ -57,8 +57,10 @@ This project provides:
 
 ### Prerequisites
 
-- Python 3.10+ (tested with 3.12)
+- Python 3.12+
 - [UV](https://docs.astral.sh/uv/) for dependency management
+- Node.js 20+ and npm (for frontend)
+- Docker + Docker Compose (for local PostgreSQL)
 
 **Install UV**:
 
@@ -68,11 +70,6 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Windows
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# Or with pip/pipx
-pip install uv
-# or
-pipx install uv
 ```
 
 ### Installation
@@ -82,23 +79,26 @@ pipx install uv
 git clone https://github.com/ByronWilliamsCPA/llc-manager.git
 cd llc-manager
 
-# Install dependencies (includes dev tools - REQUIRED for development)
+# Install dependencies (includes dev tools)
 uv sync --all-extras
 
-# Setup pre-commit hooks (required)
+# Setup pre-commit hooks
 uv run pre-commit install
 ```
 
-### Basic Usage
+### Running the API
 
-```python
-# Import and use the package
-from llc_manager import YourModule
+```bash
+# Start PostgreSQL
+docker-compose up -d db
 
-# Example: Create an instance and use it
-module = YourModule()
-result = module.process()
-print(result)
+# Apply migrations
+uv run alembic upgrade head
+
+# Start the API server
+uv run uvicorn llc_manager.main:app --reload
+# API available at http://localhost:8000
+# Docs at http://localhost:8000/docs
 ```
 
 ## Frontend Development
@@ -109,22 +109,22 @@ The frontend is a React + TypeScript application built with Vite.
 
 ```bash
 cd frontend
-pnpm install
-pnpm run dev
+npm install
+npm run dev
 ```
 
 Frontend runs at <http://localhost:3000> with hot reload.
 
 ### Available Scripts
 
-| Command                     | Description                         |
-| --------------------------- | ----------------------------------- |
-| `pnpm run dev`              | Start dev server with HMR           |
-| `pnpm run build`            | Build for production                |
-| `pnpm run test`             | Run tests in watch mode             |
-| `pnpm run lint`             | Lint code                           |
-| `pnpm run typecheck`        | Run TypeScript type checking        |
-| `pnpm run generate-client`  | Generate API client from OpenAPI    |
+| Command                      | Description                         |
+| ---------------------------- | ----------------------------------- |
+| `npm run dev`                | Start dev server with HMR           |
+| `npm run build`              | Build for production                |
+| `npm run test`               | Run tests                           |
+| `npm run lint:fix`           | Lint and auto-fix                   |
+| `npm run typecheck`          | Run TypeScript type checking        |
+| `npm run generate-client`    | Generate API client from OpenAPI    |
 
 ### API Client Generation
 
@@ -135,7 +135,7 @@ Generate a type-safe TypeScript client from the FastAPI OpenAPI schema:
 uv run uvicorn llc_manager.main:app &
 
 # Generate client
-cd frontend && pnpm run generate-client
+cd frontend && npm run generate-client
 ```
 
 This creates typed API functions in `frontend/src/client/`.
@@ -143,182 +143,11 @@ This creates typed API functions in `frontend/src/client/`.
 ### Docker
 
 ```bash
-# Development (with hot reload)
-docker-compose up frontend
+# Full stack (API :8000, frontend :3000, PostgreSQL :5432)
+docker-compose up -d
 
-# Production build
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up frontend
-```
-
-## Supply Chain Security
-
-This project implements enterprise-grade supply chain security with a multi-tier package index strategy and centralized secrets management.
-
-### Security Architecture
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                    Package Index Priority                        │
-├─────────────────────────────────────────────────────────────────┤
-│  1. Google Assured OSS (SLSA Level 3) - Third-party packages    │
-│  2. Internal Artifact Registry - Organization packages           │
-│  3. PyPI (fallback) - Packages not in tier 1 or 2               │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Supply Chain Quick Start
-
-```bash
-# Run the setup script
-./scripts/setup-supply-chain.sh
-
-# Or manually configure
-gcloud auth login
-gcloud auth application-default login
-pip install keyrings.google-artifactregistry-auth
-```
-
-### Package Indexes
-
-| Index              | SLSA Level | Purpose                          | Default       |
-| ------------------ | ---------- | -------------------------------- | ------------- |
-| PyPI               | -          | Standard packages                | Yes (default) |
-| Google Assured OSS | 3          | Verified third-party packages    | Opt-in        |
-| Internal Registry  | 2+         | Organization-maintained packages | Opt-in        |
-
-**How It Works:**
-
-By default, all packages resolve from PyPI. After configuring GCP authentication, you can opt-in specific packages to use Assured OSS by uncommenting entries in `pyproject.toml`:
-
-```toml
-[tool.uv.sources]
-numpy = { index = "assured-oss" }
-pandas = { index = "assured-oss" }
-requests = { index = "assured-oss" }
-```
-
-**Why This Matters:**
-
-- **SLSA Level 3**: Build integrity, provenance, and tamper-proof artifacts
-- **Supply Chain Protection**: Reduced risk of dependency confusion attacks
-- **Compliance**: Meets enterprise security and audit requirements
-- **Graceful Fallback**: Works without authentication, opt-in when ready
-
-### Secrets Management with Infisical
-
-Secrets are managed via [Infisical](https://infisical.com/) instead of environment variables or GitHub Secrets.
-
-**Local Development:**
-
-```bash
-# Login to Infisical
-infisical login
-
-# Initialize project connection
-infisical init
-
-# Run commands with secrets injected
-infisical run --env=dev -- uv run python main.py
-
-# Or export secrets to local file
-infisical export --env=dev > .env.local
-```
-
-**CI/CD Integration:**
-
-- GitHub Actions use Infisical's Machine Identity authentication
-- Secrets are injected at runtime, never stored in repositories
-- Environment mapping: `main` → `prod`, `develop` → `staging`, `*` → `dev`
-
-### SBOM & Attestation
-
-Software Bill of Materials (SBOM) is generated on every release:
-
-```bash
-# Generate SBOM locally
-uv run cyclonedx-py environment -o sbom.json
-
-# Verify package attestation
-pip-audit --require-hashes
-```
-
-**Automated via CI:**
-
-- CycloneDX SBOM generated in JSON and XML formats
-- Attestation attached to GitHub releases
-- Vulnerability scanning with OSV database
-
-### Setup Instructions
-
-1. **Run the setup script** (recommended):
-
-   ```bash
-   ./scripts/setup-supply-chain.sh
-   ```
-
-2. **Or configure manually**:
-
-   **Google Cloud Authentication:**
-
-   ```bash
-   gcloud auth login
-   gcloud auth application-default login
-   pip install keyrings.google-artifactregistry-auth
-   ```
-
-   **Infisical Setup:**
-
-   ```bash
-   # Install Infisical CLI
-   # macOS
-   brew install infisical/get-cli/infisical
-
-   # Linux
-   curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | sudo -E bash
-   sudo apt-get install infisical
-
-   # Connect to project
-   infisical login
-   infisical init
-   ```
-
-3. **Configure CI/CD secrets in Infisical:**
-
-   - `GCP_SA_KEY_BASE64`: Base64-encoded GCP service account key
-   - `CODECOV_TOKEN`: Codecov upload token (if using Codecov)
-   - `SONAR_TOKEN`: SonarCloud token (if using SonarCloud)
-
-### Required GCP Permissions
-
-| Role                             | Purpose                                      |
-| -------------------------------- | -------------------------------------------- |
-| `roles/artifactregistry.reader`  | Read from Assured OSS and internal registry  |
-| `roles/artifactregistry.writer`  | Publish to internal registry (CI only)       |
-
-### Troubleshooting
-
-**Q: Packages not found in Assured OSS?**
-
-- UV automatically falls back to PyPI - no action needed
-- Check available packages: [Assured OSS Supported Packages](https://cloud.google.com/assured-open-source-software/docs/supported-packages)
-
-**Q: Authentication errors with Artifact Registry?**
-
-- Run `gcloud auth application-default login` to refresh credentials
-- Verify service account has `Artifact Registry Reader` role
-- Check keyring is installed: `pip install keyrings.google-artifactregistry-auth`
-
-**Q: Infisical connection issues?**
-
-- Verify `.infisical.json` has correct `workspaceId`
-- Check your Infisical organization permissions
-- For CI: Ensure `INFISICAL_CLIENT_ID` and `INFISICAL_CLIENT_SECRET` are set
-
-**Q: How to verify supply chain setup?**
-
-```bash
-# Test package index access
-./scripts/setup-supply-chain.sh  # Re-run to verify all checks pass
+# Production image
+docker build -t llc_manager .
 ```
 
 ## Development
@@ -332,20 +161,14 @@ uv sync --all-extras
 # Setup pre-commit hooks
 uv run pre-commit install
 
-# Install Qlty CLI for unified code quality checks
-curl https://qlty.sh | bash
-
 # Run tests
 uv run pytest -v
 
 # Run with coverage
-uv run pytest --cov=llc_manager --cov-report=html
+uv run pytest --cov=src --cov-report=html
 
-# Run all quality checks (using Qlty)
-qlty check
-
-# Or use pre-commit
-uv run pre-commit run --all-files
+# Run all quality checks
+pre-commit run --all-files
 ```
 
 ### Code Quality Standards
@@ -358,8 +181,6 @@ All code must meet these requirements:
 - **Testing**: Pytest with 80%+ coverage
 - **Security**: Bandit + dependency scanning
 - **Documentation**: Docstrings on all public APIs
-
-**Unified Quality Tool**: This project uses [Qlty](https://qlty.sh) to consolidate all quality checks into a single fast tool. See [`.qlty/qlty.toml`](.qlty/qlty.toml) for configuration.
 
 ### PyStrict-Aligned Ruff Configuration
 
@@ -382,43 +203,6 @@ This project uses **PyStrict-aligned Ruff rules** for stricter code quality enfo
 
 These rules catch bugs that standard linting misses and enforce production-quality code patterns.
 
-### Claude Code Standards
-
-This project includes standardized Claude Code configuration via git subtree:
-
-**Directory Structure**:
-
-```text
-.claude/
-├── claude.md          # Project-specific Claude guidelines
-└── standard/          # Standard Claude configuration (git subtree)
-    ├── CLAUDE.md      # Universal development standards
-    ├── commands/      # Custom slash commands
-    ├── skills/        # Reusable skills
-    └── agents/        # Specialized agents
-```
-
-**Updating Standards**:
-
-```bash
-# Pull latest standards from upstream
-./scripts/update-claude-standards.sh
-
-# Or manually
-git subtree pull --prefix .claude/standard \
-    https://github.com/williaby/.claude.git main --squash
-```
-
-**What's Included**:
-
-- Universal development best practices
-- Response-Aware Development (RAD) system for assumption tagging
-- Agent assignment patterns and workflow
-- Security requirements and pre-commit standards
-- Git workflow and commit conventions
-
-**Project-Specific Overrides**: Edit `.claude/claude.md` for project-specific guidelines. See [`.claude/README.md`](.claude/README.md) for details.
-
 ### Running Tests
 
 ```bash
@@ -426,79 +210,23 @@ git subtree pull --prefix .claude/standard \
 uv run pytest -v
 
 # Run specific test file
-uv run pytest tests/unit/test_module.py -v
+uv run pytest tests/unit/test_entities.py -v
 
 # Run with coverage report
-uv run pytest --cov=llc_manager --cov-report=term-missing
+uv run pytest --cov=src --cov-report=term-missing
 
 # Run tests in parallel
 uv run pytest -n auto
 ```
 
-### Quality Checks with Qlty
-
-**Recommended**: Use Qlty CLI for unified code quality checks.
-
-```bash
-# Run all quality checks (fast!)
-qlty check
-
-# Run checks on only changed files (fastest)
-qlty check --filter=diff
-
-# Run specific plugins only
-qlty check --plugin ruff --plugin pyright
-
-# Auto-format code
-qlty fmt
-
-# View current configuration
-qlty config show
-```
-
-**Qlty runs all these tools in a single pass:**
-
-**Python Quality:**
-
-- Ruff (linting + formatting)
-- BasedPyright (type checking)
-- Bandit (security scanning)
-
-**Security & Secrets:**
-
-- Gitleaks (secrets detection)
-- TruffleHog (entropy-based secrets detection)
-- OSV Scanner (dependency vulnerabilities)
-- Semgrep (advanced SAST)
-
-**File & Configuration:**
-
-- Markdownlint (markdown linting)
-- Yamllint (YAML linting)
-- Prettier (JSON, YAML, Markdown formatting)
-- Actionlint (GitHub Actions workflows)
-- Shellcheck (shell script linting)
-
-**Container & Infrastructure** (if Docker enabled):
-
-- Hadolint (Dockerfile linting)
-- Trivy (container security scanning)
-- Checkov (infrastructure as code security)
-
-**Code Quality Metrics:**
-
-- Complexity analysis (cyclomatic, cognitive)
-- Code smells detection
-- Maintainability scoring
-
-### Individual Tool Commands (if needed)
+### Individual Tool Commands
 
 ```bash
 # Format code
-uv run ruff format src tests
+uv run ruff format .
 
 # Lint and auto-fix
-uv run ruff check --fix src tests
+uv run ruff check --fix .
 
 # Type checking
 uv run basedpyright src
@@ -507,27 +235,53 @@ uv run basedpyright src
 uv run bandit -r src
 
 # Dependency vulnerabilities
-qlty check --plugin osv_scanner
+uv run pip-audit
 ```
 
 ## Project Structure
 
 ```text
-llc_manager/
-├── src/llc_manager/     # Main package
-│   ├── __init__.py
-│   ├── core.py                           # Core functionality
-│   └── utils/                            # Utility modules
-├── tests/                                # Test suite
-│   ├── unit/                             # Unit tests
-│   └── integration/                      # Integration tests
-├── docs/                                 # Documentation
-│   ├── planning/                         # Project planning docs
-│   └── guides/                           # User guides
-├── pyproject.toml                        # Dependencies & tool config
-├── README.md                             # This file
-├── CONTRIBUTING.md                       # Contribution guidelines
-└── LICENSE                               # License
+llc-manager/
+├── src/llc_manager/
+│   ├── main.py                        # FastAPI app factory
+│   ├── core/
+│   │   ├── config.py                  # Pydantic Settings (env: LLC_MANAGER_*)
+│   │   ├── exceptions.py              # Exception hierarchy
+│   │   ├── cache.py                   # Redis cache client
+│   │   └── sentry.py                  # Sentry error tracking
+│   ├── db/
+│   │   ├── base.py                    # SQLAlchemy Base + mixins
+│   │   └── session.py                 # Async engine + session dependency
+│   ├── models/                        # SQLAlchemy ORM models
+│   │   ├── entity.py                  # Core LLC entity
+│   │   ├── owner.py                   # Ownership structure
+│   │   ├── state_registration.py
+│   │   ├── bank_account.py
+│   │   ├── document.py
+│   │   ├── tax_filing.py
+│   │   ├── registered_agent.py
+│   │   └── entity_relationship.py     # Parent/child entity graph
+│   ├── schemas/                       # Pydantic request/response schemas
+│   │   ├── base.py
+│   │   └── entity.py, owner.py, ...
+│   ├── api/
+│   │   ├── health.py                  # Kubernetes probes
+│   │   └── v1/endpoints/
+│   │       └── entities.py            # CRUD endpoints
+│   ├── middleware/
+│   │   ├── correlation.py             # X-Correlation-ID propagation
+│   │   └── security.py               # SSRF protection
+│   └── utils/
+│       ├── logging.py                 # Structlog with correlation ID
+│       └── financial.py              # Decimal precision utilities
+├── frontend/                          # React + TypeScript (Vite)
+├── tests/
+│   ├── unit/
+│   └── integration/
+├── docs/                              # MkDocs documentation
+├── alembic/                           # Database migrations
+├── pyproject.toml
+└── docker-compose.yml
 ```
 
 ## Documentation
@@ -535,13 +289,6 @@ llc_manager/
 - **[CONTRIBUTING.md](CONTRIBUTING.md)**: How to contribute to the project
 - **[docs/planning/](docs/planning/)**: Project planning documents
 - **[docs/planning/adr/](docs/planning/adr/)**: Architecture Decision Records
-
-### Writing Documentation
-
-- Use Markdown for all documentation
-- Include code examples for clarity
-- Update README.md when adding major features
-- Maintain architecture documentation (see [docs/planning/adr/](docs/planning/adr/))
 
 ## Testing
 
@@ -567,7 +314,7 @@ uv run pytest -v -m unit
 uv run pytest -v -m integration
 
 # Run with coverage requirements
-uv run pytest --cov=llc_manager --cov-fail-under=80
+uv run pytest --cov=src --cov-fail-under=80
 ```
 
 ## Security
@@ -651,58 +398,6 @@ See migration guide in docs/migration/v2.0.0.md"
 
 **Configuration:** See `[tool.semantic_release]` in `pyproject.toml` for settings.
 
-## Template Maintenance
-
-This project was generated from a cookiecutter template and is managed with cruft.
-
-### Updating from Template
-
-To sync with the latest template changes:
-
-```bash
-# Preview changes first
-cruft diff
-
-# Apply updates (recommended: use the wrapper script)
-./scripts/cruft-update.sh
-
-# Or use cruft directly (requires manual cleanup)
-cruft update
-python scripts/cleanup_conditional_files.py
-```
-
-### Important: Cruft Update Limitations
-
-**Cruft only syncs file contents** - it does NOT re-run post-generation hooks that clean up conditional files.
-
-When you change feature flags in `.cruft.json` (e.g., disabling `include_api_framework`), the corresponding files are NOT automatically removed. You must run the cleanup script:
-
-```bash
-# Check for orphaned files
-python scripts/check_orphaned_files.py
-
-# Remove orphaned files
-python scripts/cleanup_conditional_files.py
-
-# Or preview what would be removed
-python scripts/cleanup_conditional_files.py --dry-run
-```
-
-### Conditional Files
-
-Files that may need cleanup when features are disabled:
-
-| Feature | Files to Remove |
-| --- | --- |
-| `include_api_framework: no` | `src/*/api/`, `src/*/middleware/` |
-| `include_sentry: no` | `src/*/core/sentry.py` |
-| `include_background_jobs: no` | `src/*/jobs/` |
-| `include_caching: no` | `src/*/core/cache.py` |
-| `include_docker: no` | `Dockerfile`, `docker-compose*.yml` |
-| `use_mkdocs: no` | `mkdocs.yml`, `docs/` |
-
-The CI pipeline includes automated checks for orphaned files to prevent this issue.
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
@@ -719,4 +414,4 @@ Thank you to all contributors and the open-source community!
 
 ---
 
-**Made with by [Byron Williams](https://github.com/ByronWilliamsCPA)**
+**Made with ❤️ by [Byron Williams](https://github.com/ByronWilliamsCPA)**
