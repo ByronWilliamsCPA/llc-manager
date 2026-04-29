@@ -4,9 +4,9 @@
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ByronWilliamsCPA/llc-manager/badge)](https://securityscorecards.dev/viewer/?uri=github.com/ByronWilliamsCPA/llc-manager)
 [![codecov](https://codecov.io/gh/ByronWilliamsCPA/llc-manager/graph/badge.svg)](https://codecov.io/gh/ByronWilliamsCPA/llc-manager)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc-manager&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc-manager)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc-manager&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc-manager)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc-manager&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc-manager)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc_manager&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc_manager)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc_manager&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc_manager)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ByronWilliamsCPA_llc_manager&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ByronWilliamsCPA_llc_manager)
 [![REUSE Compliance](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/reuse.yml/badge.svg)](https://github.com/ByronWilliamsCPA/llc-manager/actions/workflows/reuse.yml)
 
 ## CI/CD Status
@@ -80,7 +80,7 @@ pipx install uv
 ```bash
 # Clone repository
 git clone https://github.com/ByronWilliamsCPA/llc-manager.git
-cd llc_manager
+cd llc-manager
 
 # Install dependencies (includes dev tools - REQUIRED for development)
 uv sync --all-extras
