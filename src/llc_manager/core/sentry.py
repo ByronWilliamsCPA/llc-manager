@@ -191,25 +191,26 @@ def _get_release_version() -> str:
     Returns:
         Release version string (e.g., "myapp@1.0.0" or "myapp@abc123")
     """
-    # Lazy import: the git SHA lookup is only attempted on first call, so
-    # the stdlib subprocess import cost is paid only when Sentry is actually
-    # initialised. Paying it at module load time is wasteful for processes
-    # that never reach this code path.
-    import subprocess  # noqa: PLC0415  # Lazy import; see docstring rationale
+    # Lazy imports: only paid when Sentry is actually initialised.
+    import shutil  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
 
-    # Try to get git SHA
-    try:
-        sha = (
-            subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607  # Git is a trusted executable
-                stderr=subprocess.DEVNULL,
+    # Try to get git SHA. shutil.which resolves the full path so that
+    # subprocess runs a known absolute executable (no B607 partial-path risk).
+    git_exec = shutil.which("git")
+    if git_exec is not None:
+        try:
+            sha = (
+                subprocess.check_output(
+                    [git_exec, "rev-parse", "--short", "HEAD"],
+                    stderr=subprocess.DEVNULL,
+                )
+                .decode()
+                .strip()
             )
-            .decode()
-            .strip()
-        )
-        return f"llc_manager@{sha}"
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
+            return f"llc_manager@{sha}"
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
 
     # Fallback to package version
     try:

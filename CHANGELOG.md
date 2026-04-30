@@ -43,6 +43,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `osv-scanner.toml` unused ignore entries `PYSEC-2022-42969` and
+  `GHSA-w596-4wvx-j9j6` removed; osv-scanner v2.3.5 resolves all aliases
+  automatically from the primary `CVE-2022-42969` entry, so the duplicate
+  entries caused an "unused ignores" exit-code-1 failure
+- Bandit B105 false positive suppressed on `_DEFAULT_SECRET_KEY_PLACEHOLDER`
+  in `core/config.py` via `# nosec B105`; the string is a documented startup
+  sentinel that is explicitly rejected at runtime outside development
+  (consistent with the existing `# noqa: S105` Ruff annotation on the same line)
+- Bandit B607 finding resolved in `core/sentry.py` by replacing the partial
+  `"git"` executable path with `shutil.which("git")`; the resolved absolute
+  path eliminates the partial-executable-path risk and gracefully skips the
+  git-SHA lookup when git is absent from the environment
 - README.md badge URLs corrected: GitHub Actions, Codecov, OpenSSF Scorecard,
   and REUSE badges updated from `llc_manager` to `llc-manager` to match the
   GitHub repository slug; Quick Start `cd` instruction corrected from
