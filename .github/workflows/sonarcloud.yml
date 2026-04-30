@@ -149,6 +149,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed for PR decoration
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}      # SonarCloud authentication
         with:
+          scannerVersion: 8.1.0.6389
           args: >
             -Dsonar.organization=williaby
             -Dsonar.projectKey=ByronWilliamsCPA_llc-manager
