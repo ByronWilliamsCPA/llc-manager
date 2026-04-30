@@ -15,7 +15,7 @@ from llc_manager.core.exceptions import ConfigurationError
 # Placeholder value shipped as the package default. Callers are expected to
 # override via LLC_MANAGER_SECRET_KEY in any non-development deployment;
 # see `Settings._reject_default_secret_key_outside_dev` for enforcement.
-_DEFAULT_SECRET_KEY_PLACEHOLDER = "change-me-in-production"  # noqa: S105  # Documented placeholder; rejected at startup outside development
+_DEFAULT_SECRET_KEY_PLACEHOLDER = "change-me-in-production"  # noqa: S105  # nosec B105 -- permanent false positive (reviewed PR #9); startup sentinel explicitly rejected by _reject_default_secret_key_outside_dev outside development
 
 
 class Settings(BaseSettings):
