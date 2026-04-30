@@ -1,4 +1,3 @@
----
 # OpenSSF Scorecard for LLC Manager
 # Security posture assessment and supply chain security validation.
 #
@@ -32,8 +31,10 @@ permissions:
 jobs:
   scorecard:
     name: Scorecard Analysis
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-scorecard.yml@f8b77aaa921d33519d10fbef87a2dae08872e4ed # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-scorecard.yml@275f7d71815712a3b5221e60237b6e5456e92d76  # main
     with:
       publish-results: false
       upload-sarif: true
       artifact-retention-days: 5
+    secrets:
+      SCORECARD_TOKEN: ${{ secrets.SCORECARD_TOKEN }}
