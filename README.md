@@ -98,7 +98,7 @@ uv run alembic upgrade head
 # Start the API server
 uv run uvicorn llc_manager.main:app --reload
 # API available at http://localhost:8000
-# Docs at http://localhost:8000/docs
+# Docs at http://localhost:8000/api/docs
 ```
 
 ## Frontend Development
@@ -165,10 +165,10 @@ uv run pre-commit install
 uv run pytest -v
 
 # Run with coverage
-uv run pytest --cov=src --cov-report=html
+uv run pytest --cov-report=html
 
 # Run all quality checks
-pre-commit run --all-files
+uv run pre-commit run --all-files
 ```
 
 ### Code Quality Standards
@@ -213,7 +213,7 @@ uv run pytest -v
 uv run pytest tests/unit/test_health.py -v
 
 # Run with coverage report
-uv run pytest --cov=src --cov-report=term-missing
+uv run pytest --cov-report=term-missing
 
 # Run tests in parallel
 uv run pytest -n auto
@@ -314,7 +314,7 @@ uv run pytest -v -m unit
 uv run pytest -v -m integration
 
 # Run with coverage requirements
-uv run pytest --cov=src --cov-fail-under=80
+uv run pytest
 ```
 
 ## Security

@@ -55,6 +55,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `"git"` executable path with `shutil.which("git")`; the resolved absolute
   path eliminates the partial-executable-path risk and gracefully skips the
   git-SHA lookup when git is absent from the environment
+- CI workflow `concurrency:` blocks removed by pinning `ci.yml` and
+  `security-analysis.yml` to org workflow SHA
+  `12e065759bf2bc915bb092d62159f4ea11d91c95`; GitHub rejects `concurrency:` at
+  parse time in `workflow_call`-only workflows, which silently skipped all CI
+  jobs since the December 10, 2025 org workflow change
+- `actions: read` permission added to `security-analysis.yml` (required for
+  CodeQL when invoked via an org-level reusable workflow)
+- SonarCloud organization corrected from `ByronWilliamsCPA` to `williaby` in
+  `ci.yml`
+- `sonarqube-scan-action` upgraded from v5.3.2 to v8.0.0
+  (`@59db25f34e16620e48ab4bb9e4a5dce155cb5432`)
+- README API docs URL corrected from `/docs` to `/api/docs` (FastAPI configured
+  with `docs_url="/api/docs"`)
+- `npm run generate-client` OpenAPI input URL corrected from
+  `localhost:8000/openapi.json` to `localhost:8000/api/openapi.json` in
+  `frontend/package.json`; the app serves the OpenAPI schema at `/api/openapi.json`
+- README coverage example commands deduplicated: `--cov=src` (conflicts with
+  pyproject.toml addopts `--cov=src/llc_manager`) and `--cov-fail-under=80`
+  (already enforced via addopts) removed
+- `pre-commit run --all-files` corrected to `uv run pre-commit run --all-files`
+  in README; `pre-commit` is installed as a uv dev dependency, not a system tool
 - README.md badge URLs corrected: GitHub Actions, Codecov, OpenSSF Scorecard,
   and REUSE badges updated from `llc_manager` to `llc-manager` to match the
   GitHub repository slug; Quick Start `cd` instruction corrected from
