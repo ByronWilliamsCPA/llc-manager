@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from llc_manager.utils.logging import get_logger
@@ -195,13 +196,13 @@ def _get_release_version() -> str:
     import shutil  # noqa: PLC0415
     import subprocess  # noqa: PLC0415
 
-    # Try to get git SHA. shutil.which resolves the full path so that
-    # subprocess runs a known absolute executable (no B607 partial-path risk).
+    # Try to get git SHA. shutil.which resolves the path; Path.is_absolute() guards
+    # against PATH entries with relative components (per Copilot review PR #9).
     git_exec = shutil.which("git")
-    if git_exec is not None:
+    if git_exec is not None and Path(git_exec).is_absolute():
         try:
             sha = (
-                subprocess.check_output(
+                subprocess.check_output(  # noqa: S603 -- argv is hardcoded literals; git_exec is absolute (verified by Path.is_absolute() guard above)
                     [git_exec, "rev-parse", "--short", "HEAD"],
                     stderr=subprocess.DEVNULL,
                 )
@@ -209,7 +210,7 @@ def _get_release_version() -> str:
                 .strip()
             )
             return f"llc_manager@{sha}"
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError):
             pass
 
     # Fallback to package version
