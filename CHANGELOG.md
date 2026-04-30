@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/known-vulnerabilities-template.md` with `Last reassessed` field
   and retirement procedure
 - Uninitialized-Sentry guard in `capture_exception` and `capture_message`
+- `SCORECARD_TOKEN` secret wired into `scorecard.yml` reusable workflow call
+  so the OpenSSF Scorecard Branch-Protection check can authenticate against
+  the GitHub API
 
 ### Changed
 - Divergent local clones (`llc-manager/` and `llc_manager/`) consolidated
