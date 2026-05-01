@@ -48,6 +48,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `sonarcloud.yml` replaced with a thin caller to the org-level reusable
+  workflow (`python-sonarcloud.yml@6bad2f898...`); picks up
+  `sonarqube-scan-action` v7.2.0 which resolves the `/analysis/analyses` 404
+  on new projects, removes the `continue-on-error` workaround, and keeps PR
+  decoration working by relaying `pull-requests: write` to the callee
+- `ci.yml` org-level SHA updated from `d18c93045...` to `6bad2f898...`; the
+  new SHA includes the PR #43 fix that removes `concurrency:` blocks from all
+  org reusable workflow callees (GitHub rejects `concurrency:` at parse time
+  in `workflow_call`-only workflows); `enable-sonarcloud` disabled in `ci.yml`
+  to avoid duplicate SonarCloud runs alongside the dedicated `sonarcloud.yml`
+- `sonarcloud-organization` in `ci.yml` corrected from `ByronWilliamsCPA` to
+  `williaby` to match the actual SonarCloud account name
+
 - `osv-scanner.toml` unused ignore entries `PYSEC-2022-42969` and
   `GHSA-w596-4wvx-j9j6` removed; osv-scanner v2.3.5 resolves all aliases
   automatically from the primary `CVE-2022-42969` entry, so the duplicate
