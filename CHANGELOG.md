@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/known-vulnerabilities-template.md` with `Last reassessed` field
   and retirement procedure
 - Uninitialized-Sentry guard in `capture_exception` and `capture_message`
+- `CODE_OF_CONDUCT.md` and `GOVERNANCE.md` pointer files linking to the
+  ByronWilliamsCPA organization-level community health documents
 
 ### Changed
 - Divergent local clones (`llc-manager/` and `llc_manager/`) consolidated
