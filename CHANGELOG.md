@@ -50,9 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `sonarcloud.yml` replaced with a thin caller to the org-level reusable
   workflow (`python-sonarcloud.yml@6bad2f898...`); picks up
-  `sonarqube-scan-action` v7.2.0 which resolves the `/analysis/analyses` 404
-  on new projects, removes the `continue-on-error` workaround, and keeps PR
-  decoration working by relaying `pull-requests: write` to the callee
+  `sonarqube-scan-action` v7.2.0 and keeps PR decoration working by relaying
+  `pull-requests: write` to the callee; note: SonarScanner CLI 8.0.1 (bundled
+  in v7.2.0) still returns 404 on `api.sonarcloud.io/analysis/analyses` for
+  projects with no prior analysis -- this is an upstream scanner bug unblocked
+  by the SonarCloud quality-gate check not being a required merge gate
 - `ci.yml` org-level SHA updated from `d18c93045...` to `6bad2f898...`; the
   new SHA includes the PR #43 fix that removes `concurrency:` blocks from all
   org reusable workflow callees (GitHub rejects `concurrency:` at parse time
