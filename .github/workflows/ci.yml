@@ -36,8 +36,6 @@ jobs:
       source-directory: 'src'
       test-directory: 'tests'
       enable-sonarcloud: false
-      sonarcloud-organization: 'williaby'
-      sonarcloud-project-key: 'ByronWilliamsCPA_llc-manager'
       enable-codecov: true
       run-integration-tests: true
       run-security-tests: true

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - Initial project setup and structure
 - SSRF prevention and rate-limit middleware wired into `main.py`
 - CR/LF sanitization and 128-char cap on incoming correlation headers
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the GitHub API
 
 ### Changed
+
 - Divergent local clones (`llc-manager/` and `llc_manager/`) consolidated
   into the dashed copy (PR #4)
 - Readiness probe (`/api/health/ready`) returns opaque
@@ -41,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Last reassessed` explicitly; 60-day clock runs from that field
 
 ### Removed
+
 - Orphan license files under `LICENSES/` that no file in the tree
   references (`Apache-2.0.txt`, `BSD-3-Clause.txt`, `GPL-3.0-or-later.txt`)
 - Placeholder `check_cache` and `check_external_service` probes in
@@ -49,20 +52,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `sonarcloud.yml` replaced with a thin caller to the org-level reusable
-  workflow (`python-sonarcloud.yml@6bad2f898...`); picks up
-  `sonarqube-scan-action` v7.2.0 and keeps PR decoration working by relaying
-  `pull-requests: write` to the callee; note: SonarScanner CLI 8.0.1 (bundled
-  in v7.2.0) still returns 404 on `api.sonarcloud.io/analysis/analyses` for
-  projects with no prior analysis -- this is an upstream scanner bug unblocked
-  by the SonarCloud quality-gate check not being a required merge gate
+  workflow (`python-sonarcloud.yml@6bad2f898...`); `pull-requests: write`
+  scoped to job level only (removed from workflow-level permissions);
+  `fail-on-quality-gate` made conditional (`true` on pushes to main/develop,
+  `false` on PRs); `if` guard added to skip the job when `SONAR_TOKEN` is
+  absent; note: SonarScanner CLI 8.0.1 returns 404 on
+  `api.sonarcloud.io/analysis/analyses` for projects with no prior analysis,
+  an upstream platform bug; `continue-on-error` is not valid for `uses:` jobs
+  per GitHub Actions schema, so the workaround is the conditional
+  `fail-on-quality-gate` combined with SonarCloud not being a required merge gate
 - `ci.yml` org-level SHA updated from `d18c93045...` to `6bad2f898...`; the
   new SHA includes the PR #43 fix that removes `concurrency:` blocks from all
   org reusable workflow callees (GitHub rejects `concurrency:` at parse time
-  in `workflow_call`-only workflows); `enable-sonarcloud` disabled in `ci.yml`
-  to avoid duplicate SonarCloud runs alongside the dedicated `sonarcloud.yml`
-- `sonarcloud-organization` in `ci.yml` corrected from `ByronWilliamsCPA` to
-  `williaby` to match the actual SonarCloud account name
-
+  in `workflow_call`-only workflows); `enable-sonarcloud` disabled to avoid
+  duplicate SonarCloud runs alongside the dedicated `sonarcloud.yml`;
+  `sonarcloud-organization` corrected from `ByronWilliamsCPA` to `williaby`
+  to match the actual SonarCloud account name; dead `sonarcloud-organization`
+  and `sonarcloud-project-key` parameters removed (no-ops when
+  `enable-sonarcloud: false`)
 - `osv-scanner.toml` unused ignore entries `PYSEC-2022-42969` and
   `GHSA-w596-4wvx-j9j6` removed; osv-scanner v2.3.5 resolves all aliases
   automatically from the primary `CVE-2022-42969` entry, so the duplicate
@@ -146,6 +153,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - TBD
 
 ### Added
+
 - Initial project structure with Poetry package management
 - Pydantic v2 JSON schema validation
 - Structured logging with structlog and rich console output
@@ -156,12 +164,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - License
 
 ### Documentation
+
 - README with project overview and quick start
 - CONTRIBUTING guidelines with development workflow
 - References to ByronWilliamsCPA org-level Security Policy
 - References to ByronWilliamsCPA org-level Code of Conduct
 
 ### Infrastructure
+
 - Poetry dependency management with lock file
 - pytest test framework with coverage reporting
 - GitHub issue tracking and templates
@@ -170,6 +180,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/CD pipeline with multiple quality gates
 
 ### Security
+
 - Bandit security linting
 - Safety dependency vulnerability scanning
 - Pre-commit hooks for security validation

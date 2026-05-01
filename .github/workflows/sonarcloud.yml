@@ -5,6 +5,10 @@
 #
 # SonarCloud Dashboard: https://sonarcloud.io/dashboard?id=ByronWilliamsCPA_llc-manager
 # Documentation: https://docs.sonarsource.com/sonarqube-cloud/
+#
+# Note: SonarScanner CLI 8.0.1 returns 404 on api.sonarcloud.io/analysis/analyses for
+# projects with no prior analysis. This is an upstream platform bug. SonarCloud is not
+# a required merge gate, so PR workflows are unblocked while this is resolved upstream.
 
 name: SonarCloud
 
@@ -22,21 +26,21 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write  # Required for SonarCloud PR decoration
 
 jobs:
   sonarcloud:
+    if: ${{ secrets.SONAR_TOKEN != '' }}
     uses: ByronWilliamsCPA/.github/.github/workflows/python-sonarcloud.yml@6bad2f898be1d387b8424e9deddefa519674cb19 # main
     permissions:
       contents: read
-      pull-requests: write  # Reusable workflows cannot escalate beyond caller-granted permissions
+      pull-requests: write  # Required for PR decoration; reusable workflows cannot escalate beyond this
     with:
       sonar-organization: 'williaby'
       sonar-project-key: 'ByronWilliamsCPA_llc-manager'
       python-version: '3.12'
       source-directory: 'src'
       coverage-paths: 'coverage.xml'
-      fail-on-quality-gate: false
+      fail-on-quality-gate: ${{ github.event_name != 'pull_request' }}
       skip-if-no-token: true
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
