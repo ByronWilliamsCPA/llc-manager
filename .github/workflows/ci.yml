@@ -41,5 +41,4 @@ jobs:
       run-security-tests: true
       fail-on-llm-tags: false
     secrets:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

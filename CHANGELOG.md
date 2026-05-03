@@ -53,23 +53,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `sonarcloud.yml` replaced with a thin caller to the org-level reusable
   workflow (`python-sonarcloud.yml@6bad2f898...`); `pull-requests: write`
-  scoped to job level only (removed from workflow-level permissions);
-  `fail-on-quality-gate` made conditional (`true` on pushes to main/develop,
-  `false` on PRs); `if` guard added to skip the job when `SONAR_TOKEN` is
-  absent; note: SonarScanner CLI 8.0.1 returns 404 on
-  `api.sonarcloud.io/analysis/analyses` for projects with no prior analysis,
-  an upstream platform bug; `continue-on-error` is not valid for `uses:` jobs
-  per GitHub Actions schema, so the workaround is the conditional
-  `fail-on-quality-gate` combined with SonarCloud not being a required merge gate
+  scoped to job level only; `fail-on-quality-gate` made conditional (`true`
+  on pushes to main/develop, `false` on PRs); missing-token case handled by
+  `skip-if-no-token: true` passed to the callee (job-level `if:` using the
+  `secrets` context is invalid in GitHub Actions, confirmed by actionlint)
 - `ci.yml` org-level SHA updated from `d18c93045...` to `6bad2f898...`; the
   new SHA includes the PR #43 fix that removes `concurrency:` blocks from all
   org reusable workflow callees (GitHub rejects `concurrency:` at parse time
   in `workflow_call`-only workflows); `enable-sonarcloud` disabled to avoid
-  duplicate SonarCloud runs alongside the dedicated `sonarcloud.yml`;
-  `sonarcloud-organization` corrected from `ByronWilliamsCPA` to `williaby`
-  to match the actual SonarCloud account name; dead `sonarcloud-organization`
-  and `sonarcloud-project-key` parameters removed (no-ops when
-  `enable-sonarcloud: false`)
+  duplicate SonarCloud runs alongside the dedicated `sonarcloud.yml`; dead
+  `sonarcloud-organization` and `sonarcloud-project-key` parameters removed
+  (no-ops when `enable-sonarcloud: false`)
 - `osv-scanner.toml` unused ignore entries `PYSEC-2022-42969` and
   `GHSA-w596-4wvx-j9j6` removed; osv-scanner v2.3.5 resolves all aliases
   automatically from the primary `CVE-2022-42969` entry, so the duplicate
