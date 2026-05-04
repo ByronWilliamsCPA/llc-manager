@@ -29,19 +29,16 @@ permissions:
 jobs:
   ci:
     name: CI Pipeline
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-ci.yml@d18c93045bef4f6669488c7657543a5b7e04f8ed # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-ci.yml@6bad2f898be1d387b8424e9deddefa519674cb19 # main
     with:
       python-version: '3.12'
       coverage-threshold: 80
       source-directory: 'src'
       test-directory: 'tests'
-      enable-sonarcloud: true
-      sonarcloud-organization: 'ByronWilliamsCPA'
-      sonarcloud-project-key: 'ByronWilliamsCPA_llc-manager'
+      enable-sonarcloud: false
       enable-codecov: true
       run-integration-tests: true
       run-security-tests: true
       fail-on-llm-tags: false
     secrets:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
