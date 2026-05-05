@@ -160,6 +160,14 @@ supply-chain = [
 ]
 
 
+# Excel data import utilities
+import = [
+    "pandas>=2.2",
+    "openpyxl>=3.1",
+    "click>=8.1",
+]
+
+
 [project.urls]
 Homepage = "https://github.com/ByronWilliamsCPA/llc-manager"
 Repository = "https://github.com/ByronWilliamsCPA/llc-manager"
