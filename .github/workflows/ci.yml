@@ -35,10 +35,6 @@ jobs:
       coverage-threshold: 80
       source-directory: 'src'
       test-directory: 'tests'
-      enable-sonarcloud: false
-      enable-codecov: true
       run-integration-tests: true
       run-security-tests: true
       fail-on-llm-tags: false
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
