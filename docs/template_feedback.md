@@ -42,7 +42,41 @@ When working on this project, if you discover any issue that originates from the
 
 <!-- Add your feedback below this line -->
 
-_No feedback items yet. Add issues as they are discovered._
+### React Scaffold Conflicts with HTMX/Jinja2 Architecture Decision
+
+- **Priority**: High
+- **Category**: Structure / Tooling
+- **Discovered**: 2026-05-05
+
+**Issue**: The template unconditionally generates a React 19 + TypeScript + Vite frontend scaffold
+under `frontend/`. When the project's architecture decision (ADR-001) selects HTMX + Jinja2 instead
+of React, the generated scaffold creates a contradiction: `CLAUDE.md`, `docker-compose.yml`, and
+the project overview all reference React, but the ADR and actual design intent use server-side
+rendering. The React scaffold had to be fully removed (`rm -rf frontend/`) and multiple generated
+files updated to remove React-specific references (docker-compose frontend service, CORS origins,
+npm commands in CLAUDE.md).
+
+**Context**: Discovered during Phase 0 gate review. The phase reviewer flagged that the project's
+`CLAUDE.md` described "React 19 + TypeScript + Vite" while `ADR-001` (accepted 2026-01-18) had
+explicitly rejected React/Vue SPAs in favor of FastAPI + HTMX/Jinja2. Root cause: the template
+generates the React scaffold regardless of the cookiecutter frontend selection variable, so the
+generated file state and the ADR were out of sync from day one.
+
+**Suggested Fix**: Add a `frontend_framework` cookiecutter variable with options `react`, `htmx`,
+and `none`. When `htmx` is selected: (1) skip generating `frontend/`; (2) generate
+`src/{{ project_slug }}/templates/base.html` with HTMX CDN, Alpine.js CDN, and Tailwind link;
+(3) generate `src/{{ project_slug }}/static/css/input.css` with Tailwind v4 directives;
+(4) generate `scripts/tailwind-watch.sh` for the standalone CLI download/watch pattern;
+(5) update `CLAUDE.md` to show `HTMX + Jinja2 + Tailwind CSS` in the frontend line;
+(6) exclude the npm commands section from `CLAUDE.md`; (7) set CORS origins to only the API
+port in `docker-compose.yml`.
+
+**Affected Files**:
+
+- `{{cookiecutter.project_slug}}/frontend/` (entire directory)
+- `{{cookiecutter.project_slug}}/docker-compose.yml`
+- `{{cookiecutter.project_slug}}/CLAUDE.md`
+- `{{cookiecutter.project_slug}}/pyproject.toml` (jinja2 dependency missing from api extras)
 
 ---
 

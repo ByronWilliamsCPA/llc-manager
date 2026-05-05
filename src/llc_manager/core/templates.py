@@ -1,0 +1,7 @@
+"""Shared Jinja2Templates instance for HTML page rendering."""
+
+from pathlib import Path
+
+from fastapi.templating import Jinja2Templates
+
+templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")

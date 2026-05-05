@@ -2,11 +2,14 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from llc_manager.api.health import router as health_router
+from llc_manager.api.ui import router as ui_router
 from llc_manager.api.v1 import router as v1_router
 from llc_manager.core.config import settings
 from llc_manager.middleware.correlation import CorrelationMiddleware
@@ -15,6 +18,8 @@ from llc_manager.middleware.security import (
     SecurityHeadersMiddleware,
     SSRFPreventionMiddleware,
 )
+
+_HERE = Path(__file__).parent
 
 
 @asynccontextmanager  # pyright: ignore[reportDeprecated]  # typeshed flags this overload as deprecated, but FastAPI's `lifespan=` parameter still expects a contextlib-style async context manager; revisit when FastAPI ships a replacement
@@ -67,6 +72,10 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(health_router, prefix="/api", tags=["Health"])
     app.include_router(v1_router, prefix="/api/v1")
+    app.include_router(ui_router)
+
+    # Serve static assets (CSS, JS)
+    app.mount("/static", StaticFiles(directory=_HERE / "static"), name="static")
 
     return app
 

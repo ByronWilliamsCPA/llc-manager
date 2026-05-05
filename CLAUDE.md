@@ -9,8 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **LLC Manager** is a full-stack web application for managing LLC entities, tracking compliance dates, ownership structures, and associated documentation.
 
 - **Backend**: FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL 16
-- **Frontend**: React 19 + TypeScript + Vite
-- **Package Manager**: UV (Python), npm (frontend)
+- **Frontend**: HTMX 2 + Jinja2 + Tailwind CSS (standalone CLI, no Node)
+- **Package Manager**: UV (Python only)
 - **Author**: Byron Williams <byron@williamscpa.com>
 - **Repository**: <https://github.com/ByronWilliamsCPA/llc-manager>
 - **Python**: 3.12
@@ -64,23 +64,21 @@ uv run alembic upgrade head                # Apply migrations
 uv run alembic revision --autogenerate -m "description"  # Generate migration
 ```
 
-### Frontend Development
+### Frontend Development (Tailwind CSS)
 
 ```bash
-cd frontend
-npm install
-npm run dev                    # Dev server on :3000
-npm run build                  # Production build
-npm run test                   # Vitest tests
-npm run lint:fix               # ESLint
-npm run typecheck              # TypeScript check
-npm run generate-client        # Generate API client from OpenAPI (backend must be running)
+# First run: download the Tailwind standalone CLI binary (no Node required)
+bash scripts/tailwind-watch.sh          # Downloads binary if absent, then watches
+
+# One-off build
+./tailwindcss -i src/llc_manager/static/css/input.css \
+              -o src/llc_manager/static/css/output.css --minify
 ```
 
 ### Docker
 
 ```bash
-docker-compose up -d           # Full stack (API :8000, frontend :3000, PostgreSQL :5432)
+docker-compose up -d           # Full stack (API + Jinja2 UI :8000, PostgreSQL :5432)
 docker build -t llc_manager .  # Production image
 ```
 
@@ -153,14 +151,15 @@ async def list_entities(db: DBSession) -> EntityListResponse:
 ### Frontend Structure
 
 ```text
-frontend/src/
-├── main.tsx               # Entry point
-├── App.tsx                # Root component
-├── components/
-│   └── ApiStatus.tsx      # Backend connectivity check
-├── hooks/
-│   └── useApi.ts          # Axios wrapper hook
-└── client/                # Generated from OpenAPI (npm run generate-client)
+src/llc_manager/
+├── templates/
+│   ├── base.html          # Layout: Tailwind, HTMX CDN, Alpine.js CDN, nav, flash messages
+│   └── index.html         # Dashboard page (extends base.html)
+└── static/
+    ├── css/
+    │   ├── input.css      # Tailwind v4 directives + custom theme (source file)
+    │   └── output.css     # Built CSS (git-ignored; rebuild with scripts/tailwind-watch.sh)
+    └── js/                # Custom JS (Alpine components, HTMX extensions)
 ```
 
 ### API Endpoints

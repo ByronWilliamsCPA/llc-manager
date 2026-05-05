@@ -31,7 +31,7 @@ services:
       # API configuration
       LLC_MANAGER_API_HOST: "0.0.0.0"
       LLC_MANAGER_API_PORT: 8000
-      LLC_MANAGER_CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173"]'
+      LLC_MANAGER_CORS_ORIGINS: '["http://localhost:8000"]'
 
       # Redis cache (if applicable)
       # REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -64,32 +64,6 @@ services:
 
     # Security: Run as non-root user
     user: "1000:1000"
-
-    networks:
-      - llc_manager-network
-
-# =============================================================================
-  # Frontend Service (React + Vite)
-  # =============================================================================
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: development
-    image: llc_manager-frontend:${VERSION:-latest}
-    container_name: llc_manager-frontend
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
-    environment:
-      - VITE_API_URL=http://localhost:${APP_PORT:-8000}
-    volumes:
-      # Development: Mount source code for hot reload
-      - ./frontend/src:/app/src:ro
-      - ./frontend/public:/app/public:ro
-      - ./frontend/index.html:/app/index.html:ro
-    depends_on:
-      - app
-    restart: unless-stopped
 
     networks:
       - llc_manager-network

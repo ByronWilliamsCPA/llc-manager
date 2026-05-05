@@ -62,7 +62,7 @@ Phase 0: Foundation     ████░░░░░░░░░░░░  Week 1
 Phase 0.5: Data Import  ░░██░░░░░░░░░░░░  Week 1-2   - Excel migration tooling (CRITICAL)
 Phase 1: Core MVP       ░░░░████████░░░░  Weeks 2-4  - Auth, CRUD, Dashboard (decomposed)
 Phase 2: Compliance     ░░░░░░░░░░░░████  Weeks 5-6  - Calendar, Notifications, Ops Hardening
-Phase 3: LLM (Future)   ░░░░░░░░░░░░░░░░  TBD        - Vector DB, Q&A
+Phase 3: Doc Intelligence░░░░░░░░░░░░░░░░  After Ph2  - pgvector, Ollama Q&A, Foundry Embed
 ```
 
 ---
@@ -524,16 +524,177 @@ uv run python scripts/import_excel.py data/llc_master.xlsx
 
 ---
 
-## Phase 3: LLM Integration (Future)
+## Phase 3: Document Intelligence
 
-Detailed planning after Phase 2 completion. Scope includes:
+**Objective**: Enable natural language Q&A and semantic search against LLC documents using
+local LLM infrastructure. No cloud exposure of EIN, ownership, or financial data.
 
-- Vector database (Qdrant) for semantic search
-- PDF ingestion and document parsing
-- LLM Q&A interface for natural language queries
-- Document semantic search across ingested content
+> **Status (2026-05-05)**: Phase 3 is now a planned deliverable. Local LLM services are live
+> at `ollama.williamshome.family` and `ai.williamshome.family` (192.168.1.209), removing the
+> original cloud-exposure blocker that deferred this phase.
 
-> **Note**: Schema evolution strategy needed for Phase 3 (vector embeddings, document chunks).
+### Infrastructure Decisions
+
+| Component | Decision | Rationale |
+|-----------|----------|-----------|
+| **LLM inference** | Ollama at `ollama.williamshome.family` | Local only; EIN/ownership data never leaves network |
+| **Embedding model** | `nomic-embed-text` via Ollama | Local embeddings, no API keys, 768-dim |
+| **Vector store** | pgvector (extend existing PostgreSQL) | No new infrastructure; co-located with entity data |
+| **Chunking (MVP)** | Docling + token/title chunker | Reuse patterns from `foundry-chunk` / `data_ingestor` |
+| **Q&A UI** | HTMX chat panel in entity detail | Consistent with Phase 1 HTMX architecture |
+
+### Foundry Pipeline Integration Path
+
+LLC Manager implements the **Embed** component per the cross-project
+`chunk-embed-contract.md` (at `~/dev/image_detection/docs/development/RAG Pipeline/`).
+Two integration paths exist:
+
+| Path | When | Description |
+|------|------|-------------|
+| **Path A: Self-contained MVP** | Phase 3 launch | LLC Manager chunks its own documents locally using Docling; synthesizes all contract-required metadata fields |
+| **Path B: Foundry pipeline** | When `foundry-unify` and `foundry-chunk` ship | Replace local chunking with `RAGChunkSet.json` from `gs://rag-pipeline-{env}/{trace_id}/04-chunks/`; upstream pipeline produces all contract fields natively |
+
+**Phase 3 launches on Path A.** The pgvector schema stores all 8 contract-required metadata
+fields from day one. Path B migration is a data-source swap, not a schema redesign.
+
+### Document Scope
+
+| Document Type | LLC Manager Model | Priority |
+|--------------|-------------------|----------|
+| Operating agreements | `Document` (`type: operating_agreement`) | P0 |
+| State registration filings | `StateRegistration` linked `Document` | P0 |
+| Tax filings (K-1, 1065, etc.) | `TaxFiling` linked `Document` | P0 |
+| Bank account documentation | `BankAccount` linked `Document` | P1 |
+| Correspondence / notices | `Document` (`type: correspondence`) | P2 |
+
+---
+
+### Milestone M8: Vector Foundation
+
+**Branch**: `feat/phase-3-vector-foundation`
+
+| Task | Branch | Priority |
+|------|--------|----------|
+| Add `pgvector` extension to Alembic migrations | `feat/phase-3-pgvector` | P0 |
+| Create `document_chunk` table (contract-compatible schema) | `feat/phase-3-pgvector` | P0 |
+| Add HNSW index on embedding column | `feat/phase-3-pgvector` | P0 |
+| Implement Ollama embedding client (`nomic-embed-text`) | `feat/phase-3-embed-client` | P0 |
+| Implement Docling-based PDF chunker | `feat/phase-3-chunker` | P0 |
+| Create embedding service (chunk + embed + store) | `feat/phase-3-embed-svc` | P0 |
+| Background task: auto-embed on document upload | `feat/phase-3-embed-svc` | P1 |
+
+**`document_chunk` schema** (contract-compatible from day one):
+
+```python
+class DocumentChunk(Base):
+    chunk_id: UUID            # chunk-embed-contract required
+    document_id: UUID         # FK to Document
+    trace_id: UUID            # Pipeline trace (local UUID for Path A)
+    text: str
+    embedding: Vector(768)    # nomic-embed-text dimensions
+    page_range: list[int]     # [start, end] 1-indexed
+    section_hierarchy: list[str]
+    trust_score: float        # Synthesized locally (Path A); pipeline-provided (Path B)
+    ocr_engine_provenance: str  # e.g. "docling-local" for Path A
+    hallucination_risk: float
+    token_count: int
+    chunk_strategy: str
+    source_track: str         # "document" for all initial LLC Manager scope
+```
+
+**Acceptance Criteria (M8)**:
+
+- [ ] pgvector extension migration applies cleanly to existing database
+- [ ] `document_chunk` table stores all 8 contract-required metadata fields
+- [ ] Ollama embedding client returns 768-dim vectors for sample text
+- [ ] PDF chunker produces semantically coherent chunks for a sample operating agreement
+- [ ] Document upload triggers background embedding task automatically
+- [ ] HNSW index active on `embedding` column; similarity query under 100ms for corpus size
+
+---
+
+### Milestone M9: Semantic Search
+
+**Branch**: `feat/phase-3-semantic-search`
+
+| Task | Branch | Priority |
+|------|--------|----------|
+| Implement vector similarity search service | `feat/phase-3-search-svc` | P0 |
+| Add trust score filtering (exclude chunks below 0.5) | `feat/phase-3-search-svc` | P0 |
+| Build semantic search HTMX component | `feat/phase-3-search-ui` | P0 |
+| Add entity-scoped search (within one entity's documents) | `feat/phase-3-search-ui` | P0 |
+| Add cross-entity search (all entities) | `feat/phase-3-search-ui` | P1 |
+| Display source citations (document name, page range) | `feat/phase-3-search-ui` | P0 |
+
+**Acceptance Criteria (M9)**:
+
+- [ ] Semantic search returns relevant chunks for natural language queries (< 500ms p95)
+- [ ] Results show document name, page range, and trust score indicator
+- [ ] Chunks with `trust_score` below 0.5 are filtered from results
+- [ ] Entity-scoped search accessible from entity detail view
+- [ ] Cross-entity search accessible from dashboard
+
+---
+
+### Milestone M10: Q&A Interface
+
+**Branch**: `feat/phase-3-qa`
+
+| Task | Branch | Priority |
+|------|--------|----------|
+| Implement RAG endpoint (retrieve + generate via Ollama) | `feat/phase-3-rag-svc` | P0 |
+| Integrate Ollama LLM client (`ollama.williamshome.family`) | `feat/phase-3-rag-svc` | P0 |
+| Build HTMX chat panel in entity detail view | `feat/phase-3-qa-ui` | P0 |
+| Add response citations (linked to source documents) | `feat/phase-3-qa-ui` | P0 |
+| Implement streaming response (server-sent events) | `feat/phase-3-rag-svc` | P1 |
+| Add hallucination risk warning when low-quality chunks used | `feat/phase-3-qa-ui` | P1 |
+
+**Acceptance Criteria (M10)**:
+
+- [ ] Q&A panel answers questions about entity documents using retrieved context
+- [ ] Every response cites at minimum one source document with page reference
+- [ ] All LLM inference is local (Ollama); no cloud API calls for any document content
+- [ ] Streaming response renders progressively in HTMX chat panel
+- [ ] Hallucination risk indicator visible when low-trust chunks present in context window
+
+---
+
+### Milestone M11: Foundry Pipeline Migration (Path B)
+
+**Branch**: `feat/phase-3-foundry-integration`
+
+> **Trigger**: Implement when `foundry-unify` and `foundry-chunk` reach a usable state.
+> This milestone is a data-source migration, not a redesign. The pgvector schema already
+> stores all contract-required fields; only the producer changes.
+
+| Task | Branch | Priority |
+|------|--------|----------|
+| Validate `RAGChunkSet.json` ingest from GCS path | `feat/phase-3-foundry-integration` | P0 |
+| Replace synthesized `trust_score` with pipeline-produced value | `feat/phase-3-foundry-integration` | P0 |
+| Replace local Docling chunker with Foundry pipeline trigger | `feat/phase-3-foundry-integration` | P0 |
+| Pass through `ocr_engine_provenance` from Chunk pipeline | `feat/phase-3-foundry-integration` | P0 |
+| Run contract compliance check (all 8 required fields preserved) | `feat/phase-3-foundry-integration` | P0 |
+
+**Contract reference**: `~/dev/image_detection/docs/development/RAG Pipeline/chunk-embed-contract.md`
+
+**Acceptance Criteria (M11)**:
+
+- [ ] `document_chunk` records populated from `RAGChunkSet.json` without local chunker
+- [ ] All 8 contract-required metadata fields preserved in pgvector entries
+- [ ] `trust_score` sourced from Chunk pipeline, not synthesized locally
+- [ ] Semantic search and Q&A quality unchanged or improved after migration
+
+---
+
+### Phase 3 Definition of Done
+
+- [ ] LLC documents (PDFs) are automatically chunked and embedded on upload
+- [ ] Semantic search returns relevant results for natural language queries (< 500ms p95)
+- [ ] Q&A panel answers entity-specific questions using document context
+- [ ] All LLM inference is local via Ollama; zero cloud API calls for document content
+- [ ] Every Q&A response includes source citations with document name and page range
+- [ ] `document_chunk` schema is contract-compatible with `chunk-embed-contract.md`
+- [ ] 80% test coverage on embedding service and retrieval service layers
 
 ---
 
