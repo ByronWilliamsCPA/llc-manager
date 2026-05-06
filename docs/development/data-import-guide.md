@@ -151,8 +151,9 @@ If you only want validation output without engaging the import pipeline at all, 
 uv run python scripts/import_excel.py validate-only path/to/data.xlsx
 ```
 
-This is equivalent to `import --dry-run` but skips the import code path entirely. Use it when
-you want the fastest possible feedback loop while iterating on the workbook.
+Unlike `import --dry-run`, `validate-only` never instantiates the import pipeline and produces
+no reconciliation counts. It is the fastest feedback loop for catching format and validation
+errors before you are ready to run a full dry run.
 
 ## Full Import with Report
 
@@ -214,7 +215,7 @@ All tabs use upsert or pre-insert duplicate detection:
 | `RegisteredAgents` | `ON CONFLICT DO UPDATE` on `(entity_id, state, is_active)` |
 | `Owners` | Pre-check SELECT on same `entity_id`, `owner_name`, and `ownership_type`; skipped if found |
 | `BankAccounts` | Pre-check SELECT on same `entity_id`, `bank_name`, and `account_number_last4`; skipped if found |
-| `TaxFilings` | Pre-check SELECT on same `entity_id`, `tax_year`, and `filing_type`; skipped if found |
+| `TaxFilings` | Pre-check SELECT on same `entity_id`, `tax_year`, `filing_type`, and `jurisdiction`; skipped if found |
 
 Tabs that use `ON CONFLICT DO UPDATE` (Entities, StateRegistrations, RegisteredAgents) apply the
 latest workbook values on re-run; their rows are counted as `updated` in the reconciliation
