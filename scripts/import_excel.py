@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 import click
 import pandas as pd
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from llc_manager.db.session import AsyncSessionLocal
@@ -1007,19 +1007,23 @@ class Importer:
                         continue
 
                     stmt = pg_insert(Entity).values(**row_data)
-                    # #CRITICAL: Data integrity - EIN is required per the import format
-                    # spec. The (legal_name, ein) pair uniquely identifies an entity for
-                    # upsert purposes; a legal_name-only match is not sufficient because
-                    # an EIN change indicates a different tax entity. Rows missing EIN
-                    # are rejected by the Validator before reaching this point.
-                    conflict_target = ["legal_name", "ein"]
+                    # #CRITICAL: Data integrity - EIN is the durable identifier for
+                    # upsert purposes. The conflict target must reference the actual
+                    # partial unique index defined in migration
+                    # 20260119_005150_821fef45dccb: UNIQUE (ein) WHERE
+                    # is_active = true AND deleted_at IS NULL. Using (legal_name, ein)
+                    # or any other column combination will raise a PostgreSQL error
+                    # because no such index exists. legal_name is intentionally excluded
+                    # from update_cols -- it is not part of the conflict key and should
+                    # not be silently overwritten on an EIN collision.
                     update_cols = {
                         k: stmt.excluded[k]
                         for k in row_data
                         if k not in ("legal_name", "ein")
                     }
                     stmt = stmt.on_conflict_do_update(
-                        index_elements=conflict_target,
+                        index_elements=["ein"],
+                        index_where=text("is_active = true AND deleted_at IS NULL"),
                         set_=update_cols,
                     )
                     stmt = stmt.returning(Entity.id, Entity.legal_name)

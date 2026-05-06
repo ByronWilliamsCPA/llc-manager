@@ -37,7 +37,7 @@ here by `legal_name`.
 | `legal_name` | Required | Non-empty string, max 255 chars. Must be unique across the workbook. | `Acme Holdings LLC` |
 | `entity_type` | Required | One of: `llc`, `corporation`, `s_corporation`, `partnership`, `sole_proprietorship`, `trust`, `non_profit`, `other` | `llc` |
 | `dba_names` | Optional | Free text; separate multiple DBAs with commas | `Acme Realty, Acme Dev` |
-| `ein` | Optional | String matching `XX-XXXXXXX` pattern (9 digits), globally unique | `12-3456789` |
+| `ein` | Required | String matching `XX-XXXXXXX` pattern (9 digits), globally unique | `12-3456789` |
 | `formation_state` | Optional | Two-letter US state abbreviation (uppercase) | `TX` |
 | `formation_date` | Optional | `YYYY-MM-DD` | `2019-06-01` |
 | `fiscal_year_end` | Optional | `MM-DD` format, max 5 chars | `12-31` |
