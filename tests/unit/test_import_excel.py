@@ -994,20 +994,26 @@ class TestImporterLivePaths:
         reload_cursor = MagicMock()
         reload_cursor.fetchall.return_value = [(fake_entity_id, "Acme LLC")]
 
+        # Dedup SELECT cursors (Owner, BankAccount, TaxFiling): scalar_one_or_none.
         child_cursor = MagicMock()
         child_cursor.scalar_one_or_none.return_value = None
+
+        # Upsert cursors (StateRegistration, RegisteredAgent): fetchone for xmax.
+        # fetchone() == None → else branch → counted as inserted.
+        upsert_cursor = MagicMock()
+        upsert_cursor.fetchone.return_value = None
 
         mock_session = AsyncMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
         mock_session.execute.side_effect = [
-            entity_cursor,
-            reload_cursor,
-            child_cursor,
-            child_cursor,
-            child_cursor,
-            child_cursor,
-            child_cursor,
+            entity_cursor,  # entity ON CONFLICT upsert (fetchone → None → inserted)
+            reload_cursor,  # entity UUID reload (fetchall)
+            child_cursor,  # owner dedup SELECT (scalar_one_or_none → None → add)
+            upsert_cursor,  # state_reg ON CONFLICT upsert (fetchone → None → inserted)
+            child_cursor,  # bank account dedup SELECT (scalar_one_or_none → None → add)
+            child_cursor,  # tax filing dedup SELECT (scalar_one_or_none → None → add)
+            upsert_cursor,  # registered_agent ON CONFLICT upsert (fetchone → None → inserted)
         ]
 
         result = ImportResult()
@@ -1333,6 +1339,157 @@ class TestPipelineValidationAbort:
 
         info_msgs = [m for m in result.messages if m.level == "INFO"]
         assert any("Dry-run mode" in m.message for m in info_msgs)
+
+
+# ===========================================================================
+# Importer -- exception-path rollback (C6)
+# ===========================================================================
+
+
+class TestImporterRollbackOnException:
+    @pytest.mark.unit
+    def test_importer_rolls_back_on_session_execute_exception(self) -> None:
+        """Importer.run() rolls back the session when session.execute raises.
+
+        The except-block at the end of Importer.run() must call rollback and
+        re-raise.  This ensures no partial writes are left in the database.
+        """
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        mock_session.execute.side_effect = RuntimeError("simulated DB error")
+
+        result = ImportResult()
+        importer = Importer(dry_run=False)
+
+        with (
+            patch("import_excel.AsyncSessionLocal", return_value=mock_session),
+            pytest.raises(RuntimeError, match="simulated DB error"),
+        ):
+            asyncio.run(
+                importer.run(
+                    entity_rows=[
+                        {
+                            "legal_name": "Acme LLC",
+                            "ein": "12-3456789",
+                            "entity_type": "llc",
+                        }
+                    ],
+                    owner_rows=[],
+                    state_reg_rows=[],
+                    bank_account_rows=[],
+                    tax_filing_rows=[],
+                    registered_agent_rows=[],
+                    result=result,
+                )
+            )
+
+        mock_session.rollback.assert_called()
+        mock_session.commit.assert_not_called()
+
+
+# ===========================================================================
+# CLI commands -- sys.exit(1) on errors, exit 0 on success (C5)
+# ===========================================================================
+
+
+class TestCLICommands:
+    """Tests for the Click CLI entry points using Click's CliRunner."""
+
+    def _bad_workbook(self, path: Path) -> None:
+        df = pd.DataFrame(
+            [{"Legal Name": "Bad LLC", "EIN": "123456789", "Entity Type": "llc"}]
+        )
+        with pd.ExcelWriter(str(path), engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Entities", index=False)
+
+    def _valid_workbook(self, path: Path) -> None:
+        df = pd.DataFrame(
+            [{"Legal Name": "Acme LLC", "EIN": "12-3456789", "Entity Type": "llc"}]
+        )
+        with pd.ExcelWriter(str(path), engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Entities", index=False)
+
+    @pytest.mark.unit
+    def test_cli_import_exits_1_on_validation_error(self, tmp_path: Path) -> None:
+        """'import' exits with code 1 when the workbook has validation errors."""
+        from click.testing import CliRunner
+
+        xlsx = tmp_path / "bad.xlsx"
+        self._bad_workbook(xlsx)
+
+        result = CliRunner().invoke(_M.cli, ["import", str(xlsx)])
+
+        assert result.exit_code == 1
+
+    @pytest.mark.unit
+    def test_cli_validate_only_exits_1_on_validation_error(
+        self, tmp_path: Path
+    ) -> None:
+        """'validate-only' exits with code 1 when the workbook has errors."""
+        from click.testing import CliRunner
+
+        xlsx = tmp_path / "bad.xlsx"
+        self._bad_workbook(xlsx)
+
+        result = CliRunner().invoke(_M.cli, ["validate-only", str(xlsx)])
+
+        assert result.exit_code == 1
+
+    @pytest.mark.unit
+    def test_cli_report_exits_1_on_validation_error(self, tmp_path: Path) -> None:
+        """'report' exits with code 1 when the workbook has errors."""
+        from click.testing import CliRunner
+
+        xlsx = tmp_path / "bad.xlsx"
+        self._bad_workbook(xlsx)
+
+        result = CliRunner().invoke(_M.cli, ["report", str(xlsx)])
+
+        assert result.exit_code == 1
+
+    @pytest.mark.unit
+    def test_cli_validate_only_exits_0_on_valid_workbook(self, tmp_path: Path) -> None:
+        """'validate-only' exits 0 for a workbook with no errors (no DB needed)."""
+        from click.testing import CliRunner
+
+        xlsx = tmp_path / "ok.xlsx"
+        self._valid_workbook(xlsx)
+
+        result = CliRunner().invoke(_M.cli, ["validate-only", str(xlsx)])
+
+        assert result.exit_code == 0
+
+    @pytest.mark.unit
+    def test_cli_report_exits_0_on_valid_workbook(self, tmp_path: Path) -> None:
+        """'report' exits 0 for a workbook with no errors (no DB needed)."""
+        from click.testing import CliRunner
+
+        xlsx = tmp_path / "ok.xlsx"
+        self._valid_workbook(xlsx)
+
+        result = CliRunner().invoke(_M.cli, ["report", str(xlsx)])
+
+        assert result.exit_code == 0
+
+    @pytest.mark.unit
+    def test_cli_import_dry_run_exits_0_on_valid_workbook(self, tmp_path: Path) -> None:
+        """'import --dry-run' exits 0 for a valid workbook with mocked DB."""
+        from click.testing import CliRunner
+
+        xlsx = tmp_path / "ok.xlsx"
+        self._valid_workbook(xlsx)
+
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("import_excel.AsyncSessionLocal", return_value=mock_session):
+            result = CliRunner().invoke(
+                _M.cli, ["import", "--dry-run", "--report", str(xlsx)]
+            )
+
+        assert result.exit_code == 0
 
 
 # ===========================================================================
