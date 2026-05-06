@@ -183,7 +183,7 @@ The report file contains the same text as the stdout output.
 2. Maps column headers to ORM field names (applying aliases).
 3. Validates every row. If any `ERROR`-level messages are produced, the import is aborted and
    nothing is written to the database.
-4. Upserts entities using `(legal_name, ein)` as the conflict target.
+4. Upserts entities using the partial unique index on `ein` where `is_active = true AND deleted_at IS NULL` as the conflict target.
 5. Inserts or skips child records (owners, registrations, bank accounts, tax filings, registered
    agents) based on per-table duplicate detection (see [Re-running After Corrections](#re-running-after-corrections)).
 6. Commits the transaction. On any unhandled exception the transaction is rolled back.
@@ -198,26 +198,30 @@ create duplicates.
 
 ### Entity upsert
 
-Entities use PostgreSQL `ON CONFLICT DO UPDATE` on the `(legal_name, ein)` pair. Re-importing
-an entity row updates all other columns with the current workbook values. This means EIN is
-required for each entity row; a row missing EIN is rejected by validation before it reaches the
-database.
+Entities use PostgreSQL `ON CONFLICT DO UPDATE` on the partial unique index on `ein` where
+`is_active = true AND deleted_at IS NULL`. Re-importing an entity row updates all other columns
+with the current workbook values. This means EIN is required for each entity row; a row missing
+EIN is rejected by validation before it reaches the database.
 
 ### Child record deduplication
 
-Child tables use pre-insert lookups to detect existing rows:
+All tabs use upsert or pre-insert duplicate detection:
 
-| Tab | Duplicate check |
+| Tab | Deduplication strategy |
 |---|---|
-| `Owners` | Same `entity_id`, `owner_name`, and `ownership_type` |
-| `BankAccounts` | Same `entity_id`, `bank_name`, and `account_number_last4` |
+| `Entities` | `ON CONFLICT DO UPDATE` on the partial unique index on `ein` where `is_active = true AND deleted_at IS NULL` |
 | `StateRegistrations` | `ON CONFLICT DO UPDATE` on `(entity_id, state, registration_type)` |
 | `RegisteredAgents` | `ON CONFLICT DO UPDATE` on `(entity_id, state, is_active)` |
-| `TaxFilings` | Same `entity_id`, `tax_year`, and `filing_type` |
+| `Owners` | Pre-check SELECT on same `entity_id`, `owner_name`, and `ownership_type`; skipped if found |
+| `BankAccounts` | Pre-check SELECT on same `entity_id`, `bank_name`, and `account_number_last4`; skipped if found |
+| `TaxFilings` | Pre-check SELECT on same `entity_id`, `tax_year`, and `filing_type`; skipped if found |
 
-Rows identified as duplicates are counted in the `skipped` column of the reconciliation report.
-They are not updated. If you need to update an existing child record, do so directly in the
-application UI or via a database migration.
+Tabs that use `ON CONFLICT DO UPDATE` (Entities, StateRegistrations, RegisteredAgents) apply the
+latest workbook values on re-run; their rows are counted as `updated` in the reconciliation
+report. Tabs that use pre-check SELECT (Owners, BankAccounts, TaxFilings) skip existing rows
+without modifying them; those rows are counted as `skipped`. To force an update to a skipped
+child record, update it directly in the application UI or remove it from the database and
+re-run.
 
 ## Troubleshooting
 
@@ -261,13 +265,13 @@ all child rows for that entity. Fix the entity row first.
 
 **Scenario:** You run the import, notice a data issue, correct the workbook, and run again.
 
-**Behavior:** The script will not insert duplicate child records. Any row that matches the
-duplicate-check criteria listed in [Re-running After Corrections](#re-running-after-corrections)
-is counted as `skipped` and left unchanged. Entities are upserted, so corrected entity-level
-fields (address, fiscal year end, notes, etc.) will be applied on re-run.
+**Behavior:** The script uses upsert semantics throughout. Entities, StateRegistrations, and
+RegisteredAgents use `ON CONFLICT DO UPDATE`; re-running applies the latest workbook values.
+Owners, BankAccounts, and TaxFilings use pre-check SELECT to avoid duplicates; matched rows are
+counted as `skipped` and left unchanged.
 
-If you need to force an update to a child record that was already imported, either update the
-record in the application or remove it from the database before re-running.
+If you need to force an update to a skipped child record (Owner, BankAccount, or TaxFiling),
+update it directly in the application or remove it from the database before re-running.
 
 ### Ownership percentage warning
 

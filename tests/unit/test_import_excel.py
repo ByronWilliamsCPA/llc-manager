@@ -918,7 +918,7 @@ class TestImporterUpsert:
         def make_mock_session() -> AsyncMock:
             fake_row = MagicMock()
             fake_row.__getitem__ = lambda self, idx: (
-                "uuid-1" if idx == 0 else "Acme LLC"
+                "uuid-1" if idx == 0 else ("Acme LLC" if idx == 1 else 0)
             )
             cursor = MagicMock()
             cursor.fetchone.return_value = fake_row

@@ -4,7 +4,7 @@ Usage::
 
     uv run python scripts/import_excel.py import data.xlsx
     uv run python scripts/import_excel.py import data.xlsx --dry-run
-    uv run python scripts/import_excel.py import data.xlsx --report results.txt
+    uv run python scripts/import_excel.py import data.xlsx --report --output-file results.txt
 
 The workbook format is defined in docs/development/data-import-format.md.
 """
@@ -1002,10 +1002,6 @@ class Importer:
                 entity_id_map: dict[str, UUID] = {}
                 for row in entity_rows:
                     row_data = self._prepare_entity(row)
-                    if not row_data:
-                        result.skipped["Entities"] += 1
-                        continue
-
                     stmt = pg_insert(Entity).values(**row_data)
                     # #CRITICAL: Data integrity - EIN is the durable identifier for
                     # upsert purposes. The conflict target must reference the actual
@@ -1026,14 +1022,21 @@ class Importer:
                         index_where=text("is_active = true AND deleted_at IS NULL"),
                         set_=update_cols,
                     )
-                    stmt = stmt.returning(Entity.id, Entity.legal_name)
+                    stmt = stmt.returning(
+                        Entity.id, Entity.legal_name, text("xmax::int")
+                    )
 
                     if not self._dry_run:
                         cursor = await session.execute(stmt)
                         row_result = cursor.fetchone()
                         if row_result:
                             entity_id_map[row_result[1]] = row_result[0]
-                        result.inserted["Entities"] += 1
+                            if row_result[2] == 0:
+                                result.inserted["Entities"] += 1
+                            else:
+                                result.updated["Entities"] += 1
+                        else:
+                            result.inserted["Entities"] += 1
                     else:
                         result.inserted["Entities"] += 1
 
@@ -1540,11 +1543,24 @@ def _run_validation_and_import(
 
     # Entities must be validated first to build the known-names set.
     valid_entity_names: list[str] = []
+    seen_entity_names: set[str] = set()
     for idx, row in enumerate(entity_rows, start=2):  # Row 1 is header.
         if validator.validate_entity_row(row, idx):
             legal_name = row.get("legal_name")
             if legal_name:
-                valid_entity_names.append(legal_name)
+                if legal_name in seen_entity_names:
+                    result.messages.append(
+                        ValidationMessage(
+                            level="WARNING",
+                            tab="Entities",
+                            row=idx,
+                            field="legal_name",
+                            message=f"Duplicate legal_name '{legal_name}' in workbook; later row will overwrite earlier row via upsert",
+                        )
+                    )
+                else:
+                    seen_entity_names.add(legal_name)
+                    valid_entity_names.append(legal_name)
 
     known_names = frozenset(valid_entity_names)
 
@@ -1729,8 +1745,7 @@ def report(workbook: Path, output_file: Path | None) -> None:
         sys.exit(1)
 
 
-# Make the 'import' command accessible without a subcommand word by registering
-# it under the import name and also as the default when called directly.
+# Register the import command under the 'import' subcommand name.
 cli.add_command(import_data, name="import")
 
 

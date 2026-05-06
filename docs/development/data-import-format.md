@@ -35,7 +35,7 @@ here by `legal_name`.
 | Column Name | Required | Validation Rule | Example |
 |---|---|---|---|
 | `legal_name` | Required | Non-empty string, max 255 chars. Must be unique across the workbook. | `Acme Holdings LLC` |
-| `entity_type` | Required | One of: `llc`, `corporation`, `s_corporation`, `partnership`, `sole_proprietorship`, `trust`, `non_profit`, `other` | `llc` |
+| `entity_type` | Optional | One of: `llc`, `corporation`, `s_corporation`, `partnership`, `sole_proprietorship`, `trust`, `non_profit`, `other`. Defaults to `llc` if omitted. | `llc` |
 | `dba_names` | Optional | Free text; separate multiple DBAs with commas | `Acme Realty, Acme Dev` |
 | `ein` | Required | String matching `XX-XXXXXXX` pattern (9 digits), globally unique | `12-3456789` |
 | `formation_state` | Optional | Two-letter US state abbreviation (uppercase) | `TX` |
@@ -181,10 +181,7 @@ in the `Entities` tab.
 Maps to the `RegisteredAgent` model. Each row links to an entity via `entity_legal_name`.
 
 **FK lookup**: The value in `entity_legal_name` must exactly match a `legal_name`
-in the `Entities` tab. The combination of `entity_legal_name`, `state`, and
-`is_active = TRUE` must be unique (mirrors the database unique constraint
-`uq_entity_state_active_agent`). Only one active registered agent per state per
-entity is permitted.
+in the `Entities` tab. Unique constraint: `(entity_id, state, is_active)` -- one active agent per state per entity.
 
 | Column Name | Required | Validation Rule | Example |
 |---|---|---|---|
