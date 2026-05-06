@@ -334,6 +334,7 @@ known-first-party = ["llc_manager"]
     "EM",     # Error messages (test exceptions)
     "TRY",    # Exception handling (test assertions)
     "INP",    # No __init__.py required for test directories
+    "TC003",  # Standard library imports used only in annotations (Path in fixture sigs)
     # Security rules OK to skip in tests (specific, not blanket S)
     "S101",   # assert_used - pytest uses asserts
     "S105",   # hardcoded_password_string - test credentials are fake
@@ -511,7 +512,7 @@ deprecateTypingAliases = true          # Warn on deprecated typing module aliase
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
-pythonpath = [".", "src"]
+pythonpath = [".", "src", "scripts"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
