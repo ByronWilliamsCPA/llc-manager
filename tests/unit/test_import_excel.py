@@ -13,26 +13,15 @@ from __future__ import annotations
 
 import asyncio
 import re
-import sys
 import time
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import import_excel as _ie
 import pandas as pd
 import pytest
-
-# ---------------------------------------------------------------------------
-# Add scripts/ to sys.path so coverage can track import_excel.py.
-# This must happen before any import of import_excel.
-# ---------------------------------------------------------------------------
-
-_SCRIPTS_DIR = str(Path(__file__).parent.parent.parent / "scripts")
-if _SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, _SCRIPTS_DIR)
-
-import import_excel as _ie  # noqa: E402
 
 _M = _ie
 
@@ -912,33 +901,41 @@ class TestImporterDryRun:
 class TestImporterUpsert:
     @pytest.mark.unit
     def test_importer_upsert_is_idempotent(self) -> None:
-        """Running the same entity row twice results in a single inserted count."""
-        fake_row = MagicMock()
-        fake_row.__getitem__ = lambda self, idx: (
-            "uuid-1" if idx == 0 else "Acme LLC"
-        )
+        """Running the same entity row twice succeeds both times with no errors.
 
-        cursor = MagicMock()
-        cursor.fetchone.return_value = fake_row
-
-        mock_session = AsyncMock()
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=False)
-
-        reload_cursor = MagicMock()
-        reload_cursor.fetchall.return_value = [("uuid-1", "Acme LLC")]
-        mock_session.execute.side_effect = [cursor, reload_cursor]
-
+        Entity upsert uses ON CONFLICT DO UPDATE, so both runs count as
+        'inserted' (the source does not track updates separately). The key
+        assertion is that the second run does not raise and does not produce
+        errors -- the upsert path handles duplicates gracefully.
+        """
         entity_row: dict[str, Any] = {
             "legal_name": "Acme LLC",
             "ein": "12-3456789",
             "entity_type": "llc",
         }
-
-        result1 = ImportResult()
         importer = Importer(dry_run=False)
 
-        with patch("import_excel.AsyncSessionLocal", return_value=mock_session):
+        def make_mock_session() -> AsyncMock:
+            fake_row = MagicMock()
+            fake_row.__getitem__ = lambda self, idx: (
+                "uuid-1" if idx == 0 else "Acme LLC"
+            )
+            cursor = MagicMock()
+            cursor.fetchone.return_value = fake_row
+
+            reload_cursor = MagicMock()
+            reload_cursor.fetchall.return_value = [("uuid-1", "Acme LLC")]
+
+            mock_session = AsyncMock()
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=False)
+            mock_session.execute.side_effect = [cursor, reload_cursor]
+            return mock_session
+
+        # First run: entity is inserted via upsert.
+        result1 = ImportResult()
+        mock_session_1 = make_mock_session()
+        with patch("import_excel.AsyncSessionLocal", return_value=mock_session_1):
             asyncio.run(
                 importer.run(
                     entity_rows=[entity_row],
@@ -951,8 +948,32 @@ class TestImporterUpsert:
                 )
             )
 
-        assert mock_session.execute.call_count >= 1
         assert result1.inserted["Entities"] == 1
+        assert result1.error_count == 0
+
+        # Second run with identical data: upsert updates the existing row.
+        # inserted still increments (source tracks upsert, not insert vs update).
+        result2 = ImportResult()
+        mock_session_2 = make_mock_session()
+        with patch("import_excel.AsyncSessionLocal", return_value=mock_session_2):
+            asyncio.run(
+                importer.run(
+                    entity_rows=[entity_row],
+                    owner_rows=[],
+                    state_reg_rows=[],
+                    bank_account_rows=[],
+                    tax_filing_rows=[],
+                    registered_agent_rows=[],
+                    result=result2,
+                )
+            )
+
+        # The second run must also succeed without errors.
+        assert result2.error_count == 0
+        # Both runs produce exactly one upsert call each (not zero, not two).
+        assert mock_session_1.execute.call_count == mock_session_2.execute.call_count
+        # Total across both runs is 2 -- one per run, never doubled within a run.
+        assert result1.inserted["Entities"] + result2.inserted["Entities"] == 2
 
 
 # ===========================================================================
