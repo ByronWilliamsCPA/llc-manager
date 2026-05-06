@@ -675,6 +675,7 @@ class Validator:
         ok &= self._validate_enum(
             row_dict.get("entity_type"), VALID_ENTITY_TYPES, tab, row_idx, "entity_type"
         )
+        ok &= self._validate_required(row_dict.get("ein"), tab, row_idx, "ein")
         ok &= self._validate_ein(row_dict.get("ein"), tab, row_idx, "ein")
         ok &= self._validate_date_not_future(
             row_dict.get("formation_date"), tab, row_idx, "formation_date"
@@ -1005,14 +1006,12 @@ class Importer:
                         continue
 
                     stmt = pg_insert(Entity).values(**row_data)
-                    # #ASSUME: The (legal_name, ein) pair uniquely identifies an entity
-                    # for upsert purposes. A legal_name-only match is not sufficient
-                    # because an EIN change indicates a different tax entity.
-                    # #VERIFY: Confirm with Byron that ein=NULL entities should still
-                    # be upserted on legal_name alone (tracked: see format spec note).
-                    conflict_target = (
-                        ["legal_name", "ein"] if row_data.get("ein") else ["legal_name"]
-                    )
+                    # #CRITICAL: Data integrity - EIN is required per the import format
+                    # spec. The (legal_name, ein) pair uniquely identifies an entity for
+                    # upsert purposes; a legal_name-only match is not sufficient because
+                    # an EIN change indicates a different tax entity. Rows missing EIN
+                    # are rejected by the Validator before reaching this point.
+                    conflict_target = ["legal_name", "ein"]
                     update_cols = {
                         k: stmt.excluded[k]
                         for k in row_data
