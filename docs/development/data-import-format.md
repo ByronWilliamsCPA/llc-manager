@@ -68,7 +68,7 @@ rejected with a validation error.
 |---|---|---|---|
 | `entity_legal_name` | Required | Must match a `legal_name` in the `Entities` tab | `Acme Holdings LLC` |
 | `owner_name` | Required | Non-empty string, max 255 chars | `Jane Smith` |
-| `ownership_type` | Required | One of: `member`, `managing_member`, `shareholder`, `general_partner`, `limited_partner`, `beneficiary`, `trustee`, `director`, `officer`. Defaults to `member` if omitted. | `managing_member` |
+| `ownership_type` | Optional | One of: `member`, `managing_member`, `shareholder`, `general_partner`, `limited_partner`, `beneficiary`, `trustee`, `director`, `officer`. Defaults to `member` if omitted. | `managing_member` |
 | `ownership_percentage` | Required | Decimal 0.00-100.00 (5 digits, 2 decimal places). All owners for an entity should sum to 100. | `60.00` |
 | `owner_entity_legal_name` | Optional | Legal name of the owning entity if the owner is itself an entity in this workbook | `Smith Family Trust LLC` |
 | `capital_contribution` | Optional | Decimal amount up to 15 digits with 2 decimal places | `50000.00` |
@@ -102,8 +102,8 @@ unique constraint `uq_entity_state_type`).
 |---|---|---|---|
 | `entity_legal_name` | Required | Must match a `legal_name` in the `Entities` tab | `Acme Holdings LLC` |
 | `state` | Required | Two-letter US state abbreviation (uppercase) | `CA` |
-| `registration_type` | Required | One of: `domestic`, `foreign`, `assumed_name`, `professional`, `specialty`. Defaults to `domestic` if omitted. | `foreign` |
-| `status` | Required | One of: `active`, `pending`, `expired`, `withdrawn`, `revoked`, `suspended`, `reinstated`. Defaults to `active` if omitted. | `active` |
+| `registration_type` | Optional | One of: `domestic`, `foreign`, `assumed_name`, `professional`, `specialty`. Defaults to `domestic` if omitted. | `foreign` |
+| `status` | Optional | One of: `active`, `pending`, `expired`, `withdrawn`, `revoked`, `suspended`, `reinstated`. Defaults to `active` if omitted. | `active` |
 | `file_number` | Optional | State-assigned file or registration number, max 50 chars | `202312345678` |
 | `registered_name` | Optional | Name as registered in this state if different from legal name, max 255 chars | `Acme Holdings Foreign LLC` |
 | `registration_date` | Optional | `YYYY-MM-DD` | `2021-03-10` |
@@ -130,7 +130,7 @@ in the `Entities` tab.
 |---|---|---|---|
 | `entity_legal_name` | Required | Must match a `legal_name` in the `Entities` tab | `Acme Holdings LLC` |
 | `bank_name` | Required | Name of the bank or financial institution, max 255 chars | `First National Bank` |
-| `account_type` | Required | One of: `checking`, `savings`, `money_market`, `cd`, `business_checking`, `business_savings`, `merchant_account`, `payroll`, `other`. Defaults to `business_checking` if omitted. | `business_checking` |
+| `account_type` | Optional | One of: `checking`, `savings`, `money_market`, `cd`, `business_checking`, `business_savings`, `merchant_account`, `payroll`, `other`. Defaults to `business_checking` if omitted. | `business_checking` |
 | `account_name` | Optional | Name on the account, max 255 chars | `Acme Holdings LLC Operating` |
 | `account_number_last4` | Optional | Last 4 digits of account number only, exactly 4 digits | `4321` |
 | `routing_number` | Optional | 9-digit ABA routing number | `021000021` |
@@ -161,8 +161,8 @@ in the `Entities` tab.
 | `filing_type` | Required | One of: `federal_income`, `state_income`, `franchise_tax`, `sales_tax`, `payroll_tax`, `property_tax`, `estimated_tax`, `annual_report`, `k1`, `other` | `federal_income` |
 | `jurisdiction` | Required | Two-letter state abbreviation or `Federal`, max 50 chars | `Federal` |
 | `tax_year` | Required | Four-digit integer year | `2023` |
-| `frequency` | Required | One of: `annual`, `quarterly`, `monthly`, `semi_annual`, `one_time`. Defaults to `annual` if omitted. | `annual` |
-| `status` | Required | One of: `pending`, `filed`, `extended`, `late`, `not_required`. Defaults to `pending` if omitted. | `filed` |
+| `frequency` | Optional | One of: `annual`, `quarterly`, `monthly`, `semi_annual`, `one_time`. Defaults to `annual` if omitted. | `annual` |
+| `status` | Optional | One of: `pending`, `filed`, `extended`, `late`, `not_required`. Defaults to `pending` if omitted. | `filed` |
 | `tax_period` | Optional | Specific period within the year, max 20 chars | `Q1 2023` |
 | `due_date` | Optional | `YYYY-MM-DD` | `2024-04-15` |
 | `extended_due_date` | Optional | `YYYY-MM-DD`; populate only when an extension has been filed | `2024-10-15` |
