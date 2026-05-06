@@ -19,7 +19,10 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 import click
 import pandas as pd
@@ -124,8 +127,6 @@ VALID_FILING_STATUSES: frozenset[str] = frozenset(
 
 # EIN format: XX-XXXXXXX (2 digits, hyphen, 7 digits)
 EIN_PATTERN = re.compile(r"^\d{2}-\d{7}$")
-# SSN format for owner ein_or_ssn: XXX-XX-XXXX
-SSN_PATTERN = re.compile(r"^\d{3}-\d{2}-\d{4}$")
 
 # ---------------------------------------------------------------------------
 # Severity levels
@@ -535,7 +536,7 @@ class Validator:
         s = str(value).strip()
         # #CRITICAL: Data integrity - EIN format enforced via regex to prevent
         # malformed identifiers reaching the database.
-        if not re.fullmatch(r"\d{2}-\d{7}", s):
+        if not EIN_PATTERN.fullmatch(s):
             self._add(
                 "ERROR",
                 tab,
@@ -998,7 +999,7 @@ class Importer:
         async with AsyncSessionLocal() as session:
             try:
                 # --- Entities (upsert on legal_name + ein) ---
-                entity_id_map: dict[str, object] = {}
+                entity_id_map: dict[str, UUID] = {}
                 for row in entity_rows:
                     row_data = self._prepare_entity(row)
                     if not row_data:
@@ -1057,6 +1058,18 @@ class Importer:
                     if entity_id is not None:
                         row_data["entity_id"] = entity_id
                     if not self._dry_run:
+                        existing_owner = (
+                            await session.execute(
+                                select(Owner).where(
+                                    Owner.entity_id == row_data["entity_id"],
+                                    Owner.owner_name == row_data["owner_name"],
+                                    Owner.ownership_type == row_data["ownership_type"],
+                                )
+                            )
+                        ).scalar_one_or_none()
+                        if existing_owner:
+                            result.skipped["Owners"] += 1
+                            continue
                         session.add(Owner(**row_data))
                     result.inserted["Owners"] += 1
 
@@ -1094,6 +1107,19 @@ class Importer:
                     if entity_id is not None:
                         row_data["entity_id"] = entity_id
                     if not self._dry_run:
+                        existing_bank = (
+                            await session.execute(
+                                select(BankAccount).where(
+                                    BankAccount.entity_id == row_data["entity_id"],
+                                    BankAccount.bank_name == row_data["bank_name"],
+                                    BankAccount.account_number_last4
+                                    == row_data["account_number_last4"],
+                                )
+                            )
+                        ).scalar_one_or_none()
+                        if existing_bank:
+                            result.skipped["BankAccounts"] += 1
+                            continue
                         session.add(BankAccount(**row_data))
                     result.inserted["BankAccounts"] += 1
 
@@ -1108,6 +1134,18 @@ class Importer:
                     if entity_id is not None:
                         row_data["entity_id"] = entity_id
                     if not self._dry_run:
+                        existing_filing = (
+                            await session.execute(
+                                select(TaxFiling).where(
+                                    TaxFiling.entity_id == row_data["entity_id"],
+                                    TaxFiling.tax_year == row_data["tax_year"],
+                                    TaxFiling.filing_type == row_data["filing_type"],
+                                )
+                            )
+                        ).scalar_one_or_none()
+                        if existing_filing:
+                            result.skipped["TaxFilings"] += 1
+                            continue
                         session.add(TaxFiling(**row_data))
                     result.inserted["TaxFilings"] += 1
 
@@ -1217,6 +1255,7 @@ class Importer:
             "voting_percentage": fm.coerce_decimal(row.get("voting_percentage")),
             "start_date": fm.coerce_date(row.get("start_date")),
             "end_date": fm.coerce_date(row.get("end_date")),
+            # ein_or_ssn format (EIN or SSN) is not validated at import time.
             "ein_or_ssn": row.get("ein_or_ssn"),
             "address": row.get("address"),
             "city": row.get("city"),
