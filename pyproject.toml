@@ -520,6 +520,7 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "--cov=src/llc_manager",
+    "--cov=scripts",
     "--cov-report=html",
     "--cov-report=term-missing:skip-covered",
     "--cov-report=xml",
@@ -558,7 +559,16 @@ omit = [
     "validation/*",     # Validation/verification scripts
     "benchmarks/*",     # Benchmarking framework
     "data/*",           # Data processing scripts
-    "scripts/*",        # Utility scripts
+    "scripts/*.sh",     # Shell scripts (not measurable by coverage)
+    # Untested utility scripts -- excluded individually so import_excel.py is measured
+    "scripts/check_fips_compatibility.py",
+    "scripts/check_orphaned_files.py",
+    "scripts/check_quality_gate.py",
+    "scripts/check_type_hints.py",
+    "scripts/cleanup_conditional_files.py",
+    "scripts/seed.py",
+    "scripts/setup_github_protection.py",
+    "scripts/validate_assuredoss.py",
     "notebooks/*",      # Jupyter notebooks
     "tmp_cleanup/*",    # Temporary files
 ]
