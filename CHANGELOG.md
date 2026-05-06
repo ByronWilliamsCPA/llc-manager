@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- `scripts/import_excel.py`: standalone CLI for bulk-importing LLC records from a
+  six-tab Excel workbook into PostgreSQL; supports `--dry-run`, `--report`, and
+  `--output-file` flags; uses idempotent upserts (ON CONFLICT DO UPDATE on the
+  partial EIN index for Entity; pre-check SELECT for child models)
+- `docs/development/data-import-format.md`: canonical six-tab spreadsheet schema
+  with column names, required/optional status, validation rules, and examples
+- `docs/development/data-import-guide.md`: operator runbook covering prerequisites,
+  dry run, full import, re-run safety, and troubleshooting
+- `pandas>=2.2`, `openpyxl>=3.1`, and `click>=8.1` added to the `import` optional
+  dependency group in `pyproject.toml`
+- 83 unit tests for `import_excel.py` at 87% line coverage; scripts/ added to the
+  CI coverage gate (82.59% total)
 - Initial project setup and structure
 - SSRF prevention and rate-limit middleware wired into `main.py`
 - CR/LF sanitization and 128-char cap on incoming correlation headers
