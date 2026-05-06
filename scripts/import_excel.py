@@ -496,6 +496,34 @@ class Validator:
             return False
         return True
 
+    def _validate_integer_year(
+        self, value: Any, tab: str, row: int, field_name: str
+    ) -> bool:
+        """Return True if value is an integer in a plausible tax year range."""
+        if value is None:
+            return True  # Absence is checked by _validate_required separately.
+        try:
+            year = int(value)
+        except (ValueError, TypeError):
+            self._add(
+                "ERROR",
+                tab,
+                row,
+                field_name,
+                f"{field_name} must be an integer year, got: {value!r}",
+            )
+            return False
+        if year < 1900 or year > 2100:
+            self._add(
+                "ERROR",
+                tab,
+                row,
+                field_name,
+                f"{field_name} must be between 1900 and 2100, got: {year}",
+            )
+            return False
+        return True
+
     def _validate_enum(
         self,
         value: Any,
@@ -669,9 +697,6 @@ class Validator:
         ok = True
         ok &= self._validate_required(
             row_dict.get("legal_name"), tab, row_idx, "legal_name"
-        )
-        ok &= self._validate_required(
-            row_dict.get("entity_type"), tab, row_idx, "entity_type"
         )
         ok &= self._validate_enum(
             row_dict.get("entity_type"), VALID_ENTITY_TYPES, tab, row_idx, "entity_type"
@@ -882,6 +907,9 @@ class Validator:
         ok &= self._validate_required(
             row_dict.get("tax_year"), tab, row_idx, "tax_year"
         )
+        ok &= self._validate_integer_year(
+            row_dict.get("tax_year"), tab, row_idx, "tax_year"
+        )
         ok &= self._validate_enum(
             row_dict.get("frequency"),
             VALID_FILING_FREQUENCIES,
@@ -1048,8 +1076,12 @@ class Importer:
                         r.get("legal_name") for r in entity_rows if r.get("legal_name")
                     ]
                     if legal_names:
+                        # #CRITICAL: Data integrity - filter soft-deleted entities so
+                        # a re-imported name cannot map to a deleted entity's UUID.
                         stmt_q = select(Entity.id, Entity.legal_name).where(
-                            Entity.legal_name.in_(legal_names)
+                            Entity.legal_name.in_(legal_names),
+                            Entity.is_active.is_(True),
+                            Entity.deleted_at.is_(None),
                         )
                         rows_q = await session.execute(stmt_q)
                         entity_id_map = {name: eid for eid, name in rows_q.fetchall()}
@@ -1100,8 +1132,15 @@ class Importer:
                                 if k not in ("entity_id", "state", "registration_type")
                             },
                         )
-                        await session.execute(stmt)
-                    result.inserted["StateRegistrations"] += 1
+                        stmt = stmt.returning(text("xmax::int"))
+                        cursor = await session.execute(stmt)
+                        row_result = cursor.fetchone()
+                        if row_result and row_result[0] != 0:
+                            result.updated["StateRegistrations"] += 1
+                        else:
+                            result.inserted["StateRegistrations"] += 1
+                    else:
+                        result.inserted["StateRegistrations"] += 1
 
                 # --- BankAccounts ---
                 for row in bank_account_rows:
@@ -1114,13 +1153,18 @@ class Importer:
                     if entity_id is not None:
                         row_data["entity_id"] = entity_id
                     if not self._dry_run:
+                        last4 = row_data["account_number_last4"]
+                        last4_clause = (
+                            BankAccount.account_number_last4.is_(None)
+                            if last4 is None
+                            else BankAccount.account_number_last4 == last4
+                        )
                         existing_bank = (
                             await session.execute(
                                 select(BankAccount).where(
                                     BankAccount.entity_id == row_data["entity_id"],
                                     BankAccount.bank_name == row_data["bank_name"],
-                                    BankAccount.account_number_last4
-                                    == row_data["account_number_last4"],
+                                    last4_clause,
                                 )
                             )
                         ).scalar_one_or_none()
@@ -1147,6 +1191,7 @@ class Importer:
                                     TaxFiling.entity_id == row_data["entity_id"],
                                     TaxFiling.tax_year == row_data["tax_year"],
                                     TaxFiling.filing_type == row_data["filing_type"],
+                                    TaxFiling.jurisdiction == row_data["jurisdiction"],
                                 )
                             )
                         ).scalar_one_or_none()
@@ -1176,8 +1221,15 @@ class Importer:
                                 if k not in ("entity_id", "state", "is_active")
                             },
                         )
-                        await session.execute(stmt)
-                    result.inserted["RegisteredAgents"] += 1
+                        stmt = stmt.returning(text("xmax::int"))
+                        cursor = await session.execute(stmt)
+                        row_result = cursor.fetchone()
+                        if row_result and row_result[0] != 0:
+                            result.updated["RegisteredAgents"] += 1
+                        else:
+                            result.inserted["RegisteredAgents"] += 1
+                    else:
+                        result.inserted["RegisteredAgents"] += 1
 
                 if not self._dry_run:
                     await session.commit()
@@ -1641,7 +1693,7 @@ def cli() -> None:
     """
 
 
-@cli.command()
+@cli.command(name="import")
 @click.argument("workbook", type=click.Path(exists=True, path_type=Path))
 @click.option(
     "--dry-run",
@@ -1743,10 +1795,6 @@ def report(workbook: Path, output_file: Path | None) -> None:
         click.echo(f"Report written to {output_file}")
     if result.error_count > 0:
         sys.exit(1)
-
-
-# Register the import command under the 'import' subcommand name.
-cli.add_command(import_data, name="import")
 
 
 if __name__ == "__main__":
