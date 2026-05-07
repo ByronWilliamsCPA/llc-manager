@@ -160,6 +160,14 @@ supply-chain = [
 ]
 
 
+# Excel data import utilities
+import = [
+    "pandas>=2.2",
+    "openpyxl>=3.1",
+    "click>=8.1",
+]
+
+
 [project.urls]
 Homepage = "https://github.com/ByronWilliamsCPA/llc-manager"
 Repository = "https://github.com/ByronWilliamsCPA/llc-manager"
@@ -326,6 +334,7 @@ known-first-party = ["llc_manager"]
     "EM",     # Error messages (test exceptions)
     "TRY",    # Exception handling (test assertions)
     "INP",    # No __init__.py required for test directories
+    "TC003",  # Standard library imports used only in annotations (Path in fixture sigs)
     # Security rules OK to skip in tests (specific, not blanket S)
     "S101",   # assert_used - pytest uses asserts
     "S105",   # hardcoded_password_string - test credentials are fake
@@ -503,7 +512,7 @@ deprecateTypingAliases = true          # Warn on deprecated typing module aliase
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
-pythonpath = [".", "src"]
+pythonpath = [".", "src", "scripts"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -512,6 +521,7 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "--cov=src/llc_manager",
+    "--cov=scripts",
     "--cov-report=html",
     "--cov-report=term-missing:skip-covered",
     "--cov-report=xml",
@@ -550,7 +560,16 @@ omit = [
     "validation/*",     # Validation/verification scripts
     "benchmarks/*",     # Benchmarking framework
     "data/*",           # Data processing scripts
-    "scripts/*",        # Utility scripts
+    "scripts/*.sh",     # Shell scripts (not measurable by coverage)
+    # Untested utility scripts -- excluded individually so import_excel.py is measured
+    "scripts/check_fips_compatibility.py",
+    "scripts/check_orphaned_files.py",
+    "scripts/check_quality_gate.py",
+    "scripts/check_type_hints.py",
+    "scripts/cleanup_conditional_files.py",
+    "scripts/seed.py",
+    "scripts/setup_github_protection.py",
+    "scripts/validate_assuredoss.py",
     "notebooks/*",      # Jupyter notebooks
     "tmp_cleanup/*",    # Temporary files
 ]
