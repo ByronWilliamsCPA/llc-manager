@@ -63,6 +63,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `scripts/import_excel.py`: `BankAccount` dedup now uses `is_(None)` instead
+  of `== None` for null-safe `account_number_last4` comparisons; `== None` in
+  SQLAlchemy is not guaranteed to generate `IS NULL` under all dialects (C1)
+- `scripts/import_excel.py`: `TaxFiling` dedup SELECT adds `jurisdiction` to the
+  match predicate, aligning with the unique constraint
+  `(entity_id, tax_year, filing_type, jurisdiction)` (C2)
+- `scripts/import_excel.py`: `TaxFiling` dedup uses an explicit `is_(None)` clause
+  for null jurisdiction, consistent with the BankAccount pattern
+- `scripts/import_excel.py`: Entity UUID reload now filters soft-deleted rows via
+  `is_active.is_(True)` and `deleted_at.is_(None)` so a re-imported name cannot
+  resolve to a deleted entity's UUID (C3)
+- `scripts/import_excel.py`: `StateRegistration` and `RegisteredAgent` upserts
+  return `xmax::int` to discriminate inserts from updates; NULL xmax guard added
+  (`is not None and != 0`) to prevent miscounting NULL xmax as an update (C7)
+- `scripts/import_excel.py`: `entity_type` removed from `_validate_required`; the
+  field has a default of `"llc"` in `_prepare_entity` and was incorrectly rejecting
+  valid rows that omit the column (I1)
+- `scripts/import_excel.py`: `tax_year` validated as an integer in 1900-2100 via
+  `_validate_integer_year`; float strings from Excel numeric cells (e.g. `"2023.0"`)
+  are accepted and normalized (I4)
+- `scripts/import_excel.py`: `@cli.command(name="import")` replaces the
+  `@cli.command()` + `cli.add_command()` double-registration that registered the
+  command under two names
+- `docs/development/data-import-format.md`: `ownership_type`, `registration_type`,
+  `status` (StateRegistrations), `account_type`, `frequency`, and `status`
+  (TaxFilings) corrected from `Required` to `Optional`; all have documented defaults
+- `docs/development/data-import-guide.md`: `validate-only` description corrected;
+  `TaxFilings` dedup key table updated to include `jurisdiction`
+
 - `sonarcloud.yml` replaced with a thin caller to the org-level reusable
   workflow (`python-sonarcloud.yml@6bad2f898...`); `pull-requests: write`
   scoped to job level only; `fail-on-quality-gate` made conditional (`true`
