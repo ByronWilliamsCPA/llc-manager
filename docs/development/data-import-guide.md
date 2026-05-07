@@ -184,9 +184,9 @@ The report file contains the same text as the stdout output.
 2. Maps column headers to ORM field names (applying aliases).
 3. Validates every row. If any `ERROR`-level messages are produced, the import is aborted and
    nothing is written to the database.
-4. Upserts entities using the partial unique index on `ein` where `is_active = true AND deleted_at IS NULL` as the conflict target.
-5. Inserts or skips child records (owners, registrations, bank accounts, tax filings, registered
-   agents) based on per-table duplicate detection (see [Re-running After Corrections](#re-running-after-corrections)).
+4. Upserts entities using the partial unique index on `ein` where `is_active = true AND deleted_at IS NULL` as the conflict target. `legal_name` is never overwritten on conflict.
+5. Inserts, updates, or skips child records (owners, registrations, bank accounts, tax filings,
+   registered agents) based on per-table duplicate detection (see [Re-running After Corrections](#re-running-after-corrections)).
 6. Commits the transaction. On any unhandled exception the transaction is rolled back.
 
 The process is wrapped in a single async session. Either all writes succeed together, or none
@@ -200,9 +200,11 @@ create duplicates.
 ### Entity upsert
 
 Entities use PostgreSQL `ON CONFLICT DO UPDATE` on the partial unique index on `ein` where
-`is_active = true AND deleted_at IS NULL`. Re-importing an entity row updates all other columns
-with the current workbook values. This means EIN is required for each entity row; a row missing
-EIN is rejected by validation before it reaches the database.
+`is_active = true AND deleted_at IS NULL`. Re-importing an entity row updates all columns
+**except `legal_name`** with the current workbook values. `legal_name` is excluded from the
+conflict update to prevent silently overwriting the stored name when an EIN collision occurs.
+This means EIN is required for each entity row; a row missing EIN is rejected by validation
+before it reaches the database.
 
 ### Child record deduplication
 

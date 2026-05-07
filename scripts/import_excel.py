@@ -30,12 +30,21 @@ from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from llc_manager.db.session import AsyncSessionLocal
-from llc_manager.models.bank_account import BankAccount
-from llc_manager.models.entity import Entity
-from llc_manager.models.owner import Owner
+from llc_manager.models.bank_account import AccountType, BankAccount
+from llc_manager.models.entity import Entity, EntityType
+from llc_manager.models.owner import Owner, OwnershipType
 from llc_manager.models.registered_agent import RegisteredAgent
-from llc_manager.models.state_registration import StateRegistration
-from llc_manager.models.tax_filing import TaxFiling
+from llc_manager.models.state_registration import (
+    RegistrationStatus,
+    RegistrationType,
+    StateRegistration,
+)
+from llc_manager.models.tax_filing import (
+    FilingFrequency,
+    FilingStatus,
+    TaxFiling,
+    TaxFilingType,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -50,80 +59,17 @@ EXPECTED_TABS: list[str] = [
     "RegisteredAgents",
 ]
 
-# StrEnum values drawn directly from the ORM models.
-# #ASSUME: StrEnum values in the ORM models are stable; update here if they change.
-VALID_ENTITY_TYPES: frozenset[str] = frozenset(
-    [
-        "llc",
-        "corporation",
-        "s_corporation",
-        "partnership",
-        "sole_proprietorship",
-        "trust",
-        "non_profit",
-        "other",
-    ]
-)
-VALID_OWNERSHIP_TYPES: frozenset[str] = frozenset(
-    [
-        "member",
-        "managing_member",
-        "shareholder",
-        "general_partner",
-        "limited_partner",
-        "beneficiary",
-        "trustee",
-        "director",
-        "officer",
-    ]
-)
+# StrEnum values derived from the ORM models; stays in sync automatically.
+VALID_ENTITY_TYPES: frozenset[str] = frozenset(e.value for e in EntityType)
+VALID_OWNERSHIP_TYPES: frozenset[str] = frozenset(e.value for e in OwnershipType)
 VALID_REGISTRATION_STATUSES: frozenset[str] = frozenset(
-    [
-        "active",
-        "pending",
-        "expired",
-        "withdrawn",
-        "revoked",
-        "suspended",
-        "reinstated",
-    ]
+    e.value for e in RegistrationStatus
 )
-VALID_REGISTRATION_TYPES: frozenset[str] = frozenset(
-    ["domestic", "foreign", "assumed_name", "professional", "specialty"]
-)
-VALID_ACCOUNT_TYPES: frozenset[str] = frozenset(
-    [
-        "checking",
-        "savings",
-        "money_market",
-        "cd",
-        "business_checking",
-        "business_savings",
-        "merchant_account",
-        "payroll",
-        "other",
-    ]
-)
-VALID_TAX_FILING_TYPES: frozenset[str] = frozenset(
-    [
-        "federal_income",
-        "state_income",
-        "franchise_tax",
-        "sales_tax",
-        "payroll_tax",
-        "property_tax",
-        "estimated_tax",
-        "annual_report",
-        "k1",
-        "other",
-    ]
-)
-VALID_FILING_FREQUENCIES: frozenset[str] = frozenset(
-    ["annual", "quarterly", "monthly", "semi_annual", "one_time"]
-)
-VALID_FILING_STATUSES: frozenset[str] = frozenset(
-    ["pending", "filed", "extended", "late", "not_required"]
-)
+VALID_REGISTRATION_TYPES: frozenset[str] = frozenset(e.value for e in RegistrationType)
+VALID_ACCOUNT_TYPES: frozenset[str] = frozenset(e.value for e in AccountType)
+VALID_TAX_FILING_TYPES: frozenset[str] = frozenset(e.value for e in TaxFilingType)
+VALID_FILING_FREQUENCIES: frozenset[str] = frozenset(e.value for e in FilingFrequency)
+VALID_FILING_STATUSES: frozenset[str] = frozenset(e.value for e in FilingStatus)
 
 # EIN format: XX-XXXXXXX (2 digits, hyphen, 7 digits)
 EIN_PATTERN = re.compile(r"^\d{2}-\d{7}$")
@@ -1624,11 +1570,11 @@ def _run_validation_and_import(
                 if legal_name in seen_entity_names:
                     result.messages.append(
                         ValidationMessage(
-                            level="WARNING",
+                            level="ERROR",
                             tab="Entities",
                             row=idx,
                             field="legal_name",
-                            message=f"Duplicate legal_name '{legal_name}' in workbook; later row will overwrite earlier row via upsert",
+                            message=f"Duplicate legal_name '{legal_name}'; this row is excluded and child rows referencing it will fail FK validation. Each entity must have a unique legal_name.",
                         )
                     )
                 else:
