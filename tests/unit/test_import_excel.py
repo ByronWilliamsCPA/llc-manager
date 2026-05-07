@@ -1013,7 +1013,7 @@ class TestImporterLivePaths:
             upsert_cursor,  # state_reg ON CONFLICT upsert (fetchone → None → inserted)
             child_cursor,  # bank account dedup SELECT (scalar_one_or_none → None → add)
             child_cursor,  # tax filing dedup SELECT (scalar_one_or_none → None → add)
-            upsert_cursor,  # registered_agent ON CONFLICT upsert (fetchone → None → inserted)
+            upsert_cursor,  # registered_agent upsert (fetchone → None → inserted)
         ]
 
         result = ImportResult()
@@ -1384,8 +1384,8 @@ class TestImporterRollbackOnException:
                 )
             )
 
-        mock_session.rollback.assert_called()
-        mock_session.commit.assert_not_called()
+        mock_session.rollback.assert_awaited()
+        mock_session.commit.assert_not_awaited()
 
 
 # ===========================================================================
@@ -1544,3 +1544,184 @@ class TestFullImportPerformance:
         assert elapsed < 60, f"Pipeline took {elapsed:.1f}s, expected < 60s"
         assert result.error_count == 0, f"Unexpected errors: {result.messages}"
         assert result.inserted["Entities"] == 25
+
+
+# ===========================================================================
+# Validator -- _validate_integer_year
+# ===========================================================================
+
+
+class TestValidateIntegerYear:
+    @pytest.mark.unit
+    def test_none_input_returns_true(self) -> None:
+        """None is accepted; absence is handled by _validate_required separately."""
+        result = ImportResult()
+        validator = Validator(result)
+
+        assert (
+            validator._validate_integer_year(None, "TaxFilings", 2, "tax_year") is True
+        )
+        assert result.error_count == 0
+
+    @pytest.mark.unit
+    def test_valid_integer_string(self) -> None:
+        """Plain integer string "2023" is accepted."""
+        result = ImportResult()
+        validator = Validator(result)
+
+        assert (
+            validator._validate_integer_year("2023", "TaxFilings", 2, "tax_year")
+            is True
+        )
+        assert result.error_count == 0
+
+    @pytest.mark.unit
+    def test_valid_excel_float_string(self) -> None:
+        """Float string "2023.0" from an Excel numeric cell is normalised and accepted."""
+        result = ImportResult()
+        validator = Validator(result)
+
+        assert (
+            validator._validate_integer_year("2023.0", "TaxFilings", 2, "tax_year")
+            is True
+        )
+        assert result.error_count == 0
+
+    @pytest.mark.unit
+    def test_fractional_year_returns_false(self) -> None:
+        """Non-integer float "2023.7" is rejected."""
+        result = ImportResult()
+        validator = Validator(result)
+
+        assert (
+            validator._validate_integer_year("2023.7", "TaxFilings", 2, "tax_year")
+            is False
+        )
+        assert result.error_count == 1
+
+    @pytest.mark.unit
+    def test_nonnumeric_string_returns_false(self) -> None:
+        """Non-numeric string "abc" is rejected."""
+        result = ImportResult()
+        validator = Validator(result)
+
+        assert (
+            validator._validate_integer_year("abc", "TaxFilings", 2, "tax_year")
+            is False
+        )
+        assert result.error_count == 1
+
+    @pytest.mark.unit
+    def test_lower_boundary_valid(self) -> None:
+        """1900 is within the valid range."""
+        result = ImportResult()
+        validator = Validator(result)
+
+        assert (
+            validator._validate_integer_year(1900, "TaxFilings", 2, "tax_year") is True
+        )
+        assert result.error_count == 0
+
+    @pytest.mark.unit
+    def test_lower_boundary_invalid(self) -> None:
+        """1899 is below the valid range."""
+        result = ImportResult()
+        validator = Validator(result)
+
+        assert (
+            validator._validate_integer_year(1899, "TaxFilings", 2, "tax_year") is False
+        )
+        assert result.error_count == 1
+
+    @pytest.mark.unit
+    def test_upper_boundary_valid(self) -> None:
+        """2100 is within the valid range."""
+        result = ImportResult()
+        validator = Validator(result)
+
+        assert (
+            validator._validate_integer_year(2100, "TaxFilings", 2, "tax_year") is True
+        )
+        assert result.error_count == 0
+
+    @pytest.mark.unit
+    def test_upper_boundary_invalid(self) -> None:
+        """2101 is above the valid range."""
+        result = ImportResult()
+        validator = Validator(result)
+
+        assert (
+            validator._validate_integer_year(2101, "TaxFilings", 2, "tax_year") is False
+        )
+        assert result.error_count == 1
+
+
+# ===========================================================================
+# Importer -- soft-deleted entity UUID filter
+# ===========================================================================
+
+
+class TestSoftDeletedEntityFilter:
+    @pytest.mark.unit
+    def test_soft_deleted_entity_uuid_not_assigned_to_child_rows(self) -> None:
+        """Owner row is skipped when the UUID reload returns no rows for the entity.
+
+        This guards the fix where Entity.is_active.is_(True) and
+        deleted_at.is_(None) are added to the reload query (C3).  When the DB
+        returns an empty result set, entity_id_map is empty and every child row
+        that references that entity must be skipped rather than inserted.
+        """
+        import uuid
+
+        entity_cursor = MagicMock()
+        # RETURNING Entity.id, Entity.legal_name, xmax::int
+        entity_cursor.fetchone.return_value = (
+            uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            "Ghost LLC",
+            0,  # xmax == 0 → row was inserted
+        )
+
+        # Reload returns no rows -- simulates soft-deleted entity.
+        reload_cursor = MagicMock()
+        reload_cursor.fetchall.return_value = []
+
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        mock_session.execute.side_effect = [
+            entity_cursor,  # entity upsert (fetchone → non-None → inserted)
+            reload_cursor,  # UUID reload (fetchall → [] → empty map)
+        ]
+
+        result = ImportResult()
+        importer = Importer(dry_run=False)
+
+        with patch("import_excel.AsyncSessionLocal", return_value=mock_session):
+            asyncio.run(
+                importer.run(
+                    entity_rows=[
+                        {
+                            "legal_name": "Ghost LLC",
+                            "ein": "12-3456789",
+                            "entity_type": "llc",
+                        }
+                    ],
+                    owner_rows=[
+                        {
+                            "entity_legal_name": "Ghost LLC",
+                            "owner_name": "Alice",
+                            "ownership_percentage": "100",
+                            "ownership_type": "member",
+                        }
+                    ],
+                    state_reg_rows=[],
+                    bank_account_rows=[],
+                    tax_filing_rows=[],
+                    registered_agent_rows=[],
+                    result=result,
+                )
+            )
+
+        assert result.skipped["Owners"] == 1
+        assert result.inserted.get("Owners", 0) == 0
+        mock_session.commit.assert_awaited()
