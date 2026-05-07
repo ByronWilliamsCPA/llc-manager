@@ -502,8 +502,15 @@ class Validator:
         """Return True if value is an integer in a plausible tax year range."""
         if value is None:
             return True  # Absence is checked by _validate_required separately.
+        # #ASSUME: Financial/data integrity - plausible tax years are 1900-2100.
+        # #VERIFY if historical imports or far-future planning require wider range.
         try:
-            year = int(value)
+            # Route through float so Excel numeric cells ("2023.0") are accepted.
+            raw = str(value).strip()
+            f = float(raw)
+            if f != int(f):
+                raise ValueError(f"non-integer value: {raw!r}")
+            year = int(f)
         except (ValueError, TypeError):
             self._add(
                 "ERROR",
@@ -1135,7 +1142,11 @@ class Importer:
                         stmt = stmt.returning(text("xmax::int"))
                         cursor = await session.execute(stmt)
                         row_result = cursor.fetchone()
-                        if row_result and row_result[0] != 0:
+                        if (
+                            row_result
+                            and row_result[0] is not None
+                            and row_result[0] != 0
+                        ):
                             result.updated["StateRegistrations"] += 1
                         else:
                             result.inserted["StateRegistrations"] += 1
@@ -1185,13 +1196,19 @@ class Importer:
                     if entity_id is not None:
                         row_data["entity_id"] = entity_id
                     if not self._dry_run:
+                        jurisdiction = row_data["jurisdiction"]
+                        jurisdiction_clause = (
+                            TaxFiling.jurisdiction.is_(None)
+                            if jurisdiction is None
+                            else TaxFiling.jurisdiction == jurisdiction
+                        )
                         existing_filing = (
                             await session.execute(
                                 select(TaxFiling).where(
                                     TaxFiling.entity_id == row_data["entity_id"],
                                     TaxFiling.tax_year == row_data["tax_year"],
                                     TaxFiling.filing_type == row_data["filing_type"],
-                                    TaxFiling.jurisdiction == row_data["jurisdiction"],
+                                    jurisdiction_clause,
                                 )
                             )
                         ).scalar_one_or_none()
@@ -1224,7 +1241,11 @@ class Importer:
                         stmt = stmt.returning(text("xmax::int"))
                         cursor = await session.execute(stmt)
                         row_result = cursor.fetchone()
-                        if row_result and row_result[0] != 0:
+                        if (
+                            row_result
+                            and row_result[0] is not None
+                            and row_result[0] != 0
+                        ):
                             result.updated["RegisteredAgents"] += 1
                         else:
                             result.inserted["RegisteredAgents"] += 1
