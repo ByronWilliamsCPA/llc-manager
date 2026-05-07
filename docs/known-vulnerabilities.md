@@ -221,6 +221,39 @@ pull in nghttp2.
 
 ---
 
+### CVE-2026-4878 - libcap2 base image package (reassess by 2026-07-06)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-4878 |
+| **Package** | libcap2 1:2.75-10+b8 (Debian 13 package in `python:3.12-slim`) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-05-07 |
+| **Last reassessed** | 2026-05-07 |
+| **Reassess by** | 2026-07-06 |
+
+**Description**: Privilege escalation via TOCTOU race condition in `cap_set_file()` in
+libcap. An attacker who can race file operations may escalate privileges.
+
+**Rationale for accepting**: No Debian patch is available as of 2026-05-07. The
+vulnerability requires local access to race `cap_set_file()` calls. Our application never
+invokes capability-setting functions and runs as non-root user (`appuser`, UID 1000). There
+is no code path in the FastAPI application that calls into libcap's file capability APIs.
+
+**Mitigation in place**:
+
+- Container runs as non-root user (`appuser`, UID 1000), limiting exploitability.
+- No capability-setting calls in the application code path.
+- `.trivyignore` entry prevents CI failure until Debian releases a patch.
+
+**Resolution path**: upgrade the base image when Debian 13 releases a patched libcap2
+package. Monitor the Debian security tracker and re-run `trivy image` monthly.
+
+**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-07.
+
+---
+
 ### CVE-2026-29111 - systemd base image packages (reassess by 2026-06-28)
 
 | Field | Value |
