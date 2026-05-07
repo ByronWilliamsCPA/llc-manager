@@ -772,6 +772,21 @@ class Validator:
         ok &= self._validate_date_parseable(
             row_dict.get("registration_date"), tab, row_idx, "registration_date"
         )
+        ok &= self._validate_date_parseable(
+            row_dict.get("effective_date"), tab, row_idx, "effective_date"
+        )
+        ok &= self._validate_date_parseable(
+            row_dict.get("expiration_date"), tab, row_idx, "expiration_date"
+        )
+        ok &= self._validate_date_parseable(
+            row_dict.get("annual_report_due"), tab, row_idx, "annual_report_due"
+        )
+        ok &= self._validate_date_parseable(
+            row_dict.get("last_annual_report"), tab, row_idx, "last_annual_report"
+        )
+        ok &= self._validate_date_parseable(
+            row_dict.get("next_renewal_date"), tab, row_idx, "next_renewal_date"
+        )
         return ok
 
     def validate_bank_account_row(
@@ -812,6 +827,12 @@ class Validator:
             tab,
             row_idx,
             "account_type",
+        )
+        ok &= self._validate_date_parseable(
+            row_dict.get("opened_date"), tab, row_idx, "opened_date"
+        )
+        ok &= self._validate_date_parseable(
+            row_dict.get("closed_date"), tab, row_idx, "closed_date"
         )
         return ok
 
@@ -876,6 +897,12 @@ class Validator:
         ok &= self._validate_date_parseable(
             row_dict.get("due_date"), tab, row_idx, "due_date"
         )
+        ok &= self._validate_date_parseable(
+            row_dict.get("extended_due_date"), tab, row_idx, "extended_due_date"
+        )
+        ok &= self._validate_date_parseable(
+            row_dict.get("filed_date"), tab, row_idx, "filed_date"
+        )
         return ok
 
     def validate_registered_agent_row(
@@ -910,6 +937,15 @@ class Validator:
         ok &= self._validate_required(row_dict.get("state"), tab, row_idx, "state")
         ok &= self._validate_required(
             row_dict.get("agent_name"), tab, row_idx, "agent_name"
+        )
+        ok &= self._validate_date_parseable(
+            row_dict.get("effective_date"), tab, row_idx, "effective_date"
+        )
+        ok &= self._validate_date_parseable(
+            row_dict.get("expiration_date"), tab, row_idx, "expiration_date"
+        )
+        ok &= self._validate_date_parseable(
+            row_dict.get("renewal_date"), tab, row_idx, "renewal_date"
         )
         return ok
 
@@ -979,7 +1015,7 @@ class Importer:
         # a readable error if the DB is not reachable.
         async with AsyncSessionLocal() as session:
             try:
-                # --- Entities (upsert on legal_name + ein) ---
+                # --- Entities (upsert on ein partial index) ---
                 entity_id_map: dict[str, UUID] = {}
                 for row in entity_rows:
                     row_data = self._prepare_entity(row)
@@ -1012,10 +1048,10 @@ class Importer:
                         row_result = cursor.fetchone()
                         if row_result:
                             entity_id_map[row_result[1]] = row_result[0]
-                            if row_result[2] == 0:
-                                result.inserted["Entities"] += 1
-                            else:
+                            if row_result[2] is not None and row_result[2] != 0:
                                 result.updated["Entities"] += 1
+                            else:
+                                result.inserted["Entities"] += 1
                         else:
                             result.inserted["Entities"] += 1
                     else:
@@ -1226,7 +1262,7 @@ class Importer:
             "legal_name": row.get("legal_name"),
             "dba_names": row.get("dba_names"),
             "ein": row.get("ein"),
-            "entity_type": str(row.get("entity_type", "llc")).strip().lower(),
+            "entity_type": str(row.get("entity_type") or "llc").strip().lower(),
             "formation_state": row.get("formation_state"),
             "formation_date": fm.coerce_date(row.get("formation_date")),
             "fiscal_year_end": row.get("fiscal_year_end"),
@@ -1269,7 +1305,9 @@ class Importer:
 
         return {
             "owner_name": row.get("owner_name"),
-            "ownership_type": str(row.get("ownership_type", "member")).strip().lower(),
+            "ownership_type": str(row.get("ownership_type") or "member")
+            .strip()
+            .lower(),
             "ownership_percentage": pct,
             "capital_contribution": fm.coerce_decimal(row.get("capital_contribution")),
             "profit_share_percentage": fm.coerce_decimal(
@@ -1308,10 +1346,10 @@ class Importer:
         fm = FieldMapper("StateRegistrations")
         return {
             "state": row.get("state"),
-            "registration_type": str(row.get("registration_type", "domestic"))
+            "registration_type": str(row.get("registration_type") or "domestic")
             .strip()
             .lower(),
-            "status": str(row.get("status", "active")).strip().lower(),
+            "status": str(row.get("status") or "active").strip().lower(),
             "file_number": row.get("file_number"),
             "registered_name": row.get("registered_name"),
             "registration_date": fm.coerce_date(row.get("registration_date")),
@@ -1342,7 +1380,7 @@ class Importer:
         return {
             "bank_name": row.get("bank_name"),
             "account_name": row.get("account_name"),
-            "account_type": str(row.get("account_type", "business_checking"))
+            "account_type": str(row.get("account_type") or "business_checking")
             .strip()
             .lower(),
             "account_number_last4": row.get("account_number_last4"),
@@ -1377,20 +1415,22 @@ class Importer:
         fm = FieldMapper("TaxFilings")
         tax_year_raw = row.get("tax_year")
         try:
-            tax_year = int(str(tax_year_raw).strip()) if tax_year_raw is not None else 0
+            tax_year = (
+                int(float(str(tax_year_raw).strip())) if tax_year_raw is not None else 0
+            )
         except ValueError:
             tax_year = 0
 
         return {
-            "filing_type": str(row.get("filing_type", "other")).strip().lower(),
+            "filing_type": str(row.get("filing_type") or "other").strip().lower(),
             "jurisdiction": row.get("jurisdiction"),
             "tax_year": tax_year,
             "tax_period": row.get("tax_period"),
-            "frequency": str(row.get("frequency", "annual")).strip().lower(),
+            "frequency": str(row.get("frequency") or "annual").strip().lower(),
             "due_date": fm.coerce_date(row.get("due_date")),
             "extended_due_date": fm.coerce_date(row.get("extended_due_date")),
             "filed_date": fm.coerce_date(row.get("filed_date")),
-            "status": str(row.get("status", "pending")).strip().lower(),
+            "status": str(row.get("status") or "pending").strip().lower(),
             "form_number": row.get("form_number"),
             "confirmation_number": row.get("confirmation_number"),
             "preparer": row.get("preparer"),
