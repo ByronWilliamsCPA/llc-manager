@@ -181,7 +181,8 @@ in the `Entities` tab.
 Maps to the `RegisteredAgent` model. Each row links to an entity via `entity_legal_name`.
 
 **FK lookup**: The value in `entity_legal_name` must exactly match a `legal_name`
-in the `Entities` tab. Unique constraint: `(entity_id, state, is_active)` -- one active agent per state per entity.
+in the `Entities` tab. Unique constraint: `(entity_id, state, is_active)` -- one active agent
+per state per entity, and also one inactive agent per state per entity.
 
 | Column Name | Required | Validation Rule | Example |
 |---|---|---|---|
