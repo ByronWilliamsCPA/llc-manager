@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Compliance audit remediation (2026-05-08): native pre-commit hooks for ruff,
+  ruff-format, basedpyright, detect-secrets, commitizen, yamllint, markdownlint
+  (PC-002/003/004/006/008/009/010); `# pragma: allowlist secret` on every SHA
+  rev (PC-012); staged-files trufflehog scope (PC-LOCAL-001); `.secrets.baseline`
+  (PC-NEW-001)
+- `docs/architecture/system-overview.md` (FOUND-018) and SUPPORT.md (FOUND-019)
+- `docs/response-aware-development.md` RAD tagging guide (NEW-012)
+- `.editorconfig` (NEW-009) and `.mailmap` (NEW-010)
+- Issue Tracker URL and expanded classifiers in `pyproject.toml` (FOUND-016/017)
+- `step-security/harden-runner` first step in `fips-compatibility.yml` jobs (CI-002)
+- Top-level `permissions: contents: read` on `validate-cruft.yml` and
+  `fips-compatibility.yml` (CI-003/004)
+- `concurrency:` blocks on 9 workflows that lacked them (CI-008)
+- `secrets: inherit` on `security-analysis.yml` reusable call (CI-010)
+- 404/409 response declarations on entity route decorators (NEW-011)
+- `#CRITICAL` and `#VERIFY` RAD markers on unauthenticated entity endpoints
+  (NEW-015)
+- mkdocs nav coverage for architecture, RAD doc, project plan template, ADR
+  template, and compliance lessons-learned (MKDOCS-content-001)
+
+### Changed
+
+- `permissions:` block reordered before `jobs:` in `publish-pypi.yml` (CI-001)
+- `pip install cruft` replaced with pinned `uv tool install cruft==2.15.0` in
+  `validate-cruft.yml` (CI-006)
+- `INFISICAL_DOMAIN` in `sbom.yml` reads from `vars.INFISICAL_DOMAIN` instead
+  of the hardcoded internal hostname (CI-009)
+- Replaced "Comprehensive" (AI-pattern blacklist word) in CONTRIBUTING.md,
+  docs/index.md, docs/OPENSSF_COMPLIANCE.md, docs/planning/project-vision.md
+  (CLAUDE-001)
+- Healthcheck path corrected to `/api/health/live` in Dockerfile,
+  docker-compose.yml, and the K8s probe examples in `api/health.py` (NEW-001)
+- `docker-compose.prod.yml` YAML structure fixed (NEW-002); stale `frontend:`
+  service block removed (NEW-003); `version: '3.9'` line removed
+- HTTP 409 response detail string sanitized to omit the EIN value (NEW-014)
+- `__PROJECT_CREATION_DATE__` placeholder in `docs/template_feedback.md`
+  replaced with `2026-01-19` (NEW-013)
+
+### Removed
+
+- `scripts/generate-client.sh` -- React frontend artefact superseded by HTMX
+  migration (NEW-004)
 - Initial project setup and structure
 - SSRF prevention and rate-limit middleware wired into `main.py`
 - CR/LF sanitization and 128-char cap on incoming correlation headers
