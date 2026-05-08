@@ -16,7 +16,11 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
 ]
 
 # Core production dependencies
@@ -165,6 +169,7 @@ Homepage = "https://github.com/ByronWilliamsCPA/llc-manager"
 Repository = "https://github.com/ByronWilliamsCPA/llc-manager"
 Documentation = "https://byronwilliamscpa.github.io/llc-manager/"
 Changelog = "https://github.com/ByronWilliamsCPA/llc-manager/blob/main/CHANGELOG.md"
+"Issue Tracker" = "https://github.com/ByronWilliamsCPA/llc-manager/issues"
 
 [build-system]
 requires = ["hatchling"]
