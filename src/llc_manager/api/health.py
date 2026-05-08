@@ -240,7 +240,7 @@ spec:
         # Liveness probe - restart if fails
         livenessProbe:
           httpGet:
-            path: /health/live
+            path: /api/health/live
             port: 8000
           initialDelaySeconds: 30
           periodSeconds: 10
@@ -250,7 +250,7 @@ spec:
         # Readiness probe - stop traffic if fails
         readinessProbe:
           httpGet:
-            path: /health/ready
+            path: /api/health/ready
             port: 8000
           initialDelaySeconds: 10
           periodSeconds: 5
@@ -260,7 +260,7 @@ spec:
         # Startup probe - delay other probes during startup
         startupProbe:
           httpGet:
-            path: /health/startup
+            path: /api/health/startup
             port: 8000
           initialDelaySeconds: 0
           periodSeconds: 5
