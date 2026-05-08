@@ -61,6 +61,7 @@ jobs:
       # uses, so coverage is preserved.
       run-safety: false
       run-osv: true
+    secrets: inherit
 
   security-gate:
     name: Security Gate Validation

@@ -1,0 +1,52 @@
+# Validate Cruft - Checks that the project is in sync with the cookiecutter template
+# Alerts when the upstream template has changes that have not been applied.
+name: Validate Cruft
+
+on:
+  schedule:
+    # Run weekly on Monday at 6 AM UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - '.cruft.json'
+      - '.github/workflows/validate-cruft.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-cruft:
+    name: Check Template Sync
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          enable-cache: true
+
+      - name: Install cruft
+        run: uv tool install cruft==2.15.0
+
+      - name: Check cruft sync status
+        run: |
+          if ! cruft check; then
+            echo "::warning::Project is out of sync with the upstream template."
+            echo "Run 'cruft update' locally to apply template updates."
+            exit 1
+          fi
+          echo "Project is in sync with the upstream template."
