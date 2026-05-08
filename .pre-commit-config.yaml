@@ -30,7 +30,7 @@ repos:
   # Fast File Checks (Lightweight, run on every commit)
   # ============================================================================
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: c4a0b883114b00d8d76b479c820ce7950211c99b  # v4.5.0
+    rev: c4a0b883114b00d8d76b479c820ce7950211c99b  # v4.5.0  # pragma: allowlist secret
     hooks:
       - id: trailing-whitespace
         stages: [pre-commit]
@@ -87,7 +87,7 @@ repos:
   # Runs on changed files during pre-commit, full scan on pre-push
   # Configuration in pyproject.toml [tool.bandit]
   - repo: https://github.com/PyCQA/bandit
-    rev: 36fd65054fc8864b4037d0918904f9331512feb5  # 1.7.10
+    rev: 36fd65054fc8864b4037d0918904f9331512feb5  # 1.7.10  # pragma: allowlist secret
     hooks:
       - id: bandit
         name: Bandit Security Scan (changed files)
@@ -111,7 +111,7 @@ repos:
   # ============================================================================
   # Enforces conventional commit message format for semantic versioning
   - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: 406f0d1a4ffcd9eb0be9f0f6b824df619b38f41e  # v3.4.0
+    rev: 406f0d1a4ffcd9eb0be9f0f6b824df619b38f41e  # v3.4.0  # pragma: allowlist secret
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
@@ -121,7 +121,7 @@ repos:
   # pyproject.toml Validation
   # ============================================================================
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: 435e09f5ed9fe57f3444ebfa54c663d0ac8033fe  # v0.20.2
+    rev: 435e09f5ed9fe57f3444ebfa54c663d0ac8033fe  # v0.20.2  # pragma: allowlist secret
     hooks:
       - id: validate-pyproject
         stages: [pre-commit]
@@ -130,7 +130,7 @@ repos:
   # GitHub Workflow Validation
   # ============================================================================
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 4e7291655d44e99511858efd33bea0bdbb58d835  # 0.29.4
+    rev: 4e7291655d44e99511858efd33bea0bdbb58d835  # 0.29.4  # pragma: allowlist secret
     hooks:
       - id: check-github-workflows
         stages: [pre-commit]
@@ -205,7 +205,7 @@ repos:
   # Interrogate ensures all Python code has proper docstrings
   # Target: 85% coverage
   - repo: https://github.com/econchick/interrogate
-    rev: 4894019dc8876092bc9b6d56878798c550fad998  # 1.7.0
+    rev: 4894019dc8876092bc9b6d56878798c550fad998  # 1.7.0  # pragma: allowlist secret
     hooks:
       - id: interrogate
         args: ['-v', '-c', 'pyproject.toml', 'src/']

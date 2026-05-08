@@ -14,6 +14,14 @@ on:
         required: false
         default: false
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write  # Required for OIDC trusted publishing
+
 jobs:
   publish:
     name: Publish Package
@@ -22,7 +30,3 @@ jobs:
       python-version: '3.12'
       package-name: 'llc-manager'
       test-pypi: ${{ github.event.inputs.test-pypi || false }}
-
-permissions:
-  contents: read
-  id-token: write  # Required for OIDC trusted publishing
