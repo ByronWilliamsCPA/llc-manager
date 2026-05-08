@@ -58,7 +58,7 @@ This template implements security controls including:
 - ✅ Continuous fuzzing with ClusterFuzzLite
 - ✅ Branch protection with scoped permissions
 - ✅ Automated dependency updates
-- ✅ Comprehensive security scanning
+- ✅ Automated security scanning
 
 ---
 
@@ -225,7 +225,7 @@ Automated dependency updates and vulnerability scanning.
 
 ### 7. Security Scanning (SAST) 🔍
 
-Comprehensive static analysis on every commit.
+Full static analysis on every commit.
 
 **Tools**:
 
@@ -310,7 +310,7 @@ The template meets 44/46 passing-level criteria:
 
 - ✅ Project website with clear description
 - ✅ OSI-approved license
-- ✅ Comprehensive documentation
+- ✅ Complete documentation
 - ✅ HTTPS for all sites
 - ✅ Discussion forum (GitHub Issues/Discussions)
 - ✅ English documentation

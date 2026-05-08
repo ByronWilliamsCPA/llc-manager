@@ -134,7 +134,7 @@ All contributions MUST meet these requirements:
 ### Linting
 
 - **Tool**: Ruff with project configuration
-- **Rules**: Comprehensive rule set (see `pyproject.toml`)
+- **Rules**: Full rule set (see `pyproject.toml`)
 - **Auto-fix**: `uv run ruff check --fix src tests`
 - **Verification**: `uv run ruff check src tests`
 

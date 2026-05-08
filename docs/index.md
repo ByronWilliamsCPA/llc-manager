@@ -25,7 +25,7 @@ uv sync --all-extras
 
 - Modern Python 3.12+ support
 - Type-safe with BasedPyright strict mode
-- Comprehensive test coverage
+- Full test coverage with automated suite
 - Structured logging with structlog
 - Docker support
 ## Documentation
