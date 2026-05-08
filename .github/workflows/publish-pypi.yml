@@ -17,7 +17,7 @@ on:
 jobs:
   publish:
     name: Publish Package
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-publish-pypi.yml@5cce3ccfc200033cc0448b7c5684f40d891f5bbc # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-publish-pypi.yml@e8fc83c98c2971ad1ece71573d28171463e30c16 # main
     with:
       python-version: '3.12'
       package-name: 'llc-manager'
