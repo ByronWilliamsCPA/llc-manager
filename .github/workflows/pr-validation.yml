@@ -2,7 +2,7 @@
 # Comprehensive pull request validation using org-level workflow plus additional checks.
 #
 # This workflow calls the org-level PR validation workflow and adds supplementary
-# checks for dead code detection, changelog enforcement, and documentation links.
+# checks for dead code detection and documentation links.
 name: PR Validation
 
 on:
@@ -28,20 +28,15 @@ jobs:
   # ==========================================================================
   core-validation:
     name: Core Validation
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-pr-validation.yml@e8fc83c98c2971ad1ece71573d28171463e30c16 # main
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-ci.yml@e8fc83c98c2971ad1ece71573d28171463e30c16  # main
     with:
       python-version: '3.12'
-      source-directory: 'src'
-      test-directory: 'tests'
-      require-tests: true
-      require-conventional-commits: true
-      require-description: true
-      min-description-length: 50
-      check-breaking-changes: true
-      add-size-labels: true
       coverage-threshold: 80
-    secrets: inherit
-
+      enable-dead-code-check: true
   # ==========================================================================
   # Additional Checks (Template-Specific)
   # ==========================================================================
@@ -87,31 +82,6 @@ jobs:
             echo "✅ No dead code detected with 90% confidence." >> $GITHUB_STEP_SUMMARY
           fi
 
-  # Changelog Enforcement
-  changelog:
-    name: Changelog Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Harden the runner
-        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
-        with:
-          egress-policy: audit
-
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-
-      - name: Check for CHANGELOG update
-        uses: dangoslen/changelog-enforcer@8b5e9dc3121363bb7c0115f8533404d92af382de # v3.7.0
-        with:
-          changeLogPath: 'CHANGELOG.md'
-          skipLabels: 'skip-changelog,dependencies,documentation'
-          missingUpdateErrorMessage: |
-            Please update CHANGELOG.md with a description of your changes.
-            Add the label 'skip-changelog' if this PR doesn't require a changelog entry.
-
-
   # Documentation Link Check
   link-check:
     name: Documentation Links
@@ -150,7 +120,7 @@ jobs:
   validation-summary:
     name: Validation Summary
     runs-on: ubuntu-latest
-    needs: [core-validation, dead-code, changelog, link-check]
+    needs: [core-validation, dead-code, link-check]
     if: always()
     steps:
       - name: Check validation results
@@ -170,13 +140,6 @@ jobs:
             echo "⚠️ Dead Code Check: ${{ needs.dead-code.result }}" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.changelog.result }}" == "success" ]; then
-            echo "✅ Changelog: Updated" >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ needs.changelog.result }}" == "skipped" ]; then
-            echo "⏭️ Changelog: Skipped" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Changelog: ${{ needs.changelog.result }}" >> $GITHUB_STEP_SUMMARY
-          fi
           if [ "${{ needs.link-check.result }}" == "success" ]; then
             echo "✅ Link Check: Passed" >> $GITHUB_STEP_SUMMARY
           else
