@@ -1,4 +1,3 @@
-
 # MkDocs Configuration for LLC Manager
 # Documentation: https://www.mkdocs.org/user-guide/configuration/
 
@@ -171,9 +170,12 @@ nav:
 
   - Development:
       - Architecture: development/architecture.md
+      - System Architecture: architecture/README.md
+      - System Overview: architecture/system-overview.md
       - Testing: development/testing.md
       - Code Quality: development/code-quality.md
       - Contributing: development/contributing.md
+      - Response-Aware Development: response-aware-development.md
 
   - Project:
       - Roadmap: project/roadmap.md
@@ -185,8 +187,13 @@ nav:
       - Tech Spec: planning/tech-spec.md
       - Roadmap: planning/roadmap.md
       - Project Plan: planning/PROJECT-PLAN.md
+      - Project Plan Template: planning/project-plan-template.md
       - ADRs:
           - Initial Architecture: planning/adr/adr-001-initial-architecture.md
+          - ADR Template: planning/adr/adr-template.md
+
+  - Compliance:
+      - Lessons Learned (2026-04-28): compliance-reports/lessons-learned/2026-04-28.md
 
   - Reference:
       - OpenSSF Compliance: OPENSSF_COMPLIANCE.md

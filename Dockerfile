@@ -79,7 +79,7 @@ USER appuser
 EXPOSE 8000
 # Health check - adjust endpoint based on your app
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health/live || exit 1
+    CMD curl -f http://localhost:8000/api/health/live || exit 1
 
 # Default command - run web server
 CMD ["uvicorn", "llc_manager.main:app", "--host", "0.0.0.0", "--port", "8000"]

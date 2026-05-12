@@ -20,6 +20,10 @@ on:
       - 'mkdocs.yml'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write  # For GitHub Pages deployment
   pages: write

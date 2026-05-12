@@ -28,12 +28,17 @@ on:
     - cron: "0 8 * * 1"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   security-events: write
 
 env:
-  INFISICAL_DOMAIN: https://infisical.williamshome.family
+  # Variable must be set at https://github.com/ByronWilliamsCPA/llc-manager/settings/variables/actions
+  INFISICAL_DOMAIN: ${{ vars.INFISICAL_DOMAIN }}
 jobs:
   sbom:
     name: SBOM & Security
