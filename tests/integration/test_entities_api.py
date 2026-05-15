@@ -147,21 +147,22 @@ def _client_with_session(session: _FakeAsyncSession) -> TestClient:
     return TestClient(app)
 
 
-@pytest.fixture
-def _confirm_entities_router_wired() -> None:
+class TestRouterWiring:
     """Defensive smoke check: the router under test is registered on the app.
 
-    If the router is detached the integration tests still 'pass' against
-    overrides but the production wiring is broken. A simple sanity assertion
-    keeps that drift visible.
+    If the router is detached the per-endpoint tests still 'pass' against
+    dependency overrides but the production wiring is broken. Running this
+    sanity assertion as a real test keeps that drift visible.
     """
-    app = create_app()
-    paths = {route.path for route in app.routes}  # type: ignore[attr-defined]
-    assert any(p.startswith("/api/v1/entities") for p in paths), (
-        "entities router is not mounted on /api/v1/entities"
-    )
-    # Use the import so static analysis doesn't strip the symbol.
-    assert entities_router is not None
+
+    @pytest.mark.integration
+    def test_entities_router_mounted_on_v1(self) -> None:
+        app = create_app()
+        paths = {route.path for route in app.routes}  # type: ignore[attr-defined]
+        assert any(p.startswith("/api/v1/entities") for p in paths), (
+            "entities router is not mounted on /api/v1/entities"
+        )
+        assert entities_router is not None
 
 
 # ---------------------------------------------------------------------------
