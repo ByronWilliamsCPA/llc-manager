@@ -30,6 +30,10 @@ jobs:
   docs:
     name: Build & Deploy Docs
     uses: ByronWilliamsCPA/.github/.github/workflows/python-docs.yml@e8fc83c98c2971ad1ece71573d28171463e30c16 # main
+    permissions:
+      contents: write  # For GitHub Pages deployment
+      pages: write
+      id-token: write
     with:
       python-version: '3.12'
       deploy-to-pages: >-
