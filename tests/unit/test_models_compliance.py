@@ -37,7 +37,6 @@ from llc_manager.models.tax_filing import (
 # "due today / expires today" assertions cannot flip if the clock ticks past
 # midnight between setup and evaluation.
 _FROZEN_NOW = datetime(2024, 6, 15, 12, 0, 0, tzinfo=UTC)
-_FROZEN_TODAY = _FROZEN_NOW.date()
 
 
 def _today() -> date:
