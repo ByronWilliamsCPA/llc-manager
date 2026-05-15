@@ -10,9 +10,15 @@ Covers:
 These properties are the compliance/reminder primitives the rest of the
 application would build "due date overdue / reminder needed" workflows on
 top of, so they are exercised directly with a wide range of dates.
+
+The "due-today" / "expires-today" boundary tests pin both the test and the
+model to a single fixed datetime via ``_FROZEN_NOW`` so they cannot flip if
+the wall clock crosses midnight between the test setup and the property
+evaluation.
 """
 
 from datetime import UTC, date, datetime, timedelta
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -26,14 +32,37 @@ from llc_manager.models.tax_filing import (
     TaxFilingType,
 )
 
+# A fixed reference moment used by the boundary tests. Both the test fixture
+# and the model module's ``datetime.now(...)`` are forced to this value so the
+# "due today / expires today" assertions cannot flip if the clock ticks past
+# midnight between setup and evaluation.
+_FROZEN_NOW = datetime(2024, 6, 15, 12, 0, 0, tzinfo=UTC)
+_FROZEN_TODAY = _FROZEN_NOW.date()
+
 
 def _today() -> date:
     """Return the wall-clock date used by the model `is_overdue` properties.
 
     The model code uses ``datetime.now(UTC).date()`` -- mirror that here so
-    tests are anchored to the same notion of "today".
+    tests are anchored to the same notion of "today" for the tests that
+    deliberately exercise far-past / far-future dates and therefore don't
+    care about midnight rollover.
     """
     return datetime.now(UTC).date()
+
+
+@pytest.fixture
+def frozen_now(monkeypatch: pytest.MonkeyPatch) -> datetime:
+    """Freeze ``datetime.now`` in the model modules at ``_FROZEN_NOW``.
+
+    Patches the ``datetime`` symbol imported by ``tax_filing`` and ``document``
+    so ``is_overdue`` / ``is_expired`` resolve "today" deterministically.
+    """
+    frozen_dt = MagicMock(wraps=datetime)
+    frozen_dt.now.return_value = _FROZEN_NOW
+    monkeypatch.setattr("llc_manager.models.tax_filing.datetime", frozen_dt)
+    monkeypatch.setattr("llc_manager.models.document.datetime", frozen_dt)
+    return _FROZEN_NOW
 
 
 class TestTaxFilingIsOverdue:
@@ -64,7 +93,9 @@ class TestTaxFilingIsOverdue:
         assert filing.is_overdue is False
 
     @pytest.mark.unit
-    def test_not_overdue_when_due_date_is_today(self) -> None:
+    def test_not_overdue_when_due_date_is_today(
+        self, frozen_now: datetime
+    ) -> None:
         """Due-today is *not* overdue -- model uses strict `>` comparison."""
         filing = TaxFiling(
             filing_type=TaxFilingType.STATE_INCOME,
@@ -72,7 +103,7 @@ class TestTaxFilingIsOverdue:
             tax_year=2024,
             frequency=FilingFrequency.ANNUAL,
             status=FilingStatus.PENDING,
-            due_date=_today(),
+            due_date=frozen_now.date(),
         )
         assert filing.is_overdue is False
 
@@ -206,11 +237,13 @@ class TestDocumentIsExpired:
         assert doc.is_expired is False
 
     @pytest.mark.unit
-    def test_not_expired_when_expiration_date_is_today(self) -> None:
+    def test_not_expired_when_expiration_date_is_today(
+        self, frozen_now: datetime
+    ) -> None:
         doc = Document(
             document_type=DocumentType.LEASE,
             title="Office lease",
-            expiration_date=_today(),
+            expiration_date=frozen_now.date(),
         )
         assert doc.is_expired is False
 
