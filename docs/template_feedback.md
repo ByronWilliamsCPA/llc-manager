@@ -42,7 +42,39 @@ When working on this project, if you discover any issue that originates from the
 
 <!-- Add your feedback below this line -->
 
-_No feedback items yet. Add issues as they are discovered._
+### Missing authentication / authorization scaffolding for tenant-isolated CRUD
+
+- **Priority**: High
+- **Category**: Security
+- **Discovered**: 2026-05-15
+
+**Issue**: The template ships CRUD endpoints (e.g. `Entity` in this project) and
+SQLAlchemy models that use `AuditMixin`, but there is no user model, no
+authentication middleware, and no ownership column (`user_id` / `tenant_id`) on
+the resource tables. As a result, any caller can read, update, or soft-delete
+any row -- there is no way to enforce "user A cannot access user B's
+entities".
+
+**Context**: Discovered while writing pytest coverage for the entity CRUD
+routes. Tests under `tests/integration/test_entities_api.py::TestEntityOwnershipIsolation`
+document the gap by asserting current (unauthenticated) behavior and pinning
+the absence of an owner column, so a future auth layer will cause those
+assertions to flip explicitly.
+
+**Suggested Fix**: Provide an opt-in template flag (or example module) that
+adds:
+
+- A `User` model and JWT/session-based auth dependency
+- A `tenant_id` or `owner_user_id` column on resource tables via a mixin
+- A FastAPI dependency that filters all CRUD queries by the authenticated
+  caller's identity, with 403/404 responses for cross-tenant access
+
+**Affected Files**:
+
+- `src/{{ project_slug }}/api/v1/endpoints/*.py` (add ownership filter)
+- `src/{{ project_slug }}/models/*.py` (add owner FK mixin)
+- `src/{{ project_slug }}/db/base.py` (new `OwnedMixin`)
+- New: `src/{{ project_slug }}/api/auth.py`
 
 ---
 
