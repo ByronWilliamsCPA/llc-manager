@@ -14,15 +14,18 @@ on:
         required: false
         default: false
 
+permissions:
+  contents: read
+  id-token: write  # Required for OIDC trusted publishing
+
 jobs:
   publish:
     name: Publish Package
     uses: ByronWilliamsCPA/.github/.github/workflows/python-publish-pypi.yml@e8fc83c98c2971ad1ece71573d28171463e30c16 # main
+    permissions:
+      contents: read
+      id-token: write  # Required for OIDC trusted publishing
     with:
       python-version: '3.12'
       package-name: 'llc-manager'
       test-pypi: ${{ github.event.inputs.test-pypi || false }}
-
-permissions:
-  contents: read
-  id-token: write  # Required for OIDC trusted publishing

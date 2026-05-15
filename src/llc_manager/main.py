@@ -49,12 +49,22 @@ def create_app() -> FastAPI:
     )
 
     # Add CORS middleware
+    # Methods/headers are allowlisted (no wildcards) because allow_credentials=True
+    # combined with wildcard methods/headers broadens the cross-origin contract
+    # beyond what the API actually accepts. See SECURITY-FINDINGS.md A05-1.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Correlation-ID",
+            "X-Request-ID",
+        ],
+        expose_headers=["X-Correlation-ID", "X-Request-ID"],
+        max_age=3600,
     )
 
     # Add custom middleware (order matters: CorrelationMiddleware must run first

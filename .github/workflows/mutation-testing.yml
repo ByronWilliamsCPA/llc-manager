@@ -41,6 +41,9 @@ jobs:
     # Skip on forks (no PR comment permissions)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     uses: ByronWilliamsCPA/.github/.github/workflows/python-mutation.yml@e8fc83c98c2971ad1ece71573d28171463e30c16 # main
+    permissions:
+      contents: read
+      pull-requests: write
     with:
       python-version: '3.12'
       source-directory: 'src'
