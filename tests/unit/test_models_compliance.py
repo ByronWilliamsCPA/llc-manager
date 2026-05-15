@@ -93,9 +93,7 @@ class TestTaxFilingIsOverdue:
         assert filing.is_overdue is False
 
     @pytest.mark.unit
-    def test_not_overdue_when_due_date_is_today(
-        self, frozen_now: datetime
-    ) -> None:
+    def test_not_overdue_when_due_date_is_today(self, frozen_now: datetime) -> None:
         """Due-today is *not* overdue -- model uses strict `>` comparison."""
         filing = TaxFiling(
             filing_type=TaxFilingType.STATE_INCOME,

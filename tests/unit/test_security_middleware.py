@@ -224,9 +224,7 @@ class TestRateLimitMiddleware:
         assert client.get("/ping").status_code == 200
 
     @pytest.mark.unit
-    def test_burst_limit_returns_429(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_burst_limit_returns_429(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """The 3rd request inside 1s with burst_size=2 must 429.
 
         Wall-clock time is monkey-patched so the test exercises the burst
@@ -240,9 +238,7 @@ class TestRateLimitMiddleware:
             fake_now[0] += 0.1
             return fake_now[0]
 
-        monkeypatch.setattr(
-            "llc_manager.middleware.security.time.time", fake_time
-        )
+        monkeypatch.setattr("llc_manager.middleware.security.time.time", fake_time)
 
         app = FastAPI()
         app.add_middleware(RateLimitMiddleware, requests_per_minute=100, burst_size=2)
