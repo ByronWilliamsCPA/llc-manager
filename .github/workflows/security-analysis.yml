@@ -33,6 +33,10 @@ jobs:
   security:
     name: Security Scan
     uses: ByronWilliamsCPA/.github/.github/workflows/python-security-analysis.yml@e8fc83c98c2971ad1ece71573d28171463e30c16 # main
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
     with:
       source-directory: 'src'
       python-version: '3.12'

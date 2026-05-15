@@ -24,6 +24,9 @@ jobs:
     # Only run on successful CI completion
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     uses: ByronWilliamsCPA/.github/.github/workflows/python-codecov.yml@e8fc83c98c2971ad1ece71573d28171463e30c16 # main
+    permissions:
+      contents: read
+      actions: read
     with:
       artifact-name: 'coverage-reports'
       coverage-files: '*.xml'
@@ -37,6 +40,8 @@ jobs:
     name: Report CI Failure
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    permissions:
+      contents: read
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1

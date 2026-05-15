@@ -100,6 +100,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "geolocation=(), microphone=(), camera=(), payment=()"
         )
 
+        # Prevent caching of sensitive API responses (OWASP A02 / A05).
+        # Applied only to data endpoints under /api/v1/*; static assets and
+        # health probes can still be cached. See SECURITY-FINDINGS.md A05-2.
+        if request.url.path.startswith("/api/v1/"):
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Pragma"] = "no-cache"
+
         # Remove server identification (OWASP A09)
         if "Server" in response.headers:
             del response.headers["Server"]
