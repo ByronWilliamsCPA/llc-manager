@@ -109,7 +109,7 @@ def client_with_entities(fixture_entity: SimpleNamespace) -> Iterator[TestClient
     app.dependency_overrides.clear()
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_entities_list_page_returns_200_with_table(
     client_with_entities: TestClient,
 ) -> None:
@@ -125,7 +125,7 @@ def test_entities_list_page_returns_200_with_table(
     assert 'hx-get="/entities"' in body
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_entity_detail_page_returns_200_with_entity_name(
     client_with_entities: TestClient, fixture_entity: SimpleNamespace
 ) -> None:
