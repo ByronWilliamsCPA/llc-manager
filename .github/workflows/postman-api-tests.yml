@@ -2,8 +2,8 @@
 #
 # Boots the FastAPI app against a Postgres service container, waits for the
 # /api/health/live probe, then runs the committed Postman collection through
-# Newman. Keeps docs/api/postman-collection.json honest by exercising every
-# documented request on every PR.
+# Newman. Keeps docs/api/postman-collection.json honest by exercising the
+# health-probe requests on every PR.
 #
 # Required GitHub Actions secrets:
 #   (none required for the default configuration; the workflow uses
@@ -15,6 +15,16 @@
 #                      run, but documented here so it is easy to wire up.
 #   LLC_MANAGER_API_KEY - Value injected into the {{apiKey}} Postman
 #                         variable. Defaults to "ci-test-key" when unset.
+#
+# Scope note: the `--folder "Health"` filter intentionally restricts the
+# Newman run to the three health-probe requests. The `Entities` folder
+# requires seeded data (existing entity rows for the GET / PATCH / DELETE
+# detail requests) and exercising it from a clean Postgres service
+# container would either fail or require a non-trivial fixture step that
+# duplicates existing pytest coverage. The unit/integration test suites
+# already cover the Entities CRUD paths against the live router; this
+# workflow is intentionally scoped to a deployment-style smoke test of
+# the health surface.
 
 name: Postman API Tests
 
@@ -67,16 +77,21 @@ jobs:
       LLC_MANAGER_LOG_LEVEL: INFO
 
     steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           enable-cache: true
 
@@ -84,7 +99,7 @@ jobs:
         run: uv sync --all-extras
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
 
@@ -128,6 +143,9 @@ jobs:
         env:
           LLC_MANAGER_API_KEY: ${{ secrets.LLC_MANAGER_API_KEY || 'ci-test-key' }}
         run: |
+          # Scope: --folder "Health" only. See the "Scope note" in the
+          # header comment for the rationale (Entities CRUD requires seeded
+          # fixtures already covered by pytest).
           newman run docs/api/postman-collection.json \
             --env-var "baseUrl=http://127.0.0.1:8000" \
             --env-var "apiKey=${LLC_MANAGER_API_KEY}" \
@@ -137,7 +155,7 @@ jobs:
 
       - name: Upload Newman results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: newman-results
           path: |
