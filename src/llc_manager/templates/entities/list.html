@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Entities - LLC Manager{% endblock %}
+
+{% block content %}
+<section class="entities-list">
+    <header class="page-header">
+        <h1>Entities</h1>
+    </header>
+
+    <form class="search-form" role="search" onsubmit="return false;">
+        <input
+            type="search"
+            name="q"
+            placeholder="Search by legal name or EIN..."
+            value="{{ search or '' }}"
+            hx-get="/entities"
+            hx-trigger="input changed delay:300ms, search"
+            hx-target="#entities-tbody"
+            hx-select="#entities-tbody"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+        >
+    </form>
+
+    <table class="data-table" id="entities-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>State</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th></th>
+            </tr>
+        </thead>
+        {% include "entities/partials/table_rows.html" %}
+    </table>
+
+    {% if pages and pages > 1 %}
+    <p class="pagination-info">Page {{ page }} of {{ pages }} ({{ total }} total)</p>
+    {% endif %}
+</section>
+{% endblock %}
