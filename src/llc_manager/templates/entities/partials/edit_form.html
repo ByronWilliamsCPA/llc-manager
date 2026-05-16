@@ -1,0 +1,78 @@
+<form
+    class="edit-form"
+    hx-patch="/api/v1/entities/{{ entity.id }}"
+    hx-ext="json-enc"
+    hx-target="#entity-card"
+    hx-swap="innerHTML"
+>
+    <header class="card-header">
+        <h1>Edit: {{ entity.legal_name }}</h1>
+    </header>
+
+    <div class="form-row">
+        <label for="legal_name">Legal Name</label>
+        <input id="legal_name" name="legal_name" type="text" value="{{ entity.legal_name }}" required maxlength="255">
+    </div>
+
+    <div class="form-row">
+        <label for="dba_names">DBA Names</label>
+        <input id="dba_names" name="dba_names" type="text" value="{{ entity.dba_names or '' }}">
+    </div>
+
+    <div class="form-row">
+        <label for="ein">EIN</label>
+        <input id="ein" name="ein" type="text" value="{{ entity.ein or '' }}" pattern="\d{2}-\d{7}" placeholder="12-3456789">
+    </div>
+
+    <div class="form-row">
+        <label for="entity_type">Entity Type</label>
+        <select id="entity_type" name="entity_type">
+            {% for et in entity_types %}
+            <option value="{{ et.value }}" {% if entity.entity_type == et %}selected{% endif %}>{{ et.value }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-row">
+        <label for="formation_state">Formation State</label>
+        <input id="formation_state" name="formation_state" type="text" value="{{ entity.formation_state or '' }}" maxlength="2">
+    </div>
+
+    <div class="form-row">
+        <label for="formation_date">Formation Date</label>
+        <input id="formation_date" name="formation_date" type="date" value="{{ entity.formation_date.isoformat() if entity.formation_date else '' }}">
+    </div>
+
+    <div class="form-row">
+        <label for="business_address">Business Address</label>
+        <input id="business_address" name="business_address" type="text" value="{{ entity.business_address or '' }}">
+    </div>
+
+    <div class="form-row">
+        <label for="purpose">Purpose</label>
+        <textarea id="purpose" name="purpose">{{ entity.purpose or '' }}</textarea>
+    </div>
+
+    <div class="form-row">
+        <label for="notes">Notes</label>
+        <textarea id="notes" name="notes">{{ entity.notes or '' }}</textarea>
+    </div>
+
+    <div class="form-row">
+        <label>
+            <input type="checkbox" name="is_active" value="true" {% if entity.is_active %}checked{% endif %}>
+            Active
+        </label>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <button
+            type="button"
+            class="btn"
+            hx-get="/entities/{{ entity.id }}/card"
+            hx-target="#entity-card"
+            hx-swap="innerHTML"
+        >Cancel</button>
+    </div>
+</form>

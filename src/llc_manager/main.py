@@ -18,6 +18,7 @@ from llc_manager.middleware.security import (
     SecurityHeadersMiddleware,
     SSRFPreventionMiddleware,
 )
+from llc_manager.web import router as web_router
 
 _HERE = Path(__file__).parent
 
@@ -89,6 +90,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix="/api", tags=["Health"])
     app.include_router(v1_router, prefix="/api/v1")
     app.include_router(ui_router)
+    app.include_router(web_router)
 
     # Serve static assets (CSS, JS)
     app.mount("/static", StaticFiles(directory=_HERE / "static"), name="static")
