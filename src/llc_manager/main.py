@@ -40,8 +40,24 @@ def create_app() -> FastAPI:
     """
     app = FastAPI(
         title=settings.api_title,
-        version=settings.api_version,
-        description="API for managing LLC entities, compliance dates, and documentation",
+        version="1.0.0",
+        description=(
+            "REST API for managing LLC entities, ownership structures, "
+            "compliance dates, bank accounts, tax filings, and associated "
+            "documentation.\n\n"
+            "All resource endpoints are namespaced under `/api/v1/` to match "
+            "the API version `1.0.0`. Health probe endpoints are exposed "
+            "under `/api/health/` and follow Kubernetes probe conventions."
+        ),
+        contact={
+            "name": "Byron Williams",
+            "email": "byron@williamscpa.com",
+            "url": "https://github.com/ByronWilliamsCPA/llc-manager",
+        },
+        license_info={
+            "name": "MIT",
+            "url": "https://github.com/ByronWilliamsCPA/llc-manager/blob/main/LICENSE",
+        },
         lifespan=lifespan,
         docs_url="/api/docs",
         redoc_url="/api/redoc",
