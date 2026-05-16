@@ -1,0 +1,153 @@
+# Postman / Newman API smoke tests.
+#
+# Boots the FastAPI app against a Postgres service container, waits for the
+# /api/health/live probe, then runs the committed Postman collection through
+# Newman. Keeps docs/api/postman-collection.json honest by exercising every
+# documented request on every PR.
+#
+# Required GitHub Actions secrets:
+#   (none required for the default configuration; the workflow uses
+#    the Postgres service container and a generated dev secret)
+#
+# Optional secrets (consumed when set):
+#   POSTMAN_API_KEY  - Postman API key for syncing collections via
+#                      `newman --postman-api-key`. Not used by the default
+#                      run, but documented here so it is easy to wire up.
+#   LLC_MANAGER_API_KEY - Value injected into the {{apiKey}} Postman
+#                         variable. Defaults to "ci-test-key" when unset.
+
+name: Postman API Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  newman:
+    name: Newman smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: llc_manager
+          POSTGRES_PASSWORD: llc_manager
+          POSTGRES_DB: llc_manager
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U llc_manager"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      LLC_MANAGER_ENVIRONMENT: test
+      LLC_MANAGER_DATABASE_HOST: localhost
+      LLC_MANAGER_DATABASE_PORT: "5432"
+      LLC_MANAGER_DATABASE_USER: llc_manager
+      LLC_MANAGER_DATABASE_PASSWORD: llc_manager
+      LLC_MANAGER_DATABASE_NAME: llc_manager
+      LLC_MANAGER_API_HOST: 127.0.0.1
+      LLC_MANAGER_API_PORT: "8000"
+      LLC_MANAGER_SECRET_KEY: ci-only-secret-not-used-in-production
+      LLC_MANAGER_LOG_LEVEL: INFO
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: uv sync
+        run: uv sync --all-extras
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Newman
+        run: npm install -g newman@6
+
+      - name: Apply database migrations
+        run: uv run alembic upgrade head
+
+      - name: Verify committed OpenAPI spec is current
+        run: |
+          uv run python scripts/export_openapi.py
+          if ! git diff --exit-code docs/api/openapi.json; then
+            echo "::error::docs/api/openapi.json is out of date. Run 'uv run python scripts/export_openapi.py' and commit." >&2
+            exit 1
+          fi
+
+      - name: Start FastAPI app
+        run: |
+          mkdir -p .logs
+          nohup uv run uvicorn llc_manager.main:app \
+            --host 127.0.0.1 --port 8000 \
+            > .logs/app.log 2>&1 &
+          echo $! > .logs/app.pid
+
+      - name: Wait for /api/health/live
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:8000/api/health/live > /dev/null; then
+              echo "API is up after ${attempt} attempts"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::API did not become ready in 60 seconds" >&2
+          echo "---- app log ----" >&2
+          cat .logs/app.log >&2 || true
+          exit 1
+
+      - name: Run Newman
+        env:
+          LLC_MANAGER_API_KEY: ${{ secrets.LLC_MANAGER_API_KEY || 'ci-test-key' }}
+        run: |
+          newman run docs/api/postman-collection.json \
+            --env-var "baseUrl=http://127.0.0.1:8000" \
+            --env-var "apiKey=${LLC_MANAGER_API_KEY}" \
+            --folder "Health" \
+            --reporters cli,junit \
+            --reporter-junit-export newman-results.xml
+
+      - name: Upload Newman results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-results
+          path: |
+            newman-results.xml
+            .logs/app.log
+          if-no-files-found: ignore
+
+      - name: Stop FastAPI app
+        if: always()
+        run: |
+          if [ -f .logs/app.pid ]; then
+            kill "$(cat .logs/app.pid)" 2>/dev/null || true
+          fi
