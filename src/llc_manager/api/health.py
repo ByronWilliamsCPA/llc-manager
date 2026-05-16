@@ -24,7 +24,7 @@ from llc_manager.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/health", tags=["health"])
+router = APIRouter(prefix="/health")
 
 # Generic, operator-safe readiness error message. The raw driver exception is
 # written to the structured log with full context (correlation ID, stack
