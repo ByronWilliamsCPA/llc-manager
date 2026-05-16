@@ -157,14 +157,17 @@ def _build_query(parameters: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return query
 
 
-def _build_path_variables(parameters: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _build_path_variables(
+    parameters: list[dict[str, Any]], spec: dict[str, Any]
+) -> list[dict[str, Any]]:
     """Translate OpenAPI path params into Postman path variables."""
     variables: list[dict[str, Any]] = []
     for param in parameters:
         if param.get("in") != "path":
             continue
         schema = param.get("schema", {})
-        example = _example_for_schema(schema, {"components": {"schemas": {}}}) or ""
+        # Pass the full spec so $ref-based parameter schemas resolve.
+        example = _example_for_schema(schema, spec) or ""
         variables.append(
             {
                 "key": param["name"],
@@ -260,7 +263,7 @@ def _build_item(
     parameters = operation.get("parameters", [])
     raw_url, segments = _path_to_postman(path)
     query = _build_query(parameters)
-    path_vars = _build_path_variables(parameters)
+    path_vars = _build_path_variables(parameters, spec)
 
     expected_status = _success_status(operation, method)
     expect_json = _success_is_json(operation, expected_status)
