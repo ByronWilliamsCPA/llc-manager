@@ -1,0 +1,22 @@
+<tbody id="entities-tbody">
+    {% for entity in entities %}
+    <tr>
+        <td><a href="/entities/{{ entity.id }}">{{ entity.legal_name }}</a></td>
+        <td>{{ entity.entity_type.value if entity.entity_type else "" }}</td>
+        <td>{{ entity.formation_state or "" }}</td>
+        <td>
+            {% if entity.is_active %}
+            <span class="badge badge-active">Active</span>
+            {% else %}
+            <span class="badge badge-inactive">Inactive</span>
+            {% endif %}
+        </td>
+        <td>{{ entity.created_at.strftime("%Y-%m-%d") if entity.created_at else "" }}</td>
+        <td><a href="/entities/{{ entity.id }}" class="btn btn-link">View</a></td>
+    </tr>
+    {% else %}
+    <tr>
+        <td colspan="6" class="empty">No entities found.</td>
+    </tr>
+    {% endfor %}
+</tbody>
