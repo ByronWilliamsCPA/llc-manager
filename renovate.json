@@ -26,8 +26,7 @@
     {
       "description": "Group Python dependencies by type",
       "matchManagers": [
-        "pip_requirements",
-        "pip-compile"
+        "pep621"
       ],
       "matchDepTypes": [
         "dependencies"
@@ -41,8 +40,7 @@
     {
       "description": "Group Python dev dependencies",
       "matchManagers": [
-        "pip_requirements",
-        "pip-compile"
+        "pep621"
       ],
       "matchDepTypes": [
         "dev-dependencies"
@@ -200,8 +198,7 @@
     }
   ],
   "enabledManagers": [
-    "pip_requirements",
-    "pip-compile",
+    "pep621",
     "github-actions"
   ]
 }
