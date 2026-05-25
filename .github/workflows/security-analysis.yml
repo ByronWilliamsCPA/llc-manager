@@ -46,5 +46,10 @@ jobs:
       run-codeql: true
       run-dependency-review: true
       run-bandit: true
-      run-safety: true
+      # Safety disabled: not in this project's dependency tree, so
+      # `uv run safety check` fails with `Failed to spawn: safety` and
+      # crashes Python Security Scan with exit code 2. OSV Scanner
+      # already queries the same OSV.dev + PyPA advisory feeds Safety
+      # uses, so coverage is preserved.
+      run-safety: false
       run-osv: true
