@@ -51,6 +51,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `python-compatibility.yml` workflow: moved the `-m "not slow and not
+  integration"` marker filter out of the `test-command` string and into
+  `pyproject.toml` `[tool.pytest.ini_options].addopts` as separate list
+  items. The upstream reusable workflow expands `$TEST_COMMAND` unquoted,
+  so the marker expression was word-split by bash and pytest aborted with
+  `file or directory not found: slow`. Documentation updated in
+  `CLAUDE.md`, `README.md`, and `CONTRIBUTING.md` to show both the default
+  fast-suite and the explicit full-suite (`-m ""`) invocations now that
+  `slow` and `integration` markers are skipped by default
 - `sonarcloud.yml` replaced with a thin caller to the org-level reusable
   workflow (`python-sonarcloud.yml@6bad2f898...`); `pull-requests: write`
   scoped to job level only; `fail-on-quality-gate` made conditional (`true`
