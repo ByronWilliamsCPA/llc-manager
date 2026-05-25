@@ -38,3 +38,18 @@ jobs:
       run-integration-tests: true
       run-security-tests: true
       fail-on-llm-tags: false
+
+  # Aggregator job: publishes the bare "CI Gate" status context required by
+  # the ByronWilliamsCPA-python-tier-ci-gate ruleset. Reusable-workflow jobs
+  # always publish as "<calling-job-name> / <reusable-job-name>" (here:
+  # "CI Pipeline / CI Gate"), which cannot match a bare-name ruleset context.
+  # This thin local job depends on the reusable workflow call and publishes
+  # the required bare name once the underlying gate passes.
+  ci-gate:
+    name: CI Gate
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Confirm CI Pipeline reusable workflow succeeded
+        run: echo "CI Pipeline succeeded; bare CI Gate context satisfied for ruleset."
