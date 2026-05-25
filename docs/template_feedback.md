@@ -80,6 +80,49 @@ port in `docker-compose.yml`.
 
 ---
 
+### pr-validation.yml Missing `labeled` / `unlabeled` Triggers Breaks Changelog Enforcement
+
+- **Priority**: High
+- **Category**: CI/CD
+- **Discovered**: 2026-05-25
+
+**Issue**: The generated `.github/workflows/pr-validation.yml` includes a Changelog Check
+job that uses `dangoslen/changelog-enforcer` with
+`skipLabels: skip-changelog,dependencies,documentation`. However, the workflow only fires
+on `types: [opened, synchronize, reopened]`. The changelog-enforcer action reads labels
+from `github.event.pull_request.labels` (the frozen event payload), so labels added to a
+PR *after* it opens are invisible to the action. `gh run rerun` also does not refresh the
+event payload, so the Changelog Check stays red even after the user adds the documented
+`dependencies` skip label. Every chore(deps), docs, or trivial PR that shouldn't need a
+CHANGELOG entry gets stuck on this check until contributors learn the "push an empty
+commit to refresh the event payload" workaround.
+
+**Context**: Discovered during a `/pr-fix` workflow on PR #45 (a Renovate-config tweak).
+The PR was correctly labeled `dependencies` (in the skipLabels list), but the Changelog
+Check kept failing on re-runs because the original `pull_request: opened` event was fired
+before the label existed. The user confirmed "the same two checks keep failing on our
+PRs", indicating this is a recurring fleet-wide problem, not project-specific.
+
+**Suggested Fix**: Update the template's `.github/workflows/pr-validation.yml` to add
+`labeled, unlabeled` to the `pull_request.types` list:
+
+```yaml
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+```
+
+This makes label additions / removals trigger a fresh workflow run with a current event
+payload, so the changelog-enforcer can see the new label set. Add a brief inline comment
+above the `types:` line explaining why `labeled` / `unlabeled` are present so future
+contributors do not remove them during cleanup passes.
+
+**Affected Files**:
+
+- `{{cookiecutter.project_slug}}/.github/workflows/pr-validation.yml`
+
+---
+
 ## Submitting Feedback
 
 Once you've collected feedback, you can:
