@@ -25,8 +25,9 @@ concurrency:
 
 permissions:
   contents: read
-  security-events: write
-  pull-requests: write
+  security-events: write   # Required by the reusable workflow's `codeql` job for SARIF upload
+  pull-requests: write     # Required by the reusable workflow's `dependency-review` job
+  actions: read            # Required by the reusable workflow's `codeql` job; missing this caused startup_failure
 
 # Uses org-level reusable workflow
 jobs:
