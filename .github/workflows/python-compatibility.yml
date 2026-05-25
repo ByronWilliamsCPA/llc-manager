@@ -42,7 +42,12 @@ jobs:
       include-macos: true
       include-windows: true
       source-directory: 'src'
-      test-command: 'pytest tests/ -v --tb=short -x --ignore=tests/integration --ignore=tests/load -m "not slow and not integration"'
+      # Marker filter (-m "not slow and not integration") lives in
+      # pyproject.toml [tool.pytest.ini_options].addopts. The reusable
+      # workflow expands $TEST_COMMAND unquoted, so any whitespace inside
+      # a single argument (such as the marker expression) would be word-
+      # split by bash and break pytest.
+      test-command: 'pytest tests/ -v --tb=short -x --ignore=tests/integration --ignore=tests/load'
       coverage-report: false
       fail-fast: false
       timeout-minutes: 30
