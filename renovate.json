@@ -149,16 +149,20 @@
       ]
     },
     {
-      "description": "Track org workflow floating v1 tag for SHA pin updates",
+      "description": "Org reusable-workflow SHA pin refreshes (paired with pinDigests above)",
       "matchManagers": [
         "github-actions"
       ],
-      "matchPackagePatterns": [
+      "matchPackageNames": [
         "ByronWilliamsCPA/.github",
         "williaby/.github"
       ],
-      "versioning": "semver",
-      "followTag": "v1"
+      "groupName": "Org reusable workflows",
+      "labels": [
+        "dependencies",
+        "ci-infra"
+      ],
+      "automerge": false
     }
   ],
   "python": {
