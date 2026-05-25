@@ -18,13 +18,6 @@ on:
         required: false
         default: '80'
         type: string
-  # Run on PRs that modify source code
-  pull_request:
-    branches: [main, master, develop]
-    paths:
-      - 'src/**/*.py'
-      - 'tests/**/*.py'
-      - 'pyproject.toml'
 
 # Cancel in-progress runs for same PR/branch
 concurrency:

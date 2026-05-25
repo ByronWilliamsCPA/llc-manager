@@ -1,4 +1,3 @@
-
 # MkDocs Configuration for LLC Manager
 # Documentation: https://www.mkdocs.org/user-guide/configuration/
 
@@ -141,8 +140,7 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
-  - pymdownx.tabbed:
-      alternate_style: true
+  # pymdownx.tabbed removed: no usage found in docs/
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
@@ -195,6 +193,4 @@ nav:
       - Known Vulnerabilities: known-vulnerabilities.md
 
 # Validation
-# strict mode disabled to allow links to repo root files
-# These files are valid but outside docs/ directory
-strict: false
+strict: true

@@ -12,7 +12,7 @@ tags:
 > **Purpose**: Document issues discovered in this project that should be addressed in the [cookiecutter-python-template](https://github.com/ByronWilliamsCPA/cookiecutter-python-template).
 >
 > **Generated From**: cookiecutter-python-template v0.1.0
-> **Project Created**: __PROJECT_CREATION_DATE__
+> **Project Created**: **PROJECT_CREATION_DATE**
 
 ---
 

@@ -12,7 +12,7 @@ To report a vulnerability privately (not visible to the public), use GitHub's
 [Private Vulnerability Reporting](https://github.com/ByronWilliamsCPA/llc-manager/security/advisories/new)
 feature. Do not open a public issue for security vulnerabilities.
 
-If you prefer email, you may also contact byron@williamscpa.com with full
+If you prefer email, you may also contact <byron@williamscpa.com> with full
 details. Email reports are treated with the same confidentiality as GitHub
 private advisories.
 
@@ -35,6 +35,18 @@ This project follows security best practices:
 - **Code Review**: All changes require review before merge
 - **Signed Commits**: GPG-signed commits required
 - **FIPS Compliance**: Code is checked for FIPS 140-2/140-3 compatibility
+
+## Security Surface
+
+LLC Manager is a FastAPI application that stores and serves sensitive business data: EINs, ownership percentages, compliance deadlines, and associated legal documents. The primary attack surface is:
+
+- **ORM/SQL injection**: search and filter parameters on entity endpoints are passed through SQLAlchemy; all queries use parameterized statements, but new endpoints must follow the same pattern.
+- **Authentication gap**: Phase 0 ships with no auth layer. Deployments must sit behind a network boundary or reverse proxy with auth until Phase 1 (OAuth2/OIDC) ships.
+- **SSRF**: external integrations could trigger server-side requests; `middleware/security.py` blocks private-range destinations.
+- **Secrets exposure**: database credentials and API keys live in environment variables; `.env` is git-ignored and GitHub secret scanning is enabled.
+- **Supply-chain**: GitHub Actions workflows use SHA-pinned action refs; `slsa-provenance.yml` generates SLSA Level 3 attestations for releases.
+
+Mitigations in place: Bandit SAST, pip-audit, detect-secrets pre-commit hook, required-status-check rulesets, and signed commits.
 
 ## Known Vulnerabilities
 

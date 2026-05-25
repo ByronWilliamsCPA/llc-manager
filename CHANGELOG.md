@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+<!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->
 - Initial project setup and structure
 - SSRF prevention and rate-limit middleware wired into `main.py`
 - CR/LF sanitization and 128-char cap on incoming correlation headers

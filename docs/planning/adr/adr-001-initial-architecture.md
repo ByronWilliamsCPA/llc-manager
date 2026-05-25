@@ -132,6 +132,24 @@ This decision affects every aspect of development: codebase structure, developer
 - Initial: After Phase 1 MVP completion
 - Ongoing: Before Phase 2 LLM integration begins
 
+## Security Considerations
+
+- **No auth layer in Phase 0**: The current deployment has no authentication
+  or authorization. The application must not be exposed on a public network
+  interface until Authentik OIDC integration (planned for Phase 1) is
+  complete and validated.
+- **SSRF protection**: `src/llc_manager/middleware/security.py` is in place
+  to block server-side request forgery vectors introduced by user-supplied
+  URLs (e.g., entity website fields).
+- **Correlation header trust**: `X-Correlation-ID` and related headers are
+  accepted from callers without signature verification. Ensure the ingress
+  proxy strips or regenerates these headers before they reach the app in
+  production to prevent spoofed trace IDs.
+- **Secrets**: All credentials use environment variables prefixed
+  `LLC_MANAGER_`; `.env` is git-ignored. No secrets may be committed.
+- **Dependency scanning**: `uv run pip-audit` is run in CI; any new
+  dependency must pass the audit before merging.
+
 ## Related
 
 - [Tech Spec](../tech-spec.md): Implementation details

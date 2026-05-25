@@ -4,6 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **Global Settings**: Baseline development standards live in `~/.claude/CLAUDE.md` v1.4.0 (user-level). This project-level file contains **project-specific** guidance only. Global rules (RAD, security, git workflow, package selection, supervisor patterns) are not duplicated here.
 
+## Cross-references
+
+- Python linting and function quality gates: `~/.claude/.claude/rules/python.md`
+- Branch and worktree conventions: `~/.claude/.claude/rules/git-workflow.md`
+- Pre-commit checklist: `~/.claude/.claude/rules/pre-commit.md`
+- Writing rules and AI pattern blacklist: `~/.claude/.claude/rules/writing.md`
+- Test scope and root-cause order: `~/.claude/.claude/rules/testing.md`
+
 ## Project Overview
 
 **LLC Manager** is a full-stack web application for managing LLC entities, tracking compliance dates, ownership structures, and associated documentation.
