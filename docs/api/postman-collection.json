@@ -1,0 +1,556 @@
+{
+  "info": {
+    "_postman_id": "llc-manager-api-collection",
+    "description": "REST API for managing LLC entities, ownership structures, compliance dates, bank accounts, tax filings, and associated documentation.\n\nAll resource endpoints are namespaced under `/api/v1/` to match the API version `1.0.0`. Health probe endpoints are exposed under `/api/health/` and follow Kubernetes probe conventions.",
+    "name": "LLC Manager API (Postman)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0
+    }
+  },
+  "item": [
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"List entities returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"List entities returns a JSON body\", function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body, \"JSON body\").to.satisfy(function (value) {",
+                  "        return value !== null && (typeof value === \"object\" || Array.isArray(value));",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "List entities",
+          "request": {
+            "description": "Return a paginated, optionally filtered list of LLC entities. Supports full-text search across `legal_name`, `ein`, and `dba_names`, plus an `is_active` filter. Soft-deleted entities are excluded.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entities"
+              ],
+              "query": [
+                {
+                  "description": "Page number",
+                  "disabled": true,
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "description": "Items per page",
+                  "disabled": true,
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "description": "Search by legal name or EIN",
+                  "disabled": true,
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "description": "Filter by active status",
+                  "disabled": true,
+                  "key": "is_active",
+                  "value": ""
+                }
+              ],
+              "raw": "{{baseUrl}}/api/v1/entities?",
+              "variable": []
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Create entity returns 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Create entity returns a JSON body\", function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body, \"JSON body\").to.satisfy(function (value) {",
+                  "        return value !== null && (typeof value === \"object\" || Array.isArray(value));",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Create entity",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"legal_name\": \"Legal Name\"\n}"
+            },
+            "description": "Create a new LLC entity. The optional `ein` field must be unique across non-deleted entities; a duplicate value returns 409.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entities"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/api/v1/entities",
+              "variable": []
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Soft delete entity returns 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "",
+                  "pm.test(\"Soft delete entity returns an empty body\", function () {",
+                  "    pm.expect(pm.response.text() || \"\").to.have.lengthOf.at.most(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Soft delete entity",
+          "request": {
+            "description": "Soft-delete an entity by stamping `deleted_at`. The record is retained for audit but excluded from list and detail responses.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "DELETE",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entities",
+                ":entity_id"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/api/v1/entities/:entity_id",
+              "variable": [
+                {
+                  "description": "",
+                  "key": "entity_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Get entity by ID returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Get entity by ID returns a JSON body\", function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body, \"JSON body\").to.satisfy(function (value) {",
+                  "        return value !== null && (typeof value === \"object\" || Array.isArray(value));",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Get entity by ID",
+          "request": {
+            "description": "Fetch a single entity by its UUID. Soft-deleted entities are not returned.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entities",
+                ":entity_id"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/api/v1/entities/:entity_id",
+              "variable": [
+                {
+                  "description": "",
+                  "key": "entity_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Update entity returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Update entity returns a JSON body\", function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body, \"JSON body\").to.satisfy(function (value) {",
+                  "        return value !== null && (typeof value === \"object\" || Array.isArray(value));",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Update entity",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"accounting_record_id\": \"string\",\n  \"business_address\": \"string\",\n  \"business_city\": \"string\",\n  \"business_state\": \"string\",\n  \"business_zip\": \"string\",\n  \"dba_names\": \"string\",\n  \"ein\": \"string\",\n  \"entity_type\": \"llc\",\n  \"fiscal_year_end\": \"string\",\n  \"formation_date\": \"2026-01-01\",\n  \"formation_state\": \"string\",\n  \"is_active\": false,\n  \"legal_name\": \"string\",\n  \"mailing_address\": \"string\",\n  \"mailing_city\": \"string\",\n  \"mailing_state\": \"string\",\n  \"mailing_zip\": \"string\",\n  \"notes\": \"string\",\n  \"purpose\": \"string\"\n}"
+            },
+            "description": "Partially update an entity. Only fields included in the request body are modified. Updating `ein` to a value already held by another entity returns 409.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "type": "text",
+                "value": "application/json"
+              }
+            ],
+            "method": "PATCH",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entities",
+                ":entity_id"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/api/v1/entities/:entity_id",
+              "variable": [
+                {
+                  "description": "",
+                  "key": "entity_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "Entities"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Liveness probe returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Liveness probe returns a JSON body\", function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body, \"JSON body\").to.satisfy(function (value) {",
+                  "        return value !== null && (typeof value === \"object\" || Array.isArray(value));",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Liveness probe",
+          "request": {
+            "description": "Indicates if the application is running. Used by Kubernetes liveness probe.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health",
+                "live"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/api/health/live",
+              "variable": []
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Readiness probe returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Readiness probe returns a JSON body\", function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body, \"JSON body\").to.satisfy(function (value) {",
+                  "        return value !== null && (typeof value === \"object\" || Array.isArray(value));",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Readiness probe",
+          "request": {
+            "description": "Checks if the application can serve traffic. Used by Kubernetes readiness probe.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health",
+                "ready"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/api/health/ready",
+              "variable": []
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Startup probe returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Startup probe returns a JSON body\", function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body, \"JSON body\").to.satisfy(function (value) {",
+                  "        return value !== null && (typeof value === \"object\" || Array.isArray(value));",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Startup probe",
+          "request": {
+            "description": "Indicates if the application has completed startup. Used by Kubernetes startup probe.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health",
+                "startup"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/api/health/startup",
+              "variable": []
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "Health"
+    }
+  ],
+  "variable": [
+    {
+      "description": "Base URL of the LLC Manager API.",
+      "key": "baseUrl",
+      "type": "string",
+      "value": "http://localhost:8000"
+    },
+    {
+      "description": "API key sent as the X-API-Key header.",
+      "key": "apiKey",
+      "type": "string",
+      "value": ""
+    }
+  ]
+}

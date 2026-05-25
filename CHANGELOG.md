@@ -10,6 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 <!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->
+- `feat(api)`: OpenAPI metadata enrichment — `version` pinned to `1.0.0`,
+  contact / license blocks on the FastAPI app, and `summary` /
+  `description` / `response_model` / `status_code` / `responses` on
+  every entity and health route
+- `scripts/export_openapi.py` — exports the FastAPI OpenAPI spec to
+  `docs/api/openapi.json` without booting a server
+- `scripts/generate_postman_collection.py` — converts the exported
+  OpenAPI spec to a Postman Collection v2.1 at
+  `docs/api/postman-collection.json` with `{{baseUrl}}` / `{{apiKey}}`
+  variables and per-request status / JSON-body assertions
+- `.github/workflows/postman-api-tests.yml` — Newman smoke-test workflow
+  that boots the API against a Postgres service container, verifies
+  the committed OpenAPI spec is current, and exercises the Postman
+  collection's Health folder on every PR and `push` to `main`
 - Initial project setup and structure
 - SSRF prevention and rate-limit middleware wired into `main.py`
 - CR/LF sanitization and 128-char cap on incoming correlation headers
