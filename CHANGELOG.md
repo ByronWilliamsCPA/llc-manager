@@ -146,14 +146,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- fix(security): resolve CVE-2026-5773 -- libcurl SMB transfer (HIGH) and
-  additional Debian security backports by adding `apt-get upgrade -y` to the
-  runtime stage in `Dockerfile`. Container Security workflow (Trivy) has been
-  failing on `main` since 2026-05-06 with HIGH-severity CVEs in
-  base-image-installed packages (curl, transitive deps). Adding upgrade to the
-  same `RUN` layer as the install ensures any Debian-backported patches land in
-  the final image. CVEs with no Debian fix continue to be tracked in
-  `.trivyignore` and `docs/known-vulnerabilities.md`.
+- fix(security): address HIGH-severity Debian package CVEs in the runtime
+  container by adding `apt-get upgrade -y` to the runtime stage of `Dockerfile`
+  so any future Debian security backports for both base-image OS packages
+  (`libgssapi-krb5-2`, `libssh2-1t64`) and packages installed in this layer
+  (`curl`, `libcurl4t64`) are applied at build time. Container Security
+  workflow (Trivy) has been failing on `main` since 2026-05-06 because of
+  HIGH-severity CVEs in those packages.
+- fix(security): track four HIGH-severity Debian CVEs with no upstream patch
+  available as of 2026-05-25 in `.trivyignore` and `docs/known-vulnerabilities.md`
+  per project policy:
+  - CVE-2026-5773 -- libcurl wrong file transfer due to incorrect SMB handling
+    (affects `curl`, `libcurl4t64`)
+  - CVE-2026-6276 -- libcurl information disclosure via cookie leak (affects
+    `curl`, `libcurl4t64`)
+  - CVE-2026-40356 -- krb5 denial of service via integer overflow (affects
+    `libgssapi-krb5-2`)
+  - CVE-2026-7598 -- libssh2 integer overflow via large username or password
+    (affects `libssh2-1t64`)
 
 ## [0.1.0] - TBD
 

@@ -49,8 +49,10 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 # Install runtime dependencies only
 # DL3005: apt-get upgrade applies Debian security backports for HIGH/CRITICAL CVEs
-# in base-image packages (curl, openssl, etc). Trade-off is per-build non-determinism;
-# acceptable because the Container Security gate fails the build on unpatched CVEs.
+# affecting both OS packages already in python:3.12-slim and packages installed
+# in this layer (curl, libcurl4t64, ca-certificates). Trade-off is per-build
+# non-determinism; acceptable because the Container Security gate fails the
+# build on unpatched CVEs.
 # hadolint ignore=DL3008,DL3005
 RUN apt-get update \
     && apt-get upgrade -y \

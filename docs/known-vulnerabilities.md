@@ -254,6 +254,151 @@ package. Monitor the Debian security tracker and re-run `trivy image` monthly.
 
 ---
 
+### CVE-2026-5773 - libcurl SMB transfer (reassess by 2026-07-24)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-5773 |
+| **Package** | curl, libcurl4t64 8.14.1-2+deb13u3 (Debian 13 packages installed in runtime stage of `Dockerfile`) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-05-25 |
+| **Last reassessed** | 2026-05-25 |
+| **Reassess by** | 2026-07-24 |
+
+**Description**: Wrong file transfer in libcurl when processing SMB URLs, which may
+cause unintended file content to be transferred.
+
+**Rationale for accepting**: `curl` is installed in the runtime stage of the
+`Dockerfile` solely for the container `HEALTHCHECK` probe against
+`http://localhost:8000/...`. SMB URLs are never used; only loopback HTTP. Curl
+is not exposed to untrusted input or external URLs from inside the container.
+No Debian patch is available as of 2026-05-25.
+
+**Mitigation in place**:
+
+- Curl invocations are limited to `http://localhost:...` for the HEALTHCHECK probe;
+  no SMB protocol code path is reached.
+- Container runs as non-root user (`appuser`, UID 1000).
+- `.trivyignore` entry prevents CI failure until Debian releases a patch.
+- `apt-get upgrade -y` runs in the runtime stage so any future Debian backport
+  is picked up automatically on the next image rebuild.
+
+**Resolution path**: upgrade the base image or replace `curl` with a smaller
+healthcheck client (`wget --spider`, busybox-equivalent) when Debian 13 ships a
+patched libcurl. Monitor the Debian security tracker and re-run `trivy image`
+monthly.
+
+**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-25.
+
+---
+
+### CVE-2026-6276 - libcurl cookie leak (reassess by 2026-07-24)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-6276 |
+| **Package** | curl, libcurl4t64 8.14.1-2+deb13u3 (Debian 13 packages installed in runtime stage of `Dockerfile`) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-05-25 |
+| **Last reassessed** | 2026-05-25 |
+| **Reassess by** | 2026-07-24 |
+
+**Description**: Information disclosure in libcurl due to cookies leaking across
+unrelated request scopes.
+
+**Rationale for accepting**: As above for CVE-2026-5773, `curl` is invoked only
+for the HEALTHCHECK probe against `http://localhost:8000/...`. No cookies are
+set, no cross-origin requests are made, and no authentication state passes
+through the affected code path. No Debian patch is available as of 2026-05-25.
+
+**Mitigation in place**:
+
+- Curl invocations are limited to a single loopback URL with no cookies.
+- Container runs as non-root user (`appuser`, UID 1000).
+- `.trivyignore` entry prevents CI failure until Debian releases a patch.
+- `apt-get upgrade -y` runs in the runtime stage so any future Debian backport
+  is picked up automatically on the next image rebuild.
+
+**Resolution path**: upgrade the base image or replace `curl` with a smaller
+healthcheck client when Debian 13 ships a patched libcurl. Monitor the Debian
+security tracker and re-run `trivy image` monthly.
+
+**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-25.
+
+---
+
+### CVE-2026-40356 - krb5 integer overflow DoS (reassess by 2026-07-24)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-40356 |
+| **Package** | libgssapi-krb5-2 1.21.3-5+deb13u1 (Debian 13 package in `python:3.12-slim`) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-05-25 |
+| **Last reassessed** | 2026-05-25 |
+| **Reassess by** | 2026-07-24 |
+
+**Description**: MIT Kerberos 5 (krb5) denial of service via integer overflow
+in the GSSAPI layer.
+
+**Rationale for accepting**: `libgssapi-krb5-2` is a transitive shared library
+present in the `python:3.12-slim` base image. The LLC Manager runtime does not
+use Kerberos for authentication or any GSSAPI-secured RPC; no application code
+path invokes the affected krb5 entry points. No Debian patch is available as
+of 2026-05-25.
+
+**Mitigation in place**:
+
+- No Kerberos authentication is configured in the FastAPI app or its
+  dependencies.
+- Container runs as non-root user; no privileged process can call into krb5.
+- `.trivyignore` entry prevents CI failure until Debian releases a patch.
+
+**Resolution path**: upgrade the base image when Debian 13 ships a patched
+krb5. Monitor the Debian security tracker and re-run `trivy image` monthly.
+
+**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-25.
+
+---
+
+### CVE-2026-7598 - libssh2 integer overflow (reassess by 2026-07-24)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-7598 |
+| **Package** | libssh2-1t64 1.11.1-1 (Debian 13 package in `python:3.12-slim`) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-05-25 |
+| **Last reassessed** | 2026-05-25 |
+| **Reassess by** | 2026-07-24 |
+
+**Description**: Integer overflow in libssh2 when processing a username or
+password whose length exceeds the expected bounds.
+
+**Rationale for accepting**: `libssh2-1t64` is a transitive shared library in
+the `python:3.12-slim` base image. The LLC Manager runtime does not invoke SSH
+or SFTP from the container; no application code path uses libssh2. The library
+is unreachable from the FastAPI request path. No Debian patch is available as
+of 2026-05-25.
+
+**Mitigation in place**:
+
+- No SSH or SFTP client code in the application or its dependencies.
+- Container runs as non-root user; outbound SSH would also be blocked by
+  default network policy in production.
+- `.trivyignore` entry prevents CI failure until Debian releases a patch.
+
+**Resolution path**: upgrade the base image when Debian 13 ships a patched
+libssh2. Monitor the Debian security tracker and re-run `trivy image` monthly.
+
+**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-25.
+
+---
+
 ## Archive
 
 No resolved entries yet.

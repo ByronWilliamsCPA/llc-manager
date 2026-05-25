@@ -13,3 +13,19 @@ CVE-2026-27135
 # CVE-2026-29111: systemd arbitrary code execution / DoS -- no Debian fix available as of 2026-04-29
 # Affects: libsystemd0, libudev1 in python:3.12-slim base image
 CVE-2026-29111
+
+# CVE-2026-5773: libcurl wrong file transfer due to incorrect SMB transfer -- no Debian fix available as of 2026-05-25
+# Affects: curl, libcurl4t64 (installed in runtime stage of Dockerfile)
+CVE-2026-5773
+
+# CVE-2026-6276: libcurl information disclosure via cookie leak -- no Debian fix available as of 2026-05-25
+# Affects: curl, libcurl4t64 (installed in runtime stage of Dockerfile)
+CVE-2026-6276
+
+# CVE-2026-40356: krb5 denial of service via integer overflow -- no Debian fix available as of 2026-05-25
+# Affects: libgssapi-krb5-2 in python:3.12-slim base image
+CVE-2026-40356
+
+# CVE-2026-7598: libssh2 integer overflow via large username or password -- no Debian fix available as of 2026-05-25
+# Affects: libssh2-1t64 in python:3.12-slim base image
+CVE-2026-7598
