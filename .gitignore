@@ -278,6 +278,8 @@ notebooks/.ipynb_checkpoints/
 # Project-specific ignores
 results/
 output/
+# Compliance audit reports (generated; not tracked in git)
+docs/compliance-reports/
 
 # Temporary reference files (anti-compaction strategy)
 # Keep the directory, but ignore .tmp-* files inside it

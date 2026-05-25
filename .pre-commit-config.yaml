@@ -9,21 +9,15 @@
 # Installation: curl https://qlty.sh | bash
 # Documentation: https://docs.qlty.sh
 #
-# --- Canonical hook delegation notes (PC-002, PC-003, PC-004, PC-006, PC-009, PC-010, PC-010b) ---
-# NOTE: ruff, ruff-format, basedpyright, yamllint, and markdownlint are run via
-# the local qlty-check hook rather than individual canonical hooks. This is intentional
-# to leverage qlty's unified reporting. Canonical hook IDs for these tools are absent
-# by design.
-#
-# detect-secrets is replaced by the local trufflehog hook (see hooks section below).
-#
-# commitizen hook replaced by conventional-pre-commit (compilerla/conventional-pre-commit).
-# ---
+# Canonical hooks are present for: ruff, ruff-format, basedpyright, trufflehog,
+# detect-secrets, commitizen, yamllint, markdownlint, interrogate (src + scripts).
+# Qlty remains for metric collection on pre-push; canonical hooks provide the
+# fail-closed gates on pre-commit.
 
 ci:
   autoupdate_schedule: monthly
   autofix_prs: true
-  skip: [validate-front-matter, qlty-check, qlty-full, trufflehog, darglint, bandit, bandit-full]  # Skip local-only hooks
+  skip: [validate-front-matter, qlty-check, qlty-full, trufflehog, darglint, bandit, bandit-full]  # Skip hooks that require local system tools
 
 repos:
   # ============================================================================
@@ -64,19 +58,59 @@ repos:
         stages: [pre-commit]
 
   # ============================================================================
-  # Secret Detection - TruffleHog
+  # Secret Detection - TruffleHog (primary) + detect-secrets (baseline regression)
   # ============================================================================
-  # Advanced secret detection beyond detect-private-key
-  # Detects API keys, tokens, credentials, and other secrets
-  # Uses local system-installed trufflehog to avoid Go build issues
-  # Install: brew install trufflehog (macOS) or see https://github.com/trufflesecurity/trufflehog#installation
-  - repo: local
+  # TruffleHog: staged-files-only scan, fail-closed
+  # Excludes: CHANGELOG.md (CVE IDs trigger false positives), uv.lock (package hashes),
+  #          .submodules/ (separately scanned)
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: "37b77001d0174ebec2fcca2bd83ff83a6d45a3ab"  # v3.95.3  # pragma: allowlist secret
     hooks:
       - id: trufflehog
-        name: TruffleHog Secret Scanner
-        description: Detect secrets in your data before committing
-        entry: bash -c 'command -v trufflehog >/dev/null 2>&1 && trufflehog git file://. --since-commit HEAD --results=verified,unknown --fail || echo "TruffleHog not installed - skipping secret scan"'
+        entry: >-
+          bash -c 'files=$(git diff --cached -z --name-only --diff-filter=d 2>/dev/null
+          | tr "\0" "\n"
+          | grep -v "^CHANGELOG\.md$"
+          | grep -v "^uv\.lock$"
+          | grep -v "^\.submodules/"
+          | grep -v "^$");
+          [ -z "$files" ] && exit 0;
+          printf "%s\0" $files | xargs -0 trufflehog filesystem --fail --no-update'
+        pass_filenames: false
+        stages: [pre-commit]
+
+  # detect-secrets: baseline regression scan (second-layer)
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: "01886c8a910c64595c47f186ca1ffc0b77fa5458"  # v1.5.0  # pragma: allowlist secret
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: '^(uv\.lock|CHANGELOG\.md|htmlcov/.*|\.standards/.*|.*\.svg|.*\.png|.*\.jpg|.*\.lock)$'
+        stages: [pre-commit]
+
+  # ============================================================================
+  # Ruff: Linting + Formatting (canonical hooks, PC-002)
+  # ============================================================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "0c7b6c989466a93942def1f84baf36ddfcd60c83"  # v0.15.14  # pragma: allowlist secret
+    hooks:
+      - id: ruff
+        args: ['--fix']
+        stages: [pre-commit]
+      - id: ruff-format
+        stages: [pre-commit]
+
+  # ============================================================================
+  # BasedPyright: Static Type Checking (canonical hook, PC-003)
+  # ============================================================================
+  # basedpyright has no .pre-commit-hooks.yaml; run via local uv invocation
+  - repo: local
+    hooks:
+      - id: basedpyright
+        name: BasedPyright Type Check
+        entry: uv run basedpyright src/
         language: system
+        types: [python]
         pass_filenames: false
         stages: [pre-commit]
 
@@ -117,11 +151,18 @@ repos:
         stages: [commit-msg]
         args: [feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
 
+  # Commitizen: version bump and conventional commit enforcement (PC-008)
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: "953e1ba4599cc3143122ed5c3e8de3d6dfd5524d"  # v4.16.2  # pragma: allowlist secret
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+
   # ============================================================================
   # pyproject.toml Validation
   # ============================================================================
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: 435e09f5ed9fe57f3444ebfa54c663d0ac8033fe  # v0.20.2
+    rev: 78f5e0f104cfa803d0597eaa924b4de3becd3e3e  # v0.24.1 (PEP 735 dependency-groups support)  # pragma: allowlist secret
     hooks:
       - id: validate-pyproject
         stages: [pre-commit]
@@ -133,6 +174,26 @@ repos:
     rev: 4e7291655d44e99511858efd33bea0bdbb58d835  # 0.29.4
     hooks:
       - id: check-github-workflows
+        stages: [pre-commit]
+
+  # ============================================================================
+  # YAML Linting (canonical hook, PC-009)
+  # ============================================================================
+  - repo: https://github.com/adrienverge/yamllint
+    rev: "cba56bcde1fdd01c1deb3f945e69764c291a6530"  # v1.38.0  # pragma: allowlist secret
+    hooks:
+      - id: yamllint
+        args: ['-c', '.yamllint']
+        stages: [pre-commit]
+
+  # ============================================================================
+  # Markdown Linting (canonical hook, PC-010)
+  # ============================================================================
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: "e72a3ca1632f0b11a07d171449fe447a7ff6795e"  # v0.48.0  # pragma: allowlist secret
+    hooks:
+      - id: markdownlint
+        args: ['--config', '.markdownlint.json']
         stages: [pre-commit]
 
   # ============================================================================
@@ -200,15 +261,21 @@ repos:
 
 
   # ============================================================================
-  # Python Docstring Coverage
+  # Python Docstring Coverage (PC-007 / PC-007b)
   # ============================================================================
-  # Interrogate ensures all Python code has proper docstrings
-  # Target: 85% coverage
+  # Two aliased instances cover src/ and scripts/ independently
   - repo: https://github.com/econchick/interrogate
-    rev: 4894019dc8876092bc9b6d56878798c550fad998  # 1.7.0
+    rev: 4894019dc8876092bc9b6d56878798c550fad998  # 1.7.0  # pragma: allowlist secret
     hooks:
       - id: interrogate
-        args: ['-v', '-c', 'pyproject.toml', 'src/']
+        alias: interrogate-src
+        args: ['-v', '-c', 'pyproject.toml', '--fail-under=80', 'src/']
+        language_version: python3.12
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: interrogate
+        alias: interrogate-scripts
+        args: ['-v', '-c', 'pyproject.toml', '--fail-under=85', 'scripts/']
         language_version: python3.12
         pass_filenames: false
         stages: [pre-commit]

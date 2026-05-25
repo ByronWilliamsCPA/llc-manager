@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - LLC Manager{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Page header -->
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+    <p class="mt-1 text-sm text-gray-500">LLC entity management and compliance tracking</p>
+  </div>
+
+  <!-- API health indicator (HTMX-loaded on page open) -->
+  <div id="api-status"
+       hx-get="/api/health/live"
+       hx-trigger="load"
+       hx-swap="innerHTML"
+       class="inline-flex items-center gap-2 rounded-md bg-gray-100 px-3 py-1.5 text-sm text-gray-600">
+    <span class="htmx-indicator">Checking API status...</span>
+  </div>
+
+  <!-- Entity summary cards (placeholder; replaced by Phase 1 CRUD) -->
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <p class="text-sm font-medium text-gray-500">Total Entities</p>
+      <p class="mt-1 text-3xl font-semibold text-gray-900">--</p>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <p class="text-sm font-medium text-gray-500">Active</p>
+      <p class="mt-1 text-3xl font-semibold text-green-600">--</p>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <p class="text-sm font-medium text-gray-500">Compliance Due (30 days)</p>
+      <p class="mt-1 text-3xl font-semibold text-amber-600">--</p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

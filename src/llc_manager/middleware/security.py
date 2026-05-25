@@ -21,10 +21,11 @@ Usage:
 from __future__ import annotations
 
 import ipaddress
+import json
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
@@ -33,6 +34,16 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import JSONResponse, Response
 
 from llc_manager.utils.logging import get_logger
+
+# Methods whose bodies are inspected for URL fields (SSRF defense). GET/DELETE
+# also accept bodies in theory but rarely carry user-supplied URLs in practice.
+_BODY_INSPECT_METHODS = frozenset({"POST", "PUT", "PATCH"})
+
+# Cap on body bytes inspected to avoid DoS via oversized payloads. Requests
+# larger than this skip body inspection but still pass through. Coordinate
+# with RateLimitMiddleware and any reverse-proxy max_body_size for defense
+# in depth.
+_MAX_BODY_INSPECT_BYTES = 1_000_000
 
 # Structlog logger so correlation IDs propagate into security-relevant events
 # (rate-limit warnings, SSRF classifications).
@@ -453,24 +464,122 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
 
         return self._is_blocked_host(host) or self._is_obfuscated_private_ip(host)
 
+    @staticmethod
+    def _looks_like_url(value: Any) -> bool:
+        """Cheap pre-filter so we only run the full parser on URL-shaped strings."""
+        return isinstance(value, str) and ("://" in value or value.startswith("//"))
+
+    @classmethod
+    def _collect_url_strings(cls, obj: Any) -> list[str]:
+        """Walk a JSON-decoded structure and return every URL-shaped string.
+
+        Used to scan request bodies for SSRF candidates. Recurses through
+        nested dicts and lists; non-string leaves are ignored. Order is
+        depth-first to preserve a stable scan order for logging.
+        """
+        if cls._looks_like_url(obj):
+            return [obj]  # type: ignore[list-item]  # _looks_like_url narrows to str
+        if isinstance(obj, dict):
+            collected: list[str] = []
+            for value in obj.values():
+                collected.extend(cls._collect_url_strings(value))
+            return collected
+        if isinstance(obj, list):
+            collected = []
+            for item in obj:
+                collected.extend(cls._collect_url_strings(item))
+            return collected
+        return []
+
+    async def _scan_request_body(self, request: Request) -> str | None:
+        """Read the body, scan it for blocked URLs, and replay it for downstream.
+
+        Returns the offending URL if one is found, else None.
+
+        Side effect: replaces ``request._receive`` so downstream handlers can
+        still consume the body. This is the standard Starlette pattern for
+        body-inspecting middleware; see starlette/middleware/base.py.
+        """
+        body_bytes = await request.body()
+        if not body_bytes or len(body_bytes) > _MAX_BODY_INSPECT_BYTES:
+            return None
+
+        # Replay the body for any downstream ASGI consumer (route handler,
+        # later middleware) by replacing the receive callable. Without this,
+        # request.body() returns empty bytes everywhere downstream.
+        async def _replay_receive() -> dict[str, Any]:
+            return {"type": "http.request", "body": body_bytes, "more_body": False}
+
+        request._receive = _replay_receive  # noqa: SLF001  # ASGI body-replay idiom
+
+        content_type = request.headers.get("content-type", "").lower()
+        candidates: list[str] = []
+
+        if "application/json" in content_type:
+            try:
+                payload = json.loads(body_bytes)
+            except (ValueError, json.JSONDecodeError):
+                # Malformed JSON is not an SSRF concern; let the route handler
+                # produce its own 422/400 from FastAPI validation.
+                return None
+            candidates = self._collect_url_strings(payload)
+        elif (
+            "application/x-www-form-urlencoded" in content_type
+            or "multipart/form-data" in content_type
+        ):
+            # request.form() uses the cached body bytes set above; safe to call
+            # after request.body(). Starlette handles the cache lookup internally.
+            form = await request.form()
+            candidates = [str(v) for v in form.values() if self._looks_like_url(v)]
+        else:
+            # Unknown content type: skip body inspection. Query-param scan above
+            # still applies.
+            return None
+
+        for url in candidates:
+            if self._is_blocked_url(url):
+                logger.warning(
+                    "ssrf_body_url_blocked",
+                    method=request.method,
+                    path=request.url.path,
+                    url_host=self._extract_host_from_url(url),
+                )
+                return url
+        return None
+
     async def dispatch(self, request: Request, call_next) -> Response:
         """Check for SSRF patterns in request.
 
-        Validates query parameters, form data, and JSON body for potential
-        SSRF attempts targeting internal resources.
+        Validates query parameters, JSON body, and form data for potential
+        SSRF attempts targeting internal resources. Body inspection covers
+        the user-supplied URL fields documented in ADR-001 (e.g. entity
+        website fields) so that the SSRF gate is not bypassed by moving the
+        URL from the querystring into the JSON payload.
         """
-        # Check query parameters for URLs
+        # Check query parameters for URLs (cheapest path; no body read).
         for param, value in request.query_params.items():
-            if isinstance(value, str) and ("://" in value or value.startswith("//")):
-                if self._is_blocked_url(value):
-                    return JSONResponse(
-                        status_code=400,
-                        content={
-                            "error": "Bad Request",
-                            "message": "Request blocked: potential SSRF attempt",
-                            "detail": f"Blocked URL detected in parameter: {param}",
-                        },
-                    )
+            if self._looks_like_url(value) and self._is_blocked_url(value):
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "error": "Bad Request",
+                        "message": "Request blocked: potential SSRF attempt",
+                        "detail": f"Blocked URL detected in parameter: {param}",
+                    },
+                )
+
+        # Check request body for URLs on methods that conventionally carry one.
+        if request.method in _BODY_INSPECT_METHODS:
+            blocked_url = await self._scan_request_body(request)
+            if blocked_url is not None:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "error": "Bad Request",
+                        "message": "Request blocked: potential SSRF attempt",
+                        "detail": "Blocked URL detected in request body",
+                    },
+                )
 
         return await call_next(request)
 

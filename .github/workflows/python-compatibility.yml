@@ -42,8 +42,15 @@ jobs:
       include-macos: true
       include-windows: true
       source-directory: 'src'
-      test-command: 'pytest tests/ -v --tb=short -x --ignore=tests/integration --ignore=tests/load -m "not slow and not integration"'
+      # Target tests/unit directly: the org reusable workflow runs
+      # `uv run $TEST_COMMAND` with unquoted variable expansion, so any
+      # marker expression with spaces (e.g. `-m "not slow and not integration"`)
+      # is word-split by the shell with embedded quotes kept as literals,
+      # producing `ERROR: file or directory not found: slow` in every combo.
+      # Directory targeting avoids quoting entirely and excludes
+      # tests/integration, tests/fuzz, and tests/test_example.py by path.
+      test-command: 'pytest tests/unit -v --tb=short -x'
       coverage-report: false
       fail-fast: false
       timeout-minutes: 30
-    secrets: inherit
+      # `secrets: inherit` intentionally omitted below (org reusable workflow uses no secrets).

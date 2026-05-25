@@ -2,6 +2,8 @@
 # Scans Docker images for vulnerabilities using Trivy and lints Dockerfile with Hadolint.
 #
 # This is a thin caller to the org-level reusable workflow.
+#
+# Not in standards-manifest.yaml expected set (2026-05-24); justified: Docker image vulnerability scanning required for containerized deployment.
 name: Container Security
 
 on:

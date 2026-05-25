@@ -1,6 +1,8 @@
 # Publish to PyPI - Calls Org-Level Reusable Workflow
 # This is a lightweight caller workflow that invokes the organization's
 # shared PyPI publishing workflow with OIDC trusted publishing.
+#
+# Not in standards-manifest.yaml expected set (2026-05-24); justified: PyPI package publishing required for library distribution.
 name: Publish to PyPI
 
 on:

@@ -135,9 +135,11 @@ path = [
     "alembic.ini",
     # Lock files
     "uv.lock",
+    # Secret-scan baseline (detect-secrets)
+    ".secrets.baseline",
 ]
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileCopyrightText = "2025 Byron Williams"
+SPDX-FileCopyrightText = "2026 Byron Williams"
 
 # Benchmark results and generated metadata files - CC0-1.0
 [[annotations]]

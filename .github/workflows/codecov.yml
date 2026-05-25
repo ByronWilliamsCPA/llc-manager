@@ -5,6 +5,11 @@
 # Security: Downloads artifacts only, no source checkout.
 #
 # Documentation: https://docs.codecov.com/
+#
+# TODO (CI-013): This file is named codecov.yml but the standards-manifest.yaml expects coverage.yml.
+# If this workflow's sole purpose is Codecov upload, rename to coverage.yml to match the manifest.
+# If a separate coverage.yml workflow is also needed (e.g., for local HTML reports), keep both and
+# add coverage.yml to the manifest's expected set. Review before next manifest update.
 name: Codecov Upload
 
 on:
@@ -36,6 +41,7 @@ jobs:
   report-failure:
     name: Report CI Failure
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
     steps:
       - name: Harden runner

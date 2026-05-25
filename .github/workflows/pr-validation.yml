@@ -2,7 +2,7 @@
 # Comprehensive pull request validation using org-level workflow plus additional checks.
 #
 # This workflow calls the org-level PR validation workflow and adds supplementary
-# checks for dead code detection and documentation links.
+# checks for dead code detection, changelog enforcement, and documentation links.
 name: PR Validation
 
 on:
@@ -28,34 +28,43 @@ jobs:
   # ==========================================================================
   core-validation:
     name: Core Validation
-    permissions:
-      contents: read
-      pull-requests: write
-      checks: write
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-ci.yml@e8fc83c98c2971ad1ece71573d28171463e30c16  # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-pr-validation.yml@d18c93045bef4f6669488c7657543a5b7e04f8ed # main
     with:
       python-version: '3.12'
+      source-directory: 'src'
+      test-directory: 'tests'
+      require-tests: true
+      require-conventional-commits: true
+      require-description: true
+      min-description-length: 50
+      check-breaking-changes: true
+      add-size-labels: true
       coverage-threshold: 80
-      enable-dead-code-check: true
+
   # ==========================================================================
   # Additional Checks (Template-Specific)
+  # `secrets: inherit` intentionally omitted from core-validation above:
+  # the org python-pr-validation reusable workflow references no secrets.
   # ==========================================================================
 
   # Dead Code Detection with Vulture
   dead-code:
     name: Dead Code Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
         with:
           egress-policy: audit
 
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false  # Token must not persist into vulture/uv steps
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.12"
 
@@ -79,24 +88,54 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "::warning::Potential dead code detected. Review vulture report."
           else
-            echo "✅ No dead code detected with 90% confidence." >> $GITHUB_STEP_SUMMARY
+            echo "No dead code detected with 90% confidence." >> $GITHUB_STEP_SUMMARY
           fi
+
+  # Changelog Enforcement
+  changelog:
+    name: Changelog Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false  # Token must not persist into changelog-enforcer
+
+      - name: Check for CHANGELOG update
+        uses: dangoslen/changelog-enforcer@204e7d3ef26579f4cd0fd759c57032656fdf23c7 # v3.6.1
+        with:
+          changeLogPath: 'CHANGELOG.md'
+          skipLabels: 'skip-changelog,dependencies,documentation'
+          missingUpdateErrorMessage: |
+            Please update CHANGELOG.md with a description of your changes.
+            Add the label 'skip-changelog' if this PR doesn't require a changelog entry.
+
 
   # Documentation Link Check
   link-check:
     name: Documentation Links
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Harden the runner
-        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
         with:
           egress-policy: audit
 
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false  # Token must not persist into lychee-action
 
       - name: Check documentation links
-        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2.8.0
+        uses: lycheeverse/lychee-action@2ac9f030ccdea0033e2510a23a67da2a2da98492 # v1.10.0
         with:
           args: >-
             --verbose
@@ -140,37 +179,69 @@ jobs:
   validation-summary:
     name: Validation Summary
     runs-on: ubuntu-latest
-    needs: [core-validation, dead-code, link-check]
+    timeout-minutes: 5
+    needs: [core-validation, dead-code, changelog, link-check]
     if: always()
     steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit
+
       - name: Check validation results
+        env:
+          CORE_RESULT: ${{ needs.core-validation.result }}
+          DEAD_CODE_RESULT: ${{ needs.dead-code.result }}
+          CHANGELOG_RESULT: ${{ needs.changelog.result }}
+          LINK_CHECK_RESULT: ${{ needs.link-check.result }}
         run: |
           echo "## PR Validation Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ needs.core-validation.result }}" == "success" ]; then
-            echo "✅ Core Validation: Passed" >> $GITHUB_STEP_SUMMARY
+          if [ "$CORE_RESULT" == "success" ]; then
+            echo "Core Validation: Passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Core Validation: ${{ needs.core-validation.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "Core Validation: $CORE_RESULT" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.dead-code.result }}" == "success" ]; then
-            echo "✅ Dead Code Check: Passed" >> $GITHUB_STEP_SUMMARY
+          if [ "$DEAD_CODE_RESULT" == "success" ]; then
+            echo "Dead Code Check: Passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Dead Code Check: ${{ needs.dead-code.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "Dead Code Check: $DEAD_CODE_RESULT" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.link-check.result }}" == "success" ]; then
-            echo "✅ Link Check: Passed" >> $GITHUB_STEP_SUMMARY
+          if [ "$CHANGELOG_RESULT" == "success" ]; then
+            echo "Changelog: Updated" >> $GITHUB_STEP_SUMMARY
+          elif [ "$CHANGELOG_RESULT" == "skipped" ]; then
+            echo "Changelog: Skipped" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Link Check: ${{ needs.link-check.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "Changelog: $CHANGELOG_RESULT" >> $GITHUB_STEP_SUMMARY
           fi
-          # Fail if core validation failed
-          if [ "${{ needs.core-validation.result }}" == "failure" ]; then
+
+          if [ "$LINK_CHECK_RESULT" == "success" ]; then
+            echo "Link Check: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Link Check: $LINK_CHECK_RESULT" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Fail if any blocking validation check failed. `dead-code` is
+          # treated as warning-only (it runs vulture which prints advisory
+          # output but the job always succeeds), so it is omitted here.
+          # `link-check` is also advisory (lychee runs with fail: false in
+          # the job above).
+          BLOCK=0
+          [ "$CORE_RESULT" != "success" ] && BLOCK=1
+          # Changelog: success and skipped (skip-changelog label) both pass.
+          case "$CHANGELOG_RESULT" in
+            success|skipped) ;;
+            *) BLOCK=1 ;;
+          esac
+
+          if [ "$BLOCK" = "1" ]; then
             echo ""
-            echo "❌ Core validation checks failed. Please review and fix issues." >> $GITHUB_STEP_SUMMARY
+            echo "Blocking validation checks failed. Please review and fix issues." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
           echo ""
-          echo "✅ All validation checks passed!" >> $GITHUB_STEP_SUMMARY
+          echo "All blocking validation checks passed!" >> $GITHUB_STEP_SUMMARY
