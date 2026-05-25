@@ -26,11 +26,10 @@
     {
       "description": "Group Python dependencies by type",
       "matchManagers": [
-        "pip_requirements",
-        "pip-compile"
+        "pep621"
       ],
       "matchDepTypes": [
-        "dependencies"
+        "project.dependencies"
       ],
       "groupName": "Python dependencies",
       "automerge": false,
@@ -41,11 +40,11 @@
     {
       "description": "Group Python dev dependencies",
       "matchManagers": [
-        "pip_requirements",
-        "pip-compile"
+        "pep621"
       ],
       "matchDepTypes": [
-        "dev-dependencies"
+        "project.optional-dependencies",
+        "dependency-groups"
       ],
       "groupName": "Python dev dependencies",
       "automerge": false,
@@ -200,8 +199,7 @@
     }
   ],
   "enabledManagers": [
-    "pip_requirements",
-    "pip-compile",
+    "pep621",
     "github-actions"
   ]
 }
