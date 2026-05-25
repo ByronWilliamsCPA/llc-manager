@@ -147,6 +147,22 @@
         "python-version",
         "breaking-change"
       ]
+    },
+    {
+      "description": "Org reusable-workflow SHA pin refreshes (paired with pinDigests above)",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "ByronWilliamsCPA/.github",
+        "williaby/.github"
+      ],
+      "groupName": "Org reusable workflows",
+      "labels": [
+        "dependencies",
+        "ci-infra"
+      ],
+      "automerge": false
     }
   ],
   "python": {

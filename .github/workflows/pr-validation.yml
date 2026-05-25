@@ -7,7 +7,11 @@ name: PR Validation
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    # `labeled` / `unlabeled` are required for the changelog-enforcer skip
+    # labels (skip-changelog, dependencies, documentation) to take effect
+    # after PR creation. Without them, the workflow's frozen event payload
+    # never sees label additions, and `gh run rerun` cannot refresh it.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     branches:
       - main
       - master
