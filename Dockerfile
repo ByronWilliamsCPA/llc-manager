@@ -48,10 +48,16 @@ LABEL org.opencontainers.image.source="https://github.com/ByronWilliamsCPA/llc-m
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Install runtime dependencies only
-# hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
+# DL3005: apt-get upgrade applies Debian security backports for HIGH/CRITICAL CVEs
+# in base-image packages (curl, openssl, etc). Trade-off is per-build non-determinism;
+# acceptable because the Container Security gate fails the build on unpatched CVEs.
+# hadolint ignore=DL3008,DL3005
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Security: Create non-root user

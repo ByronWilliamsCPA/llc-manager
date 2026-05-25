@@ -144,6 +144,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.trivyignore` to prevent CI gate failure and documented all three in
   `docs/known-vulnerabilities.md` per project policy
 
+### Security
+
+- fix(security): resolve CVE-2026-5773 -- libcurl SMB transfer (HIGH) and
+  additional Debian security backports by adding `apt-get upgrade -y` to the
+  runtime stage in `Dockerfile`. Container Security workflow (Trivy) has been
+  failing on `main` since 2026-05-06 with HIGH-severity CVEs in
+  base-image-installed packages (curl, transitive deps). Adding upgrade to the
+  same `RUN` layer as the install ensures any Debian-backported patches land in
+  the final image. CVEs with no Debian fix continue to be tracked in
+  `.trivyignore` and `docs/known-vulnerabilities.md`.
+
 ## [0.1.0] - TBD
 
 ### Added
