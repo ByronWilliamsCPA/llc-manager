@@ -166,8 +166,12 @@ def _build_path_variables(
         if param.get("in") != "path":
             continue
         schema = param.get("schema", {})
-        # Pass the full spec so $ref-based parameter schemas resolve.
-        example = _example_for_schema(schema, spec) or ""
+        # Pass the full spec so $ref-based parameter schemas resolve. The
+        # `is None` check (rather than `or ""`) preserves falsy primitives
+        # like `False` and `0` from boolean / integer path parameters.
+        example = _example_for_schema(schema, spec)
+        if example is None:
+            example = ""
         variables.append(
             {
                 "key": param["name"],

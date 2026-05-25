@@ -127,14 +127,17 @@ jobs:
 
       - name: Wait for /api/health/live
         run: |
-          for attempt in $(seq 1 60); do
+          # 90 attempts at 1s == ~90s ceiling. Postgres service container,
+          # alembic migrations, and uvicorn boot can all add latency on a
+          # cold runner; 60s was occasionally tight.
+          for attempt in $(seq 1 90); do
             if curl --silent --fail http://127.0.0.1:8000/api/health/live > /dev/null; then
               echo "API is up after ${attempt} attempts"
               exit 0
             fi
             sleep 1
           done
-          echo "::error::API did not become ready in 60 seconds" >&2
+          echo "::error::API did not become ready in 90 seconds" >&2
           echo "---- app log ----" >&2
           cat .logs/app.log >&2 || true
           exit 1
