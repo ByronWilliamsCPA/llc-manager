@@ -68,14 +68,14 @@ repos:
     hooks:
       - id: trufflehog
         entry: >-
-          bash -c 'git diff --cached -z --name-only --diff-filter=d 2>/dev/null
+          bash -c 'files=$(git diff --cached -z --name-only --diff-filter=d 2>/dev/null
           | tr "\0" "\n"
           | grep -v "^CHANGELOG\.md$"
           | grep -v "^uv\.lock$"
           | grep -v "^\.submodules/"
-          | grep -v "^$"
-          | tr "\n" "\0"
-          | xargs -0 -r trufflehog filesystem --fail --no-update'
+          | grep -v "^$");
+          [ -z "$files" ] && exit 0;
+          printf "%s\0" $files | xargs -0 trufflehog filesystem --fail --no-update'
         pass_filenames: false
         stages: [pre-commit]
 
@@ -85,7 +85,7 @@ repos:
     hooks:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
-        exclude: '^(uv\.lock|CHANGELOG\.md|htmlcov/.*|.*\.svg)$'
+        exclude: '^(uv\.lock|CHANGELOG\.md|htmlcov/.*|\.standards/.*|.*\.svg|.*\.png|.*\.jpg|.*\.lock)$'
         stages: [pre-commit]
 
   # ============================================================================

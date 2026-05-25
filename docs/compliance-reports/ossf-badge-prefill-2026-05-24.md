@@ -78,7 +78,7 @@ https://bestpractices.coreinfrastructure.org/en/projects/new?
 | `test` | Met | pytest suite in `tests/` with 80% line coverage requirement. |
 | `test_invocation` | Met | `uv run pytest` is documented in CLAUDE.md and README. |
 | `test_most` | Met | CI runs full test suite on every push and PR. |
-| `test_continuous_integration` | Met | `.github/workflows/ci.yml` runs on push and pull_request. |
+| `test_continuous_integration` | Met | `.github/workflows/ci.yml` runs on push and pull_request (branches: main, master, develop; PR types: opened, synchronize, reopened) and invokes the org reusable workflow `ByronWilliamsCPA/.github/.github/workflows/python-ci.yml`. |
 | `test_policy` | Met | CLAUDE.md mandates tests for new features before merge. |
 | `tests_are_added` | Met | Pre-commit and CI block PRs that drop coverage. |
 | `tests_documented_added` | Met | CONTRIBUTING.md and CLAUDE.md require tests for new code. |

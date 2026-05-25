@@ -6,11 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Cross-references
 
-- Python linting and function quality gates: `~/.claude/.claude/rules/python.md`
-- Branch and worktree conventions: `~/.claude/.claude/rules/git-workflow.md`
-- Pre-commit checklist: `~/.claude/.claude/rules/pre-commit.md`
-- Writing rules and AI pattern blacklist: `~/.claude/.claude/rules/writing.md`
-- Test scope and root-cause order: `~/.claude/.claude/rules/testing.md`
+- Python linting and function quality gates: `~/.claude/rules/python.md`
+- Branch and worktree conventions: `~/.claude/rules/git-workflow.md`
+- Pre-commit checklist: `~/.claude/rules/pre-commit.md`
+- Writing rules and AI pattern blacklist: `~/.claude/rules/writing.md`
+- Test scope and root-cause order: `~/.claude/rules/testing.md`
 
 ## Project Overview
 
@@ -78,7 +78,8 @@ uv run alembic revision --autogenerate -m "description"  # Generate migration
 # First run: download the Tailwind standalone CLI binary (no Node required)
 bash scripts/tailwind-watch.sh          # Downloads binary if absent, then watches
 
-# One-off build
+# One-off build (requires the ./tailwindcss binary downloaded by scripts/tailwind-watch.sh)
+# If the binary is not present, run `bash scripts/tailwind-watch.sh` once first.
 ./tailwindcss -i src/llc_manager/static/css/input.css \
               -o src/llc_manager/static/css/output.css --minify
 ```
