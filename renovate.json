@@ -43,8 +43,8 @@
         "pep621"
       ],
       "matchDepTypes": [
-        "dependency-groups",
-        "tool.uv.dev-dependencies"
+        "project.optional-dependencies",
+        "dependency-groups"
       ],
       "groupName": "Python dev dependencies",
       "automerge": false,
