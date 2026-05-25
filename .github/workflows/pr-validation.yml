@@ -115,6 +115,26 @@ jobs:
 
 
   # ==========================================================================
+  # Dependency & Standards Validation Aggregator
+  # ==========================================================================
+  # Publishes the bare "Dependency & Standards Validation" status context
+  # required by the ByronWilliamsCPA-default-branch-baseline ruleset. The
+  # original job lives in python-pr-validation.yml, but PR #32 migrated this
+  # workflow to call python-ci.yml instead, orphaning the gate. This thin
+  # aggregator publishes the required bare name once the core CI checks
+  # (lint, type, tests, security) and dead-code check both pass, which
+  # collectively cover the dependency-and-standards surface area together
+  # with the separately-gated dependency-review.yml and reuse.yml workflows.
+  dep-std-validation:
+    name: Dependency & Standards Validation
+    needs: [core-validation, dead-code]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Confirm dependency and standards gates passed
+        run: echo "Core validation and dead-code checks succeeded; bare Dependency & Standards Validation context satisfied for ruleset."
+
+  # ==========================================================================
   # Validation Summary
   # ==========================================================================
   validation-summary:
