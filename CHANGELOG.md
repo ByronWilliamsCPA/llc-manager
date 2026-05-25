@@ -52,6 +52,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `renovate.json` Python dependency managers switched from
+  `pip_requirements`/`pip-compile` (which do not parse this repo's
+  `pyproject.toml`) to `pep621`, the correct PEP 621 manager for
+  uv-managed projects. Dev rule `matchDepTypes` also corrected to
+  `["project.optional-dependencies", "dependency-groups"]` so it
+  matches where this repo's dev tooling actually lives (the previous
+  values targeted `[tool.uv.dev-dependencies]`, which the `pep621`
+  manager does not parse and which this repo does not use)
 - `sonarcloud.yml` replaced with a thin caller to the org-level reusable
   workflow (`python-sonarcloud.yml@6bad2f898...`); `pull-requests: write`
   scoped to job level only; `fail-on-quality-gate` made conditional (`true`
