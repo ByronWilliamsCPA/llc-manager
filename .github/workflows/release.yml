@@ -11,7 +11,9 @@
 name: Semantic Release
 
 "on":
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches:
       - main
       - master
@@ -30,7 +32,7 @@ name: Semantic Release
 
 # Prevent concurrent releases
 concurrency:
-  group: "release-${{ github.ref }}"
+  group: "release-${{ github.event.workflow_run.head_branch || github.ref_name }}"
   cancel-in-progress: false
 
 permissions:
@@ -44,6 +46,9 @@ permissions:
 jobs:
   release:
     name: Release Pipeline
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     uses: ByronWilliamsCPA/.github/.github/workflows/python-release.yml@e8fc83c98c2971ad1ece71573d28171463e30c16 # main
     with:
       python-version: '3.12'
@@ -51,6 +56,7 @@ jobs:
       source-directory: 'src'
       semantic-release: true
       force-release: "${{ github.event.inputs.force_release || '' }}"
-      publish-to-pypi: true
+      publish-to-pypi: false
       pypi-package-name: 'llc-manager'
-      run-tests: true
+      run-tests: false
+      skip-tests-reason: 'Tests run in upstream CI pipeline before this workflow fires'
