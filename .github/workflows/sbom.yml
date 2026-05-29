@@ -30,15 +30,13 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Only cancel redundant PR runs; never abort scheduled/push security scans
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
   security-events: write
 
-env:
-  # Variable must be set at https://github.com/ByronWilliamsCPA/llc-manager/settings/variables/actions
-  INFISICAL_DOMAIN: ${{ vars.INFISICAL_DOMAIN }}
 jobs:
   sbom:
     name: SBOM & Security

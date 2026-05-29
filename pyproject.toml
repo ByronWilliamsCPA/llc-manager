@@ -20,7 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Framework :: FastAPI",
     "Topic :: Office/Business :: Financial",
-    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 
 # Core production dependencies
