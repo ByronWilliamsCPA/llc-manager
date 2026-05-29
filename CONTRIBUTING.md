@@ -265,8 +265,11 @@ All new functionality MUST include corresponding tests:
 ### Test Categories
 
 ```bash
-# Run all tests
+# Run the fast suite (default: skips slow + integration markers)
 uv run pytest -v
+
+# Run the full suite (override default marker filter)
+uv run pytest -v -m ""
 
 # Run only unit tests
 uv run pytest -v -m unit

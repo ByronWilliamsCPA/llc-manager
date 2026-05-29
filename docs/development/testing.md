@@ -16,8 +16,11 @@ This guide covers the testing strategy and patterns for LLC Manager.
 ### Full Test Suite
 
 ```bash
-# Run all tests with coverage
+# Run the fast suite with coverage (default: skips slow + integration markers)
 uv run pytest -v --cov=src --cov-report=term-missing
+
+# Run the full suite with coverage (override default marker filter)
+uv run pytest -v -m "" --cov=src --cov-report=term-missing
 
 # Run with nox across Python versions
 nox -s test
