@@ -1491,6 +1491,64 @@ class TestCLICommands:
 
         assert result.exit_code == 0
 
+    @pytest.mark.unit
+    def test_cli_validate_only_writes_output_file(self, tmp_path: Path) -> None:
+        """'validate-only --output-file' writes the report to disk and echoes it."""
+        from click.testing import CliRunner
+
+        xlsx = tmp_path / "ok.xlsx"
+        self._valid_workbook(xlsx)
+        out = tmp_path / "report.txt"
+
+        result = CliRunner().invoke(
+            _M.cli, ["validate-only", "--output-file", str(out), str(xlsx)]
+        )
+
+        assert result.exit_code == 0
+        assert out.exists()
+        assert out.read_text().strip() != ""
+        assert f"Report written to {out}" in result.output
+
+    @pytest.mark.unit
+    def test_cli_report_writes_output_file(self, tmp_path: Path) -> None:
+        """'report --output-file' writes the report to disk and echoes it."""
+        from click.testing import CliRunner
+
+        xlsx = tmp_path / "ok.xlsx"
+        self._valid_workbook(xlsx)
+        out = tmp_path / "report.txt"
+
+        result = CliRunner().invoke(
+            _M.cli, ["report", "--output-file", str(out), str(xlsx)]
+        )
+
+        assert result.exit_code == 0
+        assert out.exists()
+        assert f"Report written to {out}" in result.output
+
+    @pytest.mark.unit
+    def test_cli_import_writes_output_file(self, tmp_path: Path) -> None:
+        """'import --output-file' writes the report to disk with mocked DB."""
+        from click.testing import CliRunner
+
+        xlsx = tmp_path / "ok.xlsx"
+        self._valid_workbook(xlsx)
+        out = tmp_path / "report.txt"
+
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("import_excel.AsyncSessionLocal", return_value=mock_session):
+            result = CliRunner().invoke(
+                _M.cli,
+                ["import", "--dry-run", "--output-file", str(out), str(xlsx)],
+            )
+
+        assert result.exit_code == 0
+        assert out.exists()
+        assert f"Report written to {out}" in result.output
+
 
 # ===========================================================================
 # Full pipeline -- performance
