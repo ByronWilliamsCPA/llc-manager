@@ -56,7 +56,8 @@ docker-compose up -d db                    # Start PostgreSQL
 uv run python -m llc_manager.main          # Or: uvicorn llc_manager.main:app --reload
 
 # Testing
-uv run pytest -v                           # All tests
+uv run pytest -v                           # Default suite (skips slow + integration markers)
+uv run pytest -v -m ""                     # Full suite (override default marker filter)
 uv run pytest tests/unit/test_file.py::test_name -v  # Single test
 uv run pytest --cov=src --cov-report=html  # With coverage
 
