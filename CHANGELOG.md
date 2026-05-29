@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the committed OpenAPI spec is current, and exercises the Postman
   collection's Health folder on every PR and `push` to `main`
 - Initial project setup and structure
+- Pytest suite raising line coverage to ~95% across entity CRUD endpoints,
+  security middleware (SSRF/rate-limit/headers), the async DB-session
+  lifecycle, compliance-date model properties (`is_overdue`, `is_expired`),
+  and Pydantic input validation; includes ownership-isolation tests that
+  document the missing auth/tenant model
 - SSRF prevention and rate-limit middleware wired into `main.py`
 - CR/LF sanitization and 128-char cap on incoming correlation headers
   (`X-Correlation-ID`, `X-Request-ID`, `X-Trace-ID`, `X-Span-ID`) to
