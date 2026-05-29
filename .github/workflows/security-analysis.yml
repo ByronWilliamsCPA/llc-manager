@@ -42,6 +42,7 @@ jobs:
       contents: read
       security-events: write
       pull-requests: write
+      actions: read   # required by the reusable workflow's codeql job; omitting it causes startup_failure
     with:
       source-directory: 'src'
       python-version: '3.12'
