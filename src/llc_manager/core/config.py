@@ -17,6 +17,11 @@ from llc_manager.core.exceptions import ConfigurationError
 # see `Settings._reject_default_secret_key_outside_dev` for enforcement.
 _DEFAULT_SECRET_KEY_PLACEHOLDER = "change-me-in-production"  # noqa: S105  # nosec B105 -- permanent false positive (reviewed PR #9); startup sentinel explicitly rejected by _reject_default_secret_key_outside_dev outside development
 
+# Minimum acceptable SECRET_KEY length outside development. 32 bytes (~256 bits
+# of entropy when sourced from a CSPRNG) is the OWASP recommendation for HMAC
+# and signed-cookie keys. See SECURITY-FINDINGS.md A02-1.
+_MIN_SECRET_KEY_LENGTH = 32
+
 
 class Settings(BaseSettings):
     """Configuration settings for the application, loaded from environment variables.
@@ -68,6 +73,13 @@ class Settings(BaseSettings):
     secret_key: str = _DEFAULT_SECRET_KEY_PLACEHOLDER
     access_token_expire_minutes: int = 30
 
+    # Authentik OIDC integration (placeholder - not yet wired into endpoints).
+    # When set, the planned core/auth.py dependency will validate Authorization:
+    # Bearer JWTs against Authentik's JWKS. See SECURITY-FINDINGS.md A01-1.
+    authentik_issuer: str | None = None
+    authentik_jwks_url: str | None = None
+    authentik_audience: str | None = None
+
     @model_validator(mode="after")
     def _reject_default_secret_key_outside_dev(self) -> "Settings":
         """Block startup when the default secret_key is used in non-dev envs.
@@ -92,6 +104,37 @@ class Settings(BaseSettings):
         message = (
             "LLC_MANAGER_SECRET_KEY must be set to a non-default value outside "
             "development, local, and test environments."
+        )
+        raise ConfigurationError(message, details={"config_key": "secret_key"})
+
+    @model_validator(mode="after")
+    def _enforce_secret_key_min_length(self) -> "Settings":
+        """Reject short secret keys outside development environments.
+
+        The placeholder check above only catches the literal default. A user-
+        supplied but trivially short value (e.g. "secret") would otherwise
+        pass. OWASP recommends >= 256 bits of entropy for HMAC/signing keys;
+        we enforce 32 characters as a proxy.
+        """
+        if self.secret_key == _DEFAULT_SECRET_KEY_PLACEHOLDER:
+            # Already handled by the placeholder validator above.
+            return self
+
+        if len(self.secret_key) >= _MIN_SECRET_KEY_LENGTH:
+            return self
+
+        env = (
+            os.getenv("LLC_MANAGER_ENVIRONMENT")
+            or os.getenv("ENVIRONMENT")
+            or "development"
+        ).lower()
+
+        if env in {"development", "local", "test"}:
+            return self
+
+        message = (
+            f"LLC_MANAGER_SECRET_KEY must be at least {_MIN_SECRET_KEY_LENGTH} "
+            "characters outside development, local, and test environments."
         )
         raise ConfigurationError(message, details={"config_key": "secret_key"})
 

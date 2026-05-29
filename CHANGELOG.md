@@ -31,6 +31,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that boots the API against a Postgres service container, verifies
   the committed OpenAPI spec is current, and exercises the Postman
   collection's Health folder on every PR and `push` to `main`
+- `SECURITY-FINDINGS.md` documenting an OWASP Top 10 (2021) audit covering
+  A01, A02, A03, A05, A07 and GitHub Actions supply-chain hardening
+- `secret_key` minimum-length validator (>= 32 chars) enforced outside
+  `development` / `local` / `test`, complementing the existing placeholder
+  rejection
+- Authentik OIDC configuration placeholders (`authentik_issuer`,
+  `authentik_jwks_url`, `authentik_audience`); default `None` and inert
+  until the planned `core/auth.py` dependency is wired in
+- `Cache-Control: no-store` and `Pragma: no-cache` response headers on
+  `/api/v1/*` data endpoints to prevent caching of EINs and compliance data
 - Initial project setup and structure
 - Pytest suite raising line coverage to ~95% across entity CRUD endpoints,
   security middleware (SSRF/rate-limit/headers), the async DB-session
@@ -54,6 +64,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- CORS middleware in `main.py` restricted from wildcard `allow_methods` /
+  `allow_headers` to explicit allowlists (`GET, POST, PATCH, DELETE,
+  OPTIONS` and `Authorization, Content-Type, X-Correlation-ID,
+  X-Request-ID`), tightening the credentialed cross-origin contract
+- GitHub Actions hardening: `qlty.yml` and `coverage.yml` reusable-workflow
+  references pinned from `@main` to commit SHA; `fips-compatibility.yml`
+  given a top-level `permissions` block and `harden-runner` on both jobs;
+  explicit per-job `permissions` blocks added across all caller workflows
 - Divergent local clones (`llc-manager/` and `llc_manager/`) consolidated
   into the dashed copy (PR #4)
 - Readiness probe (`/api/health/ready`) returns opaque

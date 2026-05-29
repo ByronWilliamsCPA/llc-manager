@@ -41,6 +41,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     outputs:
       hashes: ${{ steps.hashes.outputs.hashes }}
       version: ${{ steps.version.outputs.version }}

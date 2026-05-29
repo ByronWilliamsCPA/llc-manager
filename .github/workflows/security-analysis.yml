@@ -38,6 +38,11 @@ jobs:
   security:
     name: Security Analysis
     uses: ByronWilliamsCPA/.github/.github/workflows/python-security-analysis.yml@e8fc83c98c2971ad1ece71573d28171463e30c16 # main
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+      actions: read   # required by the reusable workflow's codeql job; omitting it causes startup_failure
     with:
       source-directory: 'src'
       python-version: '3.12'
