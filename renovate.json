@@ -137,8 +137,11 @@
       ]
     },
     {
-      "description": "Python version updates - manual review required",
-      "matchDepTypes": [
+      "description": "Python version (requires-python) updates disabled - the pep621 manager exposes this as depName 'python', not depType 'python', so the previous matchDepTypes matcher never fired. Project targets 3.12-3.13 (requires-python <3.14).",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchDepNames": [
         "python"
       ],
       "enabled": false,
