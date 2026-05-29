@@ -516,10 +516,16 @@ addopts = [
     "--cov-report=term-missing:skip-covered",
     "--cov-report=xml",
     "--cov-fail-under=80",
+    # Deselect slow + integration tests by default. Keeping this here (as
+    # separate list items, not a single string) avoids the YAML/shell quote
+    # collapse that bit the Python Compatibility workflow when the same
+    # filter was passed through `inputs.test-command`.
+    "-m",
+    "not slow and not integration",
 ]
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
+    "slow: marks tests as slow (skipped by default; opt in with '-m slow')",
+    "integration: marks tests as integration tests (skipped by default; opt in with '-m integration')",
     "unit: marks tests as unit tests",
     "benchmark: marks tests as benchmark tests",
     "py310: marks tests specific to Python 3.10",

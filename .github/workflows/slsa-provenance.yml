@@ -1,8 +1,13 @@
 # SLSA Provenance Generation for LLC Manager
 # Generates SLSA Level 3 provenance attestations for published packages.
 #
-# This workflow builds the package, generates hashes, and calls the org-level
-# SLSA provenance workflow to create cryptographic attestations.
+# This workflow builds the package, generates hashes, and calls the SLSA
+# framework generator directly to create cryptographic attestations.
+#
+# NOTE: ByronWilliamsCPA/.github/python-slsa.yml is a template, not a
+# reusable workflow. GitHub Actions prohibits nested reusable workflow calls
+# (the SLSA generator is itself a reusable workflow), so this job must call
+# slsa-framework/slsa-github-generator directly.
 #
 # Reference: https://slsa.dev/
 name: SLSA Provenance
@@ -107,16 +112,16 @@ jobs:
           subject-path: 'dist/*'
 
   # ==========================================================================
-  # SLSA Level 3 Provenance (Org-Level Reusable Workflow)
+  # SLSA Level 3 Provenance
   # ==========================================================================
   slsa:
     name: SLSA Level 3
     needs: [build]
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-slsa.yml@e8fc83c98c2971ad1ece71573d28171463e30c16 # main
-    with:
-      base64-subjects: ${{ needs.build.outputs.hashes }}
-      upload-assets: true
     permissions:
       id-token: write
       contents: write
       actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+      upload-assets: true
