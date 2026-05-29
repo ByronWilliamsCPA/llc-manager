@@ -7,11 +7,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from llc_manager.db.session import get_async_session
 from llc_manager.models.entity import Entity, EntityType
+from llc_manager.schemas.entity import EntityUpdate
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -136,4 +138,99 @@ async def entity_edit_form(
             "entity": entity,
             "entity_types": list(EntityType),
         },
+    )
+
+
+# Optional text fields editable from the inline form. Blank inputs arrive as
+# empty strings and are coerced to None so the typed EntityUpdate schema does
+# not reject them (e.g. formation_state min_length=2, formation_date as date).
+_EDITABLE_TEXT_FIELDS = (
+    "legal_name",
+    "dba_names",
+    "ein",
+    "entity_type",
+    "formation_state",
+    "formation_date",
+    "business_address",
+    "purpose",
+    "notes",
+)
+
+
+def _render_edit_form(
+    request: Request,
+    entity: Entity,
+    errors: list[object],
+    status_code: int,
+) -> HTMLResponse:
+    """Re-render the edit form with a validation/conflict banner."""
+    return templates.TemplateResponse(
+        request,
+        "entities/partials/edit_form.html",
+        {
+            "request": request,
+            "entity": entity,
+            "entity_types": list(EntityType),
+            "errors": errors,
+        },
+        status_code=status_code,
+    )
+
+
+@router.patch("/entities/{entity_id}/edit", response_class=HTMLResponse)
+async def entity_edit_save(
+    request: Request,
+    db: DBSession,
+    entity_id: UUID,
+) -> HTMLResponse:
+    """Apply an inline edit submission and return the read-only detail card.
+
+    The form posts URL-encoded fields (not JSON): blank optional inputs come
+    through as empty strings, so they are coerced to None before validation,
+    matching edit-form semantics where a cleared field clears the column. The
+    response is the HTML detail card so HTMX can swap #entity-card in place,
+    rather than the JSON the API endpoint would return.
+    """
+    entity = await _get_entity_or_404(db, entity_id)
+    form = await request.form()
+
+    payload: dict[str, object | None] = {}
+    for name in _EDITABLE_TEXT_FIELDS:
+        raw = form.get(name)
+        cleaned = raw.strip() if isinstance(raw, str) else None
+        payload[name] = cleaned or None
+    # An unchecked checkbox is omitted by the browser, so absence means inactive.
+    payload["is_active"] = form.get("is_active") is not None
+
+    try:
+        update = EntityUpdate.model_validate(payload)
+    except ValidationError as exc:
+        return _render_edit_form(
+            request, entity, list(exc.errors()), status.HTTP_422_UNPROCESSABLE_CONTENT
+        )
+
+    # #CRITICAL data-integrity (EIN): reject a duplicate EIN before persisting.
+    # #VERIFY mirrors the uniqueness guard in api/v1/endpoints/entities.py.
+    if update.ein and update.ein != entity.ein:
+        existing = await db.execute(
+            select(Entity).where(Entity.ein == update.ein, Entity.id != entity_id)
+        )
+        if existing.scalar_one_or_none() is not None:
+            return _render_edit_form(
+                request,
+                entity,
+                [{"loc": ["ein"], "msg": f"EIN {update.ein} is already in use."}],
+                status.HTTP_409_CONFLICT,
+            )
+
+    for field, value in update.model_dump(exclude_unset=True).items():
+        setattr(entity, field, value)
+
+    await db.flush()
+    await db.refresh(entity)
+
+    return templates.TemplateResponse(
+        request,
+        "entities/partials/detail_card.html",
+        {"request": request, "entity": entity},
     )

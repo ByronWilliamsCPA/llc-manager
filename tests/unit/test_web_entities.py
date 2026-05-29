@@ -72,20 +72,32 @@ class _StubResult:
 
 class _StubSession:
     """Async session stub that returns canned results by sniffing the compiled
-    SQL: a `count(*)` query yields the row count as `scalar()`; everything
-    else yields the entity list (and the first entity as `scalar()` for
-    detail-page single-row lookups)."""
+    SQL: a `count(*)` query yields the row count as `scalar()`; an EIN-uniqueness
+    lookup (``ein =`` predicate) yields no row so the save path treats the EIN as
+    free; everything else yields the entity list (and the first entity as
+    `scalar()` for detail-page single-row lookups)."""
 
     def __init__(self, entities: list[object]) -> None:
         self._entities = entities
 
     async def execute(self, query: object) -> _StubResult:
-        if "count(" in str(query).lower():
+        compiled = str(query).lower()
+        if "count(" in compiled:
             return _StubResult(scalar=len(self._entities), items=self._entities)
+        # The save path's EIN-uniqueness probe must not match the entity being
+        # edited, otherwise every save would look like a duplicate-EIN conflict.
+        if "ein =" in compiled and "id !=" in compiled:
+            return _StubResult(scalar=None, items=[])
         return _StubResult(
             scalar=self._entities[0] if self._entities else None,
             items=self._entities,
         )
+
+    async def flush(self) -> None:
+        """No-op: the stub holds entities in memory; nothing to persist."""
+
+    async def refresh(self, _instance: object) -> None:
+        """No-op: in-memory entities need no reload after flush."""
 
 
 @pytest.fixture
@@ -137,3 +149,57 @@ def test_entity_detail_page_returns_200_with_entity_name(
     assert fixture_entity.legal_name in response.text
     # The Edit button should be wired to fetch the inline edit form.
     assert f'hx-get="/entities/{fixture_entity.id}/edit"' in response.text
+
+
+@pytest.mark.unit
+def test_entity_edit_form_posts_to_web_route_not_json_api(
+    client_with_entities: TestClient, fixture_entity: SimpleNamespace
+) -> None:
+    """The edit form submits to the HTML web route, never the typed JSON API.
+
+    Posting form fields (with empty strings for blanks) to ``/api/v1/entities/{id}``
+    via ``json-enc`` is what produced the 422-on-every-save bug, so the form must
+    target the web layer and must not carry the ``json-enc`` extension.
+    """
+    response = client_with_entities.get(f"/entities/{fixture_entity.id}/edit")
+
+    assert response.status_code == 200
+    assert f'hx-patch="/entities/{fixture_entity.id}/edit"' in response.text
+    assert "json-enc" not in response.text
+    assert "/api/v1/entities" not in response.text
+
+
+@pytest.mark.unit
+def test_entity_edit_save_with_blank_optionals_returns_card_not_422(
+    client_with_entities: TestClient, fixture_entity: SimpleNamespace
+) -> None:
+    """Saving the edit form with blank optional fields returns the detail card.
+
+    Regression: ``json-enc`` serialized blank inputs as empty strings, which the
+    typed ``EntityUpdate`` schema rejected (``formation_state`` min_length=2,
+    ``formation_date`` as a ``date``), producing HTTP 422 on every save. The web
+    save route must coerce blanks to "unset" and return the read-only HTML card so
+    HTMX can swap ``#entity-card``.
+    """
+    response = client_with_entities.patch(
+        f"/entities/{fixture_entity.id}/edit",
+        data={
+            "legal_name": "Acme Renamed LLC",
+            "dba_names": "",
+            "ein": "12-3456789",  # unchanged, so the uniqueness probe is skipped
+            "entity_type": EntityType.LLC.value,  # template emits the lowercase value
+            "formation_state": "",  # blank -> previously failed min_length=2
+            "formation_date": "",  # blank -> previously failed date parsing
+            "business_address": "",
+            "purpose": "",
+            "notes": "",
+            # is_active checkbox unchecked -> omitted entirely by the browser
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    # The read-only detail card (its <dl> wrapper) is returned, not JSON.
+    assert 'class="entity-fields"' in response.text
+    # The updated legal name is reflected in the returned card.
+    assert "Acme Renamed LLC" in response.text
