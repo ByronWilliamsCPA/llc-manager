@@ -399,6 +399,55 @@ libssh2. Monitor the Debian security tracker and re-run `trivy image` monthly.
 
 ---
 
+### perl-base bundled Perl and Archive::Tar CVEs (reassess by 2026-07-27)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-42496, CVE-2026-8376, CVE-2026-42497, CVE-2026-9538 |
+| **Package** | perl-base 5.40.1-6 (Debian 13 package in `python:3.12-slim`) |
+| **Severity** | Critical (CVE-2026-42496, CVE-2026-8376), High (CVE-2026-42497, CVE-2026-9538) |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-05-28 |
+| **Last reassessed** | 2026-05-28 |
+| **Reassess by** | 2026-07-27 |
+
+**Description**: Four vulnerabilities in the Perl interpreter and its bundled
+`Archive::Tar` module shipped in Debian 13's `perl-base`:
+
+- CVE-2026-42496 (Critical): `Archive::Tar` before 3.08 extracts symbolic links
+  outside the intended target directory.
+- CVE-2026-8376 (Critical): a heap buffer overflow in Perl through 5.43.10.
+- CVE-2026-42497 (High): `Archive::Tar` before 3.08 extracts hard links outside
+  the intended target directory.
+- CVE-2026-9538 (High): a memory-handling issue in `Archive::Tar` before 3.10.
+
+**Rationale for accepting**: `perl-base` is an `Essential` Debian package present
+transitively in the `python:3.12-slim` base image; it cannot be removed without
+breaking `dpkg`. The LLC Manager runtime is a Python/FastAPI application that
+never invokes the Perl interpreter and never calls `Archive::Tar`. No application
+code path, dependency, or container entrypoint executes Perl, and the service
+processes no untrusted tar archives through Perl. The vulnerable code is
+unreachable from the request path. No Debian patch is available as of 2026-05-28
+(the Trivy `Fixed Version` column is empty for all four), and CVE-2026-8376
+affects every Perl release through 5.43.10, so no base-image version bump
+resolves it.
+
+**Mitigation in place**:
+
+- No Perl is invoked by the application, its dependencies, or the container
+  `CMD`/`HEALTHCHECK` (both use Python and `curl`, not Perl).
+- Container runs as a non-root user (`appuser`); no privileged Perl process runs.
+- `.trivyignore` entries prevent CI failure until Debian ships patched packages.
+
+**Resolution path**: upgrade the base image when Debian 13 ships a patched
+`perl-base`, or migrate to a Perl-free base image (for example a distroless or
+Alpine Python image). Monitor the Debian security tracker and re-run
+`trivy image` monthly.
+
+**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-28.
+
+---
+
 ## Archive
 
 No resolved entries yet.

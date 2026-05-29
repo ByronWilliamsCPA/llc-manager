@@ -1,0 +1,45 @@
+<header class="card-header">
+    <h1>{{ entity.legal_name }}</h1>
+    <button
+        type="button"
+        class="btn btn-primary"
+        hx-get="/entities/{{ entity.id }}/edit"
+        hx-target="#entity-card"
+        hx-swap="innerHTML"
+    >Edit</button>
+</header>
+
+<dl class="entity-fields">
+    <dt>Legal Name</dt><dd>{{ entity.legal_name }}</dd>
+    <dt>DBA Names</dt><dd>{{ entity.dba_names or "-" }}</dd>
+    <dt>EIN</dt><dd>{{ entity.ein or "-" }}</dd>
+    <dt>Entity Type</dt><dd>{{ entity.entity_type.value if entity.entity_type else "-" }}</dd>
+    <dt>Status</dt><dd>{{ "Active" if entity.is_active else "Inactive" }}</dd>
+
+    <dt>Formation State</dt><dd>{{ entity.formation_state or "-" }}</dd>
+    <dt>Formation Date</dt><dd>{{ entity.formation_date.isoformat() if entity.formation_date else "-" }}</dd>
+    <dt>Fiscal Year End</dt><dd>{{ entity.fiscal_year_end or "-" }}</dd>
+
+    <dt>Business Address</dt>
+    <dd>
+        {% if entity.business_address %}
+            {{ entity.business_address }}<br>
+            {{ entity.business_city or "" }}{% if entity.business_city and entity.business_state %}, {% endif %}{{ entity.business_state or "" }} {{ entity.business_zip or "" }}
+        {% else %}-{% endif %}
+    </dd>
+
+    <dt>Mailing Address</dt>
+    <dd>
+        {% if entity.mailing_address %}
+            {{ entity.mailing_address }}<br>
+            {{ entity.mailing_city or "" }}{% if entity.mailing_city and entity.mailing_state %}, {% endif %}{{ entity.mailing_state or "" }} {{ entity.mailing_zip or "" }}
+        {% else %}-{% endif %}
+    </dd>
+
+    <dt>Purpose</dt><dd>{{ entity.purpose or "-" }}</dd>
+    <dt>Notes</dt><dd>{{ entity.notes or "-" }}</dd>
+    <dt>Accounting Record ID</dt><dd>{{ entity.accounting_record_id or "-" }}</dd>
+
+    <dt>Created</dt><dd>{{ entity.created_at.strftime("%Y-%m-%d %H:%M") if entity.created_at else "-" }}</dd>
+    <dt>Updated</dt><dd>{{ entity.updated_at.strftime("%Y-%m-%d %H:%M") if entity.updated_at else "-" }}</dd>
+</dl>

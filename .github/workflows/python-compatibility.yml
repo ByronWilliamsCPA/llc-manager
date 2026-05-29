@@ -53,4 +53,4 @@ jobs:
       coverage-report: false
       fail-fast: false
       timeout-minutes: 30
-      # `secrets: inherit` intentionally omitted below (org reusable workflow uses no secrets).
+    # `secrets: inherit` intentionally omitted below (org reusable workflow uses no secrets).

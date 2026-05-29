@@ -161,8 +161,11 @@ uv sync --all-extras
 # Setup pre-commit hooks
 uv run pre-commit install
 
-# Run tests
+# Run the fast suite (default: skips slow + integration markers)
 uv run pytest -v
+
+# Run the full suite (override default marker filter)
+uv run pytest -v -m ""
 
 # Run with coverage
 uv run pytest --cov-report=html
@@ -206,8 +209,11 @@ These rules catch bugs that standard linting misses and enforce production-quali
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run the fast suite (default: skips slow + integration markers)
 uv run pytest -v
+
+# Run the full suite (override default marker filter)
+uv run pytest -v -m ""
 
 # Run specific test file
 uv run pytest tests/unit/test_health.py -v
@@ -304,8 +310,11 @@ All new functionality must include tests:
 ### Test Guidelines
 
 ```bash
-# Run all tests
+# Run the fast suite (default: skips slow + integration markers)
 uv run pytest -v
+
+# Run the full suite (override default marker filter)
+uv run pytest -v -m ""
 
 # Run only unit tests
 uv run pytest -v -m unit

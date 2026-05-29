@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}{{ entity.legal_name }} - LLC Manager{% endblock %}
+
+{% block content %}
+<section class="entity-detail">
+    <p class="breadcrumb"><a href="/entities">&larr; All entities</a></p>
+
+    <article id="entity-card" class="card">
+        {% include "entities/partials/detail_card.html" %}
+    </article>
+</section>
+{% endblock %}

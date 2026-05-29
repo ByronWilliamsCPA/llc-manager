@@ -1319,6 +1319,255 @@
           "Entities"
         ]
       }
+    },
+    "/entities": {
+      "get": {
+        "description": "Render the entity list page (or the table-body partial for HTMX requests).",
+        "operationId": "entities_list_page_entities_get",
+        "parameters": [
+          {
+            "description": "Search by legal name or EIN",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Search by legal name or EIN",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entities List Page",
+        "tags": [
+          "Web"
+        ]
+      }
+    },
+    "/entities/{entity_id}": {
+      "get": {
+        "description": "Render the entity detail page.",
+        "operationId": "entity_detail_page_entities__entity_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entity Detail Page",
+        "tags": [
+          "Web"
+        ]
+      }
+    },
+    "/entities/{entity_id}/card": {
+      "get": {
+        "description": "HTMX fragment: the read-only detail card (used by the edit-form Cancel button).",
+        "operationId": "entity_detail_card_entities__entity_id__card_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entity Detail Card",
+        "tags": [
+          "Web"
+        ]
+      }
+    },
+    "/entities/{entity_id}/edit": {
+      "get": {
+        "description": "HTMX fragment: the inline edit form for an entity.",
+        "operationId": "entity_edit_form_entities__entity_id__edit_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entity Edit Form",
+        "tags": [
+          "Web"
+        ]
+      },
+      "patch": {
+        "description": "Apply an inline edit submission and return the read-only detail card.\n\nThe form posts URL-encoded fields (not JSON): blank optional inputs come\nthrough as empty strings, so they are coerced to None before validation,\nmatching edit-form semantics where a cleared field clears the column. The\nresponse is the HTML detail card so HTMX can swap #entity-card in place,\nrather than the JSON the API endpoint would return.",
+        "operationId": "entity_edit_save_entities__entity_id__edit_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entity Edit Save",
+        "tags": [
+          "Web"
+        ]
+      }
     }
   }
 }

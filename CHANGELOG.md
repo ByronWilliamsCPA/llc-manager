@@ -10,21 +10,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 <!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->
-- `feat(api)`: OpenAPI metadata enrichment — `version` pinned to `1.0.0`,
+- `feat(web)`: HTMX/Jinja2 entity views (M2): a server-rendered entity
+  list page with search and pagination, an entity detail page, and an
+  inline edit form. The edit form submits URL-encoded fields to a
+  dedicated web route (`PATCH /entities/{id}/edit`) that coerces blank
+  inputs to unset values and returns the read-only detail card for HTMX
+  to swap in place, replacing the earlier `json-enc` post to the JSON API
+  that rejected blank optional fields with HTTP 422
+- `feat(api)`: OpenAPI metadata enrichment: `version` pinned to `1.0.0`,
   contact / license blocks on the FastAPI app, and `summary` /
   `description` / `response_model` / `status_code` / `responses` on
   every entity and health route
-- `scripts/export_openapi.py` — exports the FastAPI OpenAPI spec to
+- `scripts/export_openapi.py`: exports the FastAPI OpenAPI spec to
   `docs/api/openapi.json` without booting a server
-- `scripts/generate_postman_collection.py` — converts the exported
+- `scripts/generate_postman_collection.py`: converts the exported
   OpenAPI spec to a Postman Collection v2.1 at
   `docs/api/postman-collection.json` with `{{baseUrl}}` / `{{apiKey}}`
   variables and per-request status / JSON-body assertions
-- `.github/workflows/postman-api-tests.yml` — Newman smoke-test workflow
+- `.github/workflows/postman-api-tests.yml`: Newman smoke-test workflow
   that boots the API against a Postgres service container, verifies
   the committed OpenAPI spec is current, and exercises the Postman
   collection's Health folder on every PR and `push` to `main`
 - Initial project setup and structure
+- Pytest suite raising line coverage to ~95% across entity CRUD endpoints,
+  security middleware (SSRF/rate-limit/headers), the async DB-session
+  lifecycle, compliance-date model properties (`is_overdue`, `is_expired`),
+  and Pydantic input validation; includes ownership-isolation tests that
+  document the missing auth/tenant model
 - SSRF prevention and rate-limit middleware wired into `main.py`
 - CR/LF sanitization and 128-char cap on incoming correlation headers
   (`X-Correlation-ID`, `X-Request-ID`, `X-Trace-ID`, `X-Span-ID`) to
@@ -66,6 +78,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `python-compatibility.yml` workflow: moved the `-m "not slow and not
+  integration"` marker filter out of the `test-command` string and into
+  `pyproject.toml` `[tool.pytest.ini_options].addopts` as separate list
+  items. The upstream reusable workflow expands `$TEST_COMMAND` unquoted,
+  so the marker expression was word-split by bash and pytest aborted with
+  `file or directory not found: slow`. Documentation updated in
+  `CLAUDE.md`, `README.md`, and `CONTRIBUTING.md` to show both the default
+  fast-suite and the explicit full-suite (`-m ""`) invocations now that
+  `slow` and `integration` markers are skipped by default
 - `renovate.json` Python dependency managers switched from
   `pip_requirements`/`pip-compile` (which do not parse this repo's
   `pyproject.toml`) to `pep621`, the correct PEP 621 manager for
