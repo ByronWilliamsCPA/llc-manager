@@ -90,7 +90,7 @@ async def check_database() -> ReadinessCheck:
     """Check database connectivity.
 
     Returns:
-        ReadinessCheck with database status and latency
+        ReadinessCheck: Readiness check result with database status and latency.
     """
     start = time.time()
     try:

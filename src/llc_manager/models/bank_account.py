@@ -33,23 +33,24 @@ class BankAccount(Base, UUIDPrimaryKeyMixin, AuditMixin):
     """Represents a bank account associated with an entity.
 
     Attributes:
-        entity_id: Foreign key to the owning entity.
-        bank_name: Name of the bank or financial institution.
-        account_name: Name on the account.
-        account_type: Type of bank account.
-        account_number_last4: Last 4 digits of account number.
-        routing_number: Bank routing number.
-        account_nickname: Nickname for easy identification.
-        opened_date: Date account was opened.
-        closed_date: Date account was closed (null if open).
-        primary_contact: Primary contact at the bank.
-        contact_phone: Phone number for the contact.
-        contact_email: Email for the contact.
-        branch_address: Address of the bank branch.
-        online_banking_url: URL for online banking.
-        notes: Additional notes about the account.
-        is_primary: Whether this is the primary account for the entity.
-        is_active: Whether the account is currently active.
+        entity_id (Mapped[UUID]): Foreign key to the owning entity.
+        bank_name (Mapped[str]): Name of the bank or financial institution.
+        account_name (Mapped[str | None]): Name on the account.
+        account_type (Mapped[AccountType]): Type of bank account.
+        account_number_last4 (Mapped[str | None]): Last 4 digits of account number.
+        routing_number (Mapped[str | None]): Bank routing number.
+        account_nickname (Mapped[str | None]): Nickname for easy identification.
+        opened_date (Mapped[date | None]): Date account was opened.
+        closed_date (Mapped[date | None]): Date account was closed (null if open).
+        primary_contact (Mapped[str | None]): Primary contact at the bank.
+        contact_phone (Mapped[str | None]): Phone number for the contact.
+        contact_email (Mapped[str | None]): Email for the contact.
+        branch_address (Mapped[str | None]): Address of the bank branch.
+        online_banking_url (Mapped[str | None]): URL for online banking.
+        notes (Mapped[str | None]): Additional notes about the account.
+        is_primary (Mapped[bool]): Whether this is the primary account for the entity.
+        is_active (Mapped[bool]): Whether the account is currently active.
+        entity (Mapped['Entity']): The owning entity relationship.
     """
 
     __tablename__ = "bank_accounts"
