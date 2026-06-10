@@ -1,4 +1,4 @@
-# Security Findings — OWASP Top 10 (2021) Audit
+# Security Findings -- OWASP Top 10 (2021) Audit
 
 **Audit date:** 2026-05-15
 **Branch:** `claude/security-audit-access-control-Hq80G`
@@ -9,22 +9,22 @@
 
 ## Executive summary
 
-The backend has well-built defense-in-depth middleware (security headers, rate limiting, SSRF prevention) and uses parameterized SQLAlchemy ORM queries throughout — A03 is clean. **However, the application has no authentication or authorization layer.** Every entity endpoint (`GET/POST/PATCH/DELETE /api/v1/entities[/{id}]`) is publicly accessible to anyone who can reach the API. There is no `User` model, no `owner_id`/`tenant_id` foreign key on `Entity`, and no row-level filtering by ownership. This collapses A01 (Broken Access Control) and A07 (Authentication Failures) into a single architectural gap that must be closed before this service touches production data containing real EINs, registered-agent details, or compliance dates.
+The backend has well-built defense-in-depth middleware (security headers, rate limiting, SSRF prevention) and uses parameterized SQLAlchemy ORM queries throughout -- A03 is clean. **However, the application has no authentication or authorization layer.** Every entity endpoint (`GET/POST/PATCH/DELETE /api/v1/entities[/{id}]`) is publicly accessible to anyone who can reach the API. There is no `User` model, no `owner_id`/`tenant_id` foreign key on `Entity`, and no row-level filtering by ownership. This collapses A01 (Broken Access Control) and A07 (Authentication Failures) into a single architectural gap that must be closed before this service touches production data containing real EINs, registered-agent details, or compliance dates.
 
 | OWASP | Category                       | Status   | Severity   |
 | :---: | :----------------------------- | :------- | :--------- |
 | A01   | Broken Access Control          | **FAIL** | CRITICAL   |
 | A02   | Cryptographic Failures         | PARTIAL  | HIGH       |
-| A03   | Injection                      | PASS     | —          |
+| A03   | Injection                      | PASS     | -          |
 | A05   | Security Misconfiguration      | PARTIAL  | MEDIUM     |
 | A07   | Identification & Auth Failures | **FAIL** | CRITICAL   |
-| —     | GitHub Actions hardening       | PARTIAL  | MEDIUM     |
+| -     | GitHub Actions hardening       | PARTIAL  | MEDIUM     |
 
 Tractable fixes have been applied in this PR (CORS tightening, secret-key validation, `Cache-Control` header for API responses, GitHub Actions pinning + permissions). The architectural fixes (Authentik integration, `owner_id` migration, per-endpoint authorization) are documented below as remediation tasks; they cannot responsibly land in a single audit PR.
 
 ---
 
-## A01 — Broken Access Control  ❌ CRITICAL
+## A01 -- Broken Access Control  ❌ CRITICAL
 
 ### Finding A01-1: No authentication on any data endpoint
 
@@ -40,6 +40,7 @@ async def list_entities(db: DBSession, page: int = ..., search: str | None = ...
 ```
 
 Any caller can:
+
 - List every LLC in the database, including legal name, EIN, formation state, and notes.
 - Read full entity records by UUID (`GET /api/v1/entities/{id}`).
 - Create entities (`POST`), modify any entity (`PATCH`), and soft-delete any entity (`DELETE`).
@@ -66,7 +67,7 @@ The deployment plan is to front the API with a self-hosted [Authentik](https://g
      - Resolves the `sub` claim to a `User` row, lazily creating it on first sight.
      - Exposes `CurrentUser = Annotated[User, Depends(get_current_user)]`.
    - Update every entity endpoint to take `CurrentUser` and `WHERE owner_user_id = current_user.id` on every query.
-   - Reject any `PATCH`/`DELETE` that targets an entity not owned by the caller with `404` (not `403` — avoid confirming the resource exists).
+   - Reject any `PATCH`/`DELETE` that targets an entity not owned by the caller with `404` (not `403` -- avoid confirming the resource exists).
 
 3. **Frontend side** (`frontend/`, follow-up PR)
    - Replace the `localStorage` token pattern (see A02-2) with the OIDC authorization-code + PKCE flow against Authentik.
@@ -85,7 +86,7 @@ The duplicate-EIN check (`select(Entity).where(Entity.ein == entity_in.ein)`) do
 
 ---
 
-## A02 — Cryptographic Failures  ⚠️ PARTIAL
+## A02 -- Cryptographic Failures  ⚠️ PARTIAL
 
 ### Finding A02-1: Default `SECRET_KEY` placeholder shipped in package
 
@@ -112,10 +113,11 @@ if (token) { config.headers.Authorization = `Bearer ${token}` }
 **Severity:** HIGH once auth is wired up. Currently moot (no auth exists), but the code is in place and will be inherited by the Authentik integration.
 
 **Remediation (follow-up PR alongside A01 fix):**
+
 - Switch to OIDC authorization-code + PKCE against Authentik.
 - Hold the access token in a React `useRef`/context, never `localStorage`.
 - Use Authentik's HTTP-only session cookie (with `SameSite=Lax`, `Secure`) for refresh; the SPA never reads the cookie directly.
-- Add a `Cache-Control: no-store` header on API responses (this PR — see A05-2) so the browser does not cache JSON containing entity details.
+- Add a `Cache-Control: no-store` header on API responses (this PR -- see A05-2) so the browser does not cache JSON containing entity details.
 
 ### Finding A02-3: Sensitive entity fields stored in plaintext
 
@@ -123,29 +125,30 @@ if (token) { config.headers.Authorization = `Bearer ${token}` }
 
 The DB stores plaintext: registered agent contact info (name, phone, email, address, account number), EIN, state file numbers. The schema does not use PostgreSQL `pgcrypto` or application-level encryption. There is no field-level encryption helper in `src/llc_manager/utils/`.
 
-**Severity:** MEDIUM. Defense in depth — full-database encryption at rest (PostgreSQL TDE, or volume-level encryption in the deployment environment) covers most of the threat model. Application-level encryption protects against a compromised DB user reading the table directly, and against accidental leakage via `pg_dump` artifacts or replication targets.
+**Severity:** MEDIUM. Defense in depth -- full-database encryption at rest (PostgreSQL TDE, or volume-level encryption in the deployment environment) covers most of the threat model. Application-level encryption protects against a compromised DB user reading the table directly, and against accidental leakage via `pg_dump` artifacts or replication targets.
 
 **Remediation (follow-up):**
+
 - Decide threat model: at-rest disk encryption only, or application-level field encryption for the most sensitive columns (registered-agent `account_number`, `phone`, `email`).
 - If field encryption is chosen: use `cryptography.fernet` with a key sourced from Infisical (already integrated per `.infisical.json`); add an `EncryptedString` SQLAlchemy column type; migrate existing columns. Out of scope for this PR.
 
 ---
 
-## A03 — Injection  ✅ PASS
+## A03 -- Injection  ✅ PASS
 
 All database access uses SQLAlchemy 2.0 Core/ORM with parameter binding:
 
-- `src/llc_manager/api/v1/endpoints/entities.py:47-72`: `select(Entity).where(Entity.legal_name.ilike(search_filter))` — `ilike` value is a bound parameter, not interpolated SQL. The `f"%{search}%"` string-builds the *value* to bind, not the SQL text, so `%` and `_` wildcards are user-controllable but the query structure is not.
+- `src/llc_manager/api/v1/endpoints/entities.py:47-72`: `select(Entity).where(Entity.legal_name.ilike(search_filter))` -- `ilike` value is a bound parameter, not interpolated SQL. The `f"%{search}%"` string-builds the *value* to bind, not the SQL text, so `%` and `_` wildcards are user-controllable but the query structure is not.
 - `src/llc_manager/api/v1/endpoints/entities.py:101-228`: All `select(Entity).where(...)` calls use ORM expressions; UUIDs are coerced via FastAPI path parameter typing.
-- `src/llc_manager/api/health.py:108`: The only `text()` call is `text("SELECT 1")` — a constant, no interpolation.
+- `src/llc_manager/api/health.py:108`: The only `text()` call is `text("SELECT 1")` -- a constant, no interpolation.
 
 No raw SQL, no f-string SQL, no `executemany` against user input. Pydantic `EntityCreate`/`EntityUpdate` schemas (`src/llc_manager/schemas/entity.py`) apply length and pattern constraints (e.g. `ein` matches `^\d{2}-\d{7}$|^$`), reducing the wildcard injection surface as well.
 
-**Note:** The wildcard semantics of `ilike` are user-controllable. A search of `%` returns everything; a search of `a%b` matches anything starting with `a` and containing `b`. This is intended behavior for a search box and is safe — but is worth noting if the search endpoint ever becomes accessible to lower-trust callers.
+**Note:** The wildcard semantics of `ilike` are user-controllable. A search of `%` returns everything; a search of `a%b` matches anything starting with `a` and containing `b`. This is intended behavior for a search box and is safe -- but is worth noting if the search endpoint ever becomes accessible to lower-trust callers.
 
 ---
 
-## A05 — Security Misconfiguration  ⚠️ PARTIAL
+## A05 -- Security Misconfiguration  ⚠️ PARTIAL
 
 ### Finding A05-1: Permissive CORS configuration
 
@@ -163,7 +166,7 @@ app.add_middleware(
 
 Combined with `allow_credentials=True`, the wildcard `allow_methods` / `allow_headers` is broader than required and weakens the cross-origin contract. While Starlette's CORS middleware ignores `allow_origins=["*"]` when credentials are enabled (good), the wildcard methods/headers still authorize every CORS-preflighted method and any header, including custom headers that an attacker-controlled origin could probe with.
 
-**Fix applied in this PR:** Restricted to the methods actually used by the API (`GET`, `POST`, `PATCH`, `DELETE`, `OPTIONS`) and the specific headers required (`Authorization`, `Content-Type`, `X-Correlation-ID`, `X-Request-ID`). Origins continue to be sourced from `settings.cors_origins` (defaults to localhost:3000/5173 — must be overridden in production via `LLC_MANAGER_CORS_ORIGINS`).
+**Fix applied in this PR:** Restricted to the methods actually used by the API (`GET`, `POST`, `PATCH`, `DELETE`, `OPTIONS`) and the specific headers required (`Authorization`, `Content-Type`, `X-Correlation-ID`, `X-Request-ID`). Origins continue to be sourced from `settings.cors_origins` (defaults to localhost:3000/5173 -- must be overridden in production via `LLC_MANAGER_CORS_ORIGINS`).
 
 ### Finding A05-2: No `Cache-Control` directive on API responses
 
@@ -177,7 +180,7 @@ Combined with `allow_credentials=True`, the wildcard `allow_methods` / `allow_he
 
 **Location:** `src/llc_manager/core/config.py:57`
 
-Default `api_host = "0.0.0.0"`. This is correct for containerized deployment but means a developer running `uv run python -m llc_manager.main` on a laptop will expose the API on all interfaces (LAN-reachable). The existing inline comment notes the rationale; `bandit` is silenced via `# nosec B104`. **Acceptable** — the comment documents the intent and the deployment model is container-first. No change.
+Default `api_host = "0.0.0.0"`. This is correct for containerized deployment but means a developer running `uv run python -m llc_manager.main` on a laptop will expose the API on all interfaces (LAN-reachable). The existing inline comment notes the rationale; `bandit` is silenced via `# nosec B104`. **Acceptable** -- the comment documents the intent and the deployment model is container-first. No change.
 
 ### Finding A05-4: API docs exposed at `/api/docs` and `/api/redoc`
 
@@ -185,7 +188,7 @@ Default `api_host = "0.0.0.0"`. This is correct for containerized deployment but
 
 `docs_url`, `redoc_url`, `openapi_url` are unconditionally enabled. In production, Swagger UI gives an attacker a free map of every endpoint and schema. Ideally these are gated by environment.
 
-**Severity:** LOW — common pattern, and once auth is enforced (A01) the endpoints described in the docs are no longer exploitable without a valid token. Documenting as a remediation TODO; not changed in this PR to avoid a behavior break before the planned API redesign for Authentik.
+**Severity:** LOW -- common pattern, and once auth is enforced (A01) the endpoints described in the docs are no longer exploitable without a valid token. Documenting as a remediation TODO; not changed in this PR to avoid a behavior break before the planned API redesign for Authentik.
 
 **Remediation:** wrap the docs URLs in a conditional that disables them when `ENVIRONMENT=production`, or gates them behind an Authentik-protected admin route.
 
@@ -193,21 +196,22 @@ Default `api_host = "0.0.0.0"`. This is correct for containerized deployment but
 
 **Location:** `src/llc_manager/main.py:35-71`
 
-`add_security_middleware()` in `middleware/security.py` supports `TrustedHostMiddleware` (host-header validation, A05 defense), but `create_app()` in `main.py` does not call `add_security_middleware()` — it adds the individual middlewares manually and skips `TrustedHostMiddleware` entirely. Host-header attacks (cache poisoning via `Host:` injection) are unmitigated.
+`add_security_middleware()` in `middleware/security.py` supports `TrustedHostMiddleware` (host-header validation, A05 defense), but `create_app()` in `main.py` does not call `add_security_middleware()` -- it adds the individual middlewares manually and skips `TrustedHostMiddleware` entirely. Host-header attacks (cache poisoning via `Host:` injection) are unmitigated.
 
-**Severity:** LOW — typically mitigated at the ingress layer (nginx/Traefik/cloud LB), but defense in depth is cheap. Documenting as TODO; the fix is to add `TrustedHostMiddleware` with `allowed_hosts=settings.allowed_hosts` (a new config field) once deployment hostnames are known.
+**Severity:** LOW -- typically mitigated at the ingress layer (nginx/Traefik/cloud LB), but defense in depth is cheap. Documenting as TODO; the fix is to add `TrustedHostMiddleware` with `allowed_hosts=settings.allowed_hosts` (a new config field) once deployment hostnames are known.
 
 ---
 
-## A07 — Identification & Authentication Failures  ❌ CRITICAL
+## A07 -- Identification & Authentication Failures  ❌ CRITICAL
 
-### Finding A07-1: No session timeout — because no sessions exist
+### Finding A07-1: No session timeout -- because no sessions exist
 
 **Location:** N/A (no auth subsystem)
 
 The audit asks: "Verify session timeout is enforced for compliance with legal data handling best practices." There is no session subsystem to evaluate. `core/config.py:69` declares `access_token_expire_minutes: int = 30` but the value is unreferenced anywhere in the codebase.
 
 **Remediation:** Once the Authentik integration (A01-1) lands:
+
 - Set Authentik access-token TTL to 15 minutes (regulated-data norm; CMS/HIPAA-adjacent guidance suggests ≤20 min for compliance dashboards).
 - Set Authentik refresh-token TTL to 8 hours with sliding expiry; require re-auth after 24h of inactivity.
 - Reject tokens with `iat` more than 24h in the past at the FastAPI layer, even if Authentik would have accepted the refresh, to enforce the absolute session ceiling regardless of IdP misconfiguration.
@@ -222,6 +226,7 @@ The in-memory rate limiter is a single bucket per source IP at 60 rpm with a 10-
 **Severity:** LOW currently (no auth endpoint exists), MEDIUM once login is added.
 
 **Remediation (follow-up):**
+
 - When adding the Authentik token-validation endpoint: add a tighter rate limit specifically on `/auth/*`.
 - For multi-worker production: switch to Redis-backed rate limiting (`fastapi-limiter` is already mentioned in the docstring) so the limit is global, not per-worker.
 
@@ -232,8 +237,9 @@ The in-memory rate limiter is a single bucket per source IP at 60 rpm with a 10-
 ### Finding GHA-1: Two workflows pin reusable workflows to `@main` (mutable ref)
 
 **Locations:**
-- `.github/workflows/qlty.yml:18` — `ByronWilliamsCPA/.github/.github/workflows/python-qlty-coverage.yml@main`
-- `.github/workflows/coverage.yml:26` — same.
+
+- `.github/workflows/qlty.yml:18` -- `ByronWilliamsCPA/.github/.github/workflows/python-qlty-coverage.yml@main`
+- `.github/workflows/coverage.yml:26` -- same.
 
 Every other workflow in the repo pins to commit SHA `e8fc83c98c2971ad1ece71573d28171463e30c16` with a `# main` trailing comment. A force-push or compromised commit on the `main` branch of `ByronWilliamsCPA/.github` would silently propagate into both workflows.
 
@@ -243,7 +249,7 @@ Every other workflow in the repo pins to commit SHA `e8fc83c98c2971ad1ece71573d2
 
 **Location:** `.github/workflows/fips-compatibility.yml`
 
-No top-level `permissions:` block — the workflow inherits the repository's default token permissions (often `contents: write` for older repos). Neither job (`fips-check`, `fips-runtime-test`) installs `step-security/harden-runner`, so there is no egress audit trail and no policy enforcement.
+No top-level `permissions:` block -- the workflow inherits the repository's default token permissions (often `contents: write` for older repos). Neither job (`fips-check`, `fips-runtime-test`) installs `step-security/harden-runner`, so there is no egress audit trail and no policy enforcement.
 
 **Fix applied in this PR:** Added top-level `permissions: contents: read`, restated job-level permissions explicitly, and added `harden-runner@v2.19.1` (egress-policy: audit) as the first step of both jobs.
 
@@ -251,7 +257,7 @@ No top-level `permissions:` block — the workflow inherits the repository's def
 
 **Locations:** `ci.yml`, `container-security.yml`, `docs.yml`, `mutation-testing.yml`, `publish-pypi.yml`, `python-compatibility.yml`, `qlty.yml`, `coverage.yml`, `release.yml`, `scorecard.yml`, `sbom.yml`, `security-analysis.yml`, `sonarcloud.yml`.
 
-These are thin caller workflows whose only job is `uses: ByronWilliamsCPA/.github/...@SHA`. GitHub Actions does not allow `steps:` (and therefore no `harden-runner`) in a job that delegates to a reusable workflow — the hardening must be added inside the reusable workflow at `ByronWilliamsCPA/.github`.
+These are thin caller workflows whose only job is `uses: ByronWilliamsCPA/.github/...@SHA`. GitHub Actions does not allow `steps:` (and therefore no `harden-runner`) in a job that delegates to a reusable workflow -- the hardening must be added inside the reusable workflow at `ByronWilliamsCPA/.github`.
 
 **Cannot fix in this repo.**
 **Remediation:** open an issue / PR against `ByronWilliamsCPA/.github` requesting that every reusable Python workflow start with `step-security/harden-runner@v2.19.1` with `egress-policy: audit`. Track in the org-level repo, not here.
@@ -266,7 +272,7 @@ GitHub Actions inherits top-level permissions when no job-level block is present
 
 ### Finding GHA-5: Inline jobs in `slsa-provenance.yml` and `pr-validation.yml` already use `harden-runner` and pinned SHAs ✅
 
-No action required. Noted for completeness — these are correctly hardened.
+No action required. Noted for completeness -- these are correctly hardened.
 
 ---
 
