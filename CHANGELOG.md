@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 <!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->
+- qlty PR gate and weekly health scan in `.github/workflows/qlty.yml`:
+  a diff-mode `qlty-gate` job that blocks PRs introducing medium+
+  severity issues, and a scheduled Monday full-codebase `qlty-health`
+  scan (informational, `no-fail`), both via the org reusable
+  `python-qlty-gate.yml` workflow
 - `feat(web)`: HTMX/Jinja2 entity views (M2): a server-rendered entity
   list page with search and pagination, an entity detail page, and an
   inline edit form. The edit form submits URL-encoded fields to a
