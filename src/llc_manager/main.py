@@ -28,10 +28,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan handler for startup and shutdown events.
 
     Args:
-        _app: The FastAPI application instance (unused; required by FastAPI signature).
+        _app (FastAPI): The FastAPI application instance (unused; required by FastAPI signature).
 
     Yields:
-        None during the lifespan of the application.
+        None: During the lifespan of the application.
     """
     # Startup
     yield
@@ -42,7 +42,7 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application.
 
     Returns:
-        Configured FastAPI application instance.
+        FastAPI: Configured FastAPI application instance.
     """
     app = FastAPI(
         title=settings.api_title,

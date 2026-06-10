@@ -41,22 +41,23 @@ class StateRegistration(Base, UUIDPrimaryKeyMixin, AuditMixin):
     """Represents a state registration for an entity.
 
     Attributes:
-        entity_id: Foreign key to the owning entity.
-        state: Two-letter state abbreviation.
-        registration_type: Type of registration in this state.
-        status: Current status of the registration.
-        file_number: State-assigned registration/file number.
-        registration_date: Date of initial registration.
-        effective_date: Date registration became effective.
-        expiration_date: Date registration expires (if applicable).
-        annual_report_due: Date annual report is due.
-        last_annual_report: Date of last filed annual report.
-        next_renewal_date: Date of next required renewal.
-        filing_fee: Cost of registration filing.
-        annual_fee: Annual fee for maintaining registration.
-        registered_name: Name registered in this state (may differ from legal name).
-        notes: Additional notes about the registration.
-        is_good_standing: Whether the entity is in good standing.
+        entity_id (Mapped[UUID]): Foreign key to the owning entity.
+        state (Mapped[str]): Two-letter state abbreviation.
+        registration_type (Mapped[RegistrationType]): Type of registration in this state.
+        status (Mapped[RegistrationStatus]): Current status of the registration.
+        file_number (Mapped[str | None]): State-assigned registration/file number.
+        registered_name (Mapped[str | None]): Name registered in this state (may differ from legal name).
+        registration_date (Mapped[date | None]): Date of initial registration.
+        effective_date (Mapped[date | None]): Date registration became effective.
+        expiration_date (Mapped[date | None]): Date registration expires (if applicable).
+        annual_report_due (Mapped[date | None]): Date annual report is due.
+        last_annual_report (Mapped[date | None]): Date of last filed annual report.
+        next_renewal_date (Mapped[date | None]): Date of next required renewal.
+        filing_fee (Mapped[str | None]): Cost of registration filing.
+        annual_fee (Mapped[str | None]): Annual fee for maintaining registration.
+        notes (Mapped[str | None]): Additional notes about the registration.
+        is_good_standing (Mapped[bool]): Whether the entity is in good standing.
+        entity (Mapped['Entity']): The owning entity relationship.
     """
 
     __tablename__ = "state_registrations"

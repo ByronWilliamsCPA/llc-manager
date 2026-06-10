@@ -47,14 +47,14 @@ async def list_entities(
     """List all entities with pagination and filtering.
 
     Args:
-        db: Database session.
-        page: Page number (1-indexed).
-        size: Number of items per page.
-        search: Optional search string for legal name or EIN.
-        is_active: Optional filter for active/inactive entities.
+        db (DBSession): Database session.
+        page (int): Page number (1-indexed).
+        size (int): Number of items per page.
+        search (str | None): Optional search string for legal name or EIN.
+        is_active (bool | None): Optional filter for active/inactive entities.
 
     Returns:
-        Paginated list of entities.
+        EntityListResponse: Paginated list of entities.
     """
     query = select(Entity).where(Entity.deleted_at.is_(None))
 
@@ -112,11 +112,14 @@ async def create_entity(
     """Create a new entity.
 
     Args:
-        db: Database session.
-        entity_in: Entity creation data.
+        db (DBSession): Database session.
+        entity_in (EntityCreate): Entity creation data.
 
     Returns:
-        Created entity.
+        EntityResponse: Created entity.
+
+    Raises:
+        HTTPException: If an entity with the supplied EIN already exists.
     """
     if entity_in.ein:
         existing = await db.execute(select(Entity).where(Entity.ein == entity_in.ein))
@@ -152,11 +155,11 @@ async def get_entity(
     """Get an entity by ID.
 
     Args:
-        db: Database session.
-        entity_id: Entity UUID.
+        db (DBSession): Database session.
+        entity_id (UUID): Entity UUID.
 
     Returns:
-        Entity details.
+        EntityResponse: Entity details.
 
     Raises:
         HTTPException: If entity not found.
@@ -200,12 +203,12 @@ async def update_entity(
     """Update an entity.
 
     Args:
-        db: Database session.
-        entity_id: Entity UUID.
-        entity_in: Entity update data.
+        db (DBSession): Database session.
+        entity_id (UUID): Entity UUID.
+        entity_in (EntityUpdate): Entity update data.
 
     Returns:
-        Updated entity.
+        EntityResponse: Updated entity.
 
     Raises:
         HTTPException: If entity not found.
@@ -261,8 +264,8 @@ async def delete_entity(
     """Soft delete an entity.
 
     Args:
-        db: Database session.
-        entity_id: Entity UUID.
+        db (DBSession): Database session.
+        entity_id (UUID): Entity UUID.
 
     Raises:
         HTTPException: If entity not found.

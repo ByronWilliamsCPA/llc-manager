@@ -18,23 +18,24 @@ class RegisteredAgent(Base, UUIDPrimaryKeyMixin, AuditMixin):
     """Represents a registered agent for an entity in a specific state.
 
     Attributes:
-        entity_id: Foreign key to the owning entity.
-        state: Two-letter state abbreviation where agent is registered.
-        agent_name: Name of the registered agent.
-        agent_company: Company name of registered agent service (if applicable).
-        address: Street address of the registered agent.
-        city: City of the registered agent.
-        state_address: State of the registered agent address.
-        zip_code: ZIP code of the registered agent.
-        phone: Phone number of the registered agent.
-        email: Email address of the registered agent.
-        effective_date: Date agent became effective.
-        expiration_date: Date agent service expires.
-        renewal_date: Date agent service must be renewed.
-        annual_cost: Annual cost of registered agent service.
-        account_number: Account number with the registered agent service.
-        notes: Additional notes about the registered agent.
-        is_active: Whether this is the current registered agent.
+        entity_id (Mapped[UUID]): Foreign key to the owning entity.
+        state (Mapped[str]): Two-letter state abbreviation where agent is registered.
+        agent_name (Mapped[str]): Name of the registered agent.
+        agent_company (Mapped[str | None]): Company name of registered agent service (if applicable).
+        address (Mapped[str | None]): Street address of the registered agent.
+        city (Mapped[str | None]): City of the registered agent.
+        state_address (Mapped[str | None]): State of the registered agent address.
+        zip_code (Mapped[str | None]): ZIP code of the registered agent.
+        phone (Mapped[str | None]): Phone number of the registered agent.
+        email (Mapped[str | None]): Email address of the registered agent.
+        effective_date (Mapped[date | None]): Date agent became effective.
+        expiration_date (Mapped[date | None]): Date agent service expires.
+        renewal_date (Mapped[date | None]): Date agent service must be renewed.
+        annual_cost (Mapped[str | None]): Annual cost of registered agent service.
+        account_number (Mapped[str | None]): Account number with the registered agent service.
+        notes (Mapped[str | None]): Additional notes about the registered agent.
+        is_active (Mapped[bool]): Whether this is the current registered agent.
+        entity (Mapped['Entity']): The owning entity relationship.
     """
 
     __tablename__ = "registered_agents"

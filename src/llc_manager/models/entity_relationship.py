@@ -34,15 +34,17 @@ class EntityRelationship(Base, UUIDPrimaryKeyMixin, AuditMixin):
     """Represents a relationship between two entities.
 
     Attributes:
-        parent_entity_id: Foreign key to the parent/controlling entity.
-        child_entity_id: Foreign key to the child/controlled entity.
-        relationship_type: Type of relationship between entities.
-        ownership_percentage: Percentage of ownership (if applicable).
-        effective_date: Date the relationship became effective.
-        end_date: Date the relationship ended (null if current).
-        description: Description of the relationship.
-        notes: Additional notes about the relationship.
-        is_active: Whether the relationship is currently active.
+        parent_entity_id (Mapped[UUID]): Foreign key to the parent/controlling entity.
+        child_entity_id (Mapped[UUID]): Foreign key to the child/controlled entity.
+        relationship_type (Mapped[RelationshipType]): Type of relationship between entities.
+        ownership_percentage (Mapped[Decimal | None]): Percentage of ownership (if applicable).
+        effective_date (Mapped[date | None]): Date the relationship became effective.
+        end_date (Mapped[date | None]): Date the relationship ended (null if current).
+        description (Mapped[str | None]): Description of the relationship.
+        notes (Mapped[str | None]): Additional notes about the relationship.
+        is_active (Mapped[bool]): Whether the relationship is currently active.
+        parent_entity (Mapped['Entity']): The parent/controlling entity relationship.
+        child_entity (Mapped['Entity']): The child/controlled entity relationship.
     """
 
     __tablename__ = "entity_relationships"

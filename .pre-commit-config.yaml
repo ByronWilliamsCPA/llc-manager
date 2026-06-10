@@ -17,7 +17,7 @@
 ci:
   autoupdate_schedule: monthly
   autofix_prs: true
-  skip: [validate-front-matter, qlty-check, qlty-full, trufflehog, darglint, bandit, bandit-full]  # Skip hooks that require local system tools
+  skip: [validate-front-matter, qlty-check, qlty-full, trufflehog, bandit, bandit-full]  # Skip hooks that require local system tools
 
 repos:
   # ============================================================================
@@ -283,17 +283,16 @@ repos:
   # ============================================================================
   # Docstring Argument Validation
   # ============================================================================
-  # Darglint validates that docstring arguments match function signatures
-  # Configuration in pyproject.toml [tool.darglint]
-  - repo: local
+  # Pydoclint validates that docstring arguments match function signatures
+  # Configuration in pyproject.toml [tool.pydoclint]
+  - repo: https://github.com/jsh9/pydoclint
+    rev: 88d83c94156c5e51a09938e77019f2c58e92ab58  # 0.8.4  # pragma: allowlist secret
     hooks:
-      - id: darglint
-        name: Darglint docstring validation
-        entry: uv run darglint
-        language: system
+      - id: pydoclint
+        args: ["--config=pyproject.toml"]
         types: [python]
         stages: [pre-commit]
-        exclude: ^(tests|scripts|benchmarks|tools|alembic|noxfile\.py)/
+        exclude: ^(tests|scripts|benchmarks|tools)/
 
 # Exclude patterns
 exclude: |
