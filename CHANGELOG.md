@@ -273,6 +273,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- fix(security): pass the `strict_mode` dispatch input in
+  `fips-compatibility.yml` through an `env:` variable instead of interpolating
+  it into the `run:` block, removing a shell template-injection pattern
+  (closes #63)
 - fix(security): address HIGH-severity Debian package CVEs in the runtime
   container by adding `apt-get upgrade -y` to the runtime stage of `Dockerfile`
   so any future Debian security backports for both base-image OS packages
