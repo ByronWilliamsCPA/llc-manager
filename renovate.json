@@ -176,7 +176,8 @@
     "schedule": [
       "before 5am on monday"
     ],
-    "commitMessageAction": "Update",
+    "commitMessageAction": "update",
+    "commitMessageTopic": "lock file",
     "automerge": false,
     "labels": [
       "dependencies",
@@ -190,6 +191,7 @@
   "rebaseWhen": "conflicted",
   "semanticCommits": "enabled",
   "commitMessagePrefix": "chore(deps):",
+  "commitMessageAction": "update",
   "rangeStrategy": "bump",
   "vulnerabilityAlerts": {
     "enabled": true,
