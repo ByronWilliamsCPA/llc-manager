@@ -104,7 +104,7 @@ class TestCacheControlOnApiResponses:
         from llc_manager.main import create_app
 
         client = TestClient(create_app())
-        # Hit a non-existent route under /api/v1/ — FastAPI's router 404s
+        # Hit a non-existent route under /api/v1/ -- FastAPI's router 404s
         # before any DB dependency runs, but the middleware still wraps the
         # response so the privacy headers are observable without needing
         # the test to reach a working PostgreSQL.

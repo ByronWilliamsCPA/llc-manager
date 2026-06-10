@@ -46,6 +46,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   until the planned `core/auth.py` dependency is wired in
 - `Cache-Control: no-store` and `Pragma: no-cache` response headers on
   `/api/v1/*` data endpoints to prevent caching of EINs and compliance data
+- Compliance audit remediation (2026-05-08): native pre-commit hooks for ruff,
+  ruff-format, basedpyright, detect-secrets, commitizen, yamllint, markdownlint
+  (PC-002/003/004/006/008/009/010); `# pragma: allowlist secret` on every SHA
+  rev (PC-012); staged-files trufflehog scope (PC-LOCAL-001); `.secrets.baseline`
+  (PC-NEW-001)
+- `docs/architecture/system-overview.md` (FOUND-018) and SUPPORT.md (FOUND-019)
+- `docs/response-aware-development.md` RAD tagging guide (NEW-012)
+- `.editorconfig` (NEW-009) and `.mailmap` (NEW-010)
+- Issue Tracker URL and expanded classifiers in `pyproject.toml` (FOUND-016/017)
+- `step-security/harden-runner` first step in `fips-compatibility.yml` jobs (CI-002)
+- Top-level `permissions: contents: read` on `validate-cruft.yml` and
+  `fips-compatibility.yml` (CI-003/004)
+- `concurrency:` blocks on 9 workflows that lacked them (CI-008)
+- 404/409 response declarations on entity route decorators (NEW-011)
+- `#CRITICAL` and `#VERIFY` RAD markers on unauthenticated entity endpoints
+  (NEW-015)
+- mkdocs nav coverage for architecture, RAD doc, project plan template, ADR
+  template, and compliance lessons-learned (MKDOCS-content-001)
 - Initial project setup and structure
 - Pytest suite raising line coverage to ~95% across entity CRUD endpoints,
   security middleware (SSRF/rate-limit/headers), the async DB-session
@@ -77,6 +95,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   references pinned from `@main` to commit SHA; `fips-compatibility.yml`
   given a top-level `permissions` block and `harden-runner` on both jobs;
   explicit per-job `permissions` blocks added across all caller workflows
+- `permissions:` block reordered before `jobs:` in `publish-pypi.yml` (CI-001)
+- `pip install cruft` replaced with pinned `uv tool install cruft==2.15.0` in
+  `validate-cruft.yml` (CI-006)
+- `INFISICAL_DOMAIN` removed from `sbom.yml`: the workflow-level `env:` value
+  could not reach the reusable workflow, which takes no such input (CI-009)
+- `secrets: inherit` removed from the `security-analysis.yml` reusable call;
+  the callee declares no secrets, so inheriting the namespace was unnecessary
+  exposure (CI-010)
+- `concurrency:` groups simplified to drop the dead `pull_request.number`
+  expression in workflows that never trigger on `pull_request`; `sbom.yml`
+  now only cancels redundant PR runs so scheduled security scans are never
+  aborted mid-flight
+- `step-security/harden-runner` aligned to `v2.19.1` in `validate-cruft.yml`
+  and `fips-compatibility.yml`
+- TruffleHog and Qlty pre-commit hooks fixed to fail closed when a finding is
+  detected (the prior `&& ... || echo` chain swallowed the non-zero exit)
+- `detect-secrets` pre-commit hook bumped to `v1.5.0` (was `v0.14.4`) and
+  `commitizen` to `v4.15.1` (was `v2.42.1`); `.secrets.baseline` regenerated
+  to the v1.x schema
+- `pyproject.toml` classifier corrected from the inaccurate WSGI topic to
+  `Topic :: Internet :: WWW/HTTP :: Dynamic Content` (FastAPI is ASGI)
+- Replaced "Comprehensive" (AI-pattern blacklist word) in CONTRIBUTING.md,
+  docs/index.md, docs/OPENSSF_COMPLIANCE.md, docs/planning/project-vision.md
+  (CLAUDE-001)
+- Healthcheck path corrected to `/api/health/live` in Dockerfile,
+  docker-compose.yml, and the K8s probe examples in `api/health.py` (NEW-001)
+- `docker-compose.prod.yml` YAML structure fixed (NEW-002); stale `frontend:`
+  service block removed (NEW-003); `version: '3.9'` line removed
+- HTTP 409 response detail string sanitized to omit the EIN value (NEW-014)
+- `__PROJECT_CREATION_DATE__` placeholder in `docs/template_feedback.md`
+  replaced with `2026-01-19` (NEW-013)
 - Divergent local clones (`llc-manager/` and `llc_manager/`) consolidated
   into the dashed copy (PR #4)
 - Readiness probe (`/api/health/ready`) returns opaque
@@ -94,6 +143,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- `scripts/generate-client.sh` -- React frontend artefact superseded by HTMX
+  migration (NEW-004)
 - Orphan license files under `LICENSES/` that no file in the tree
   references (`Apache-2.0.txt`, `BSD-3-Clause.txt`, `GPL-3.0-or-later.txt`)
 - Placeholder `check_cache` and `check_external_service` probes in

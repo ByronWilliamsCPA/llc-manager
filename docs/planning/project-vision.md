@@ -42,7 +42,7 @@ A unified web dashboard that consolidates all LLC entity data into a searchable,
 
 1. **Entity Dashboard**: Centralized view of all LLCs with key details (legal name, EIN, formation state) and quick-filter capabilities
 2. **Compliance Calendar**: Dashboard showing upcoming deadlines (RA renewals, state filings, tax dates) with Apprise notifications
-3. **Entity Detail View**: Comprehensive single-entity view with ownership, bank accounts, state registrations, and linked documents
+3. **Entity Detail View**: Full single-entity view with ownership, bank accounts, state registrations, and linked documents
 4. **Relationship Visualization**: Display parent-child entity relationships for complex structures
 
 ## Scope Definition

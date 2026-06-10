@@ -1,8 +1,6 @@
 # Production overrides for docker-compose.yml
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
-version: '3.9'
-
 services:
   app:
     # Production image (pre-built)
@@ -37,33 +35,7 @@ services:
         failure_action: rollback
         order: start-first
 
-frontend:
-    # Production frontend (nginx serving built assets)
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: production
-      args:
-        VITE_API_URL: ${VITE_API_URL:-/api}
-    image: llc_manager-frontend:${VERSION:-latest}
-    ports:
-      - "${FRONTEND_PORT:-80}:80"
-
-    deploy:
-      replicas: ${FRONTEND_REPLICAS:-1}
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 128M
-        reservations:
-          cpus: '0.1'
-          memory: 64M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-
-db:
+  db:
     # Production database settings
     environment:
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in production}

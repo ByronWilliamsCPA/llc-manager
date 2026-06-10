@@ -12,7 +12,7 @@ tags:
 > **Purpose**: Document issues discovered in this project that should be addressed in the [cookiecutter-python-template](https://github.com/ByronWilliamsCPA/cookiecutter-python-template).
 >
 > **Generated From**: cookiecutter-python-template v0.1.0
-> **Project Created**: **PROJECT_CREATION_DATE**
+> **Project Created**: 2026-01-19
 
 ---
 
@@ -156,6 +156,27 @@ adds:
 - `src/{{ project_slug }}/models/*.py` (add owner FK mixin)
 - `src/{{ project_slug }}/db/base.py` (new `OwnedMixin`)
 - New: `src/{{ project_slug }}/api/auth.py`
+
+---
+
+### `__PROJECT_CREATION_DATE__` placeholder not substituted at generation
+
+- **Priority**: Low
+- **Category**: Tooling
+- **Discovered**: 2026-05-08
+
+**Issue**: The "Project Created" field in this file was rendered with an
+unsubstituted `__PROJECT_CREATION_DATE__` placeholder instead of the actual
+project creation date. It had to be filled in manually (`2026-01-19`).
+
+**Context**: Found during the 2026-05-08 standards-alignment compliance audit
+while reviewing generated template artifacts.
+
+**Suggested Fix**: Resolve `__PROJECT_CREATION_DATE__` at cookiecutter
+generation time (e.g., via a `pre_gen_project` hook that injects the current
+date) so the value is populated automatically for new projects.
+
+**Affected Files**: `docs/template_feedback.md` (template source)
 
 ---
 

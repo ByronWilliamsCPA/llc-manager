@@ -81,13 +81,10 @@ jobs:
       - name: Run FIPS compatibility check
         id: fips-check
         run: |
-          # Run the FIPS check script
           STRICT_FLAG=""
           if [[ "${{ github.event.inputs.strict_mode }}" == "true" ]]; then
             STRICT_FLAG="--strict"
           fi
-
-          # Run check and capture output
           set +e
           uv run python scripts/check_fips_compatibility.py \
             --fix-hints \
@@ -96,16 +93,11 @@ jobs:
             2>&1 | tee fips-report.txt
           EXIT_CODE=$?
           set -e
-
-          # Also generate JSON report
           uv run python scripts/check_fips_compatibility.py \
             --json \
             --include-tests \
             > fips-report.json 2>/dev/null || true
-
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-
-          # Extract summary for PR comment
           if [ -f fips-report.json ]; then
             ERRORS=$(jq -r '.summary.errors' fips-report.json)
             WARNINGS=$(jq -r '.summary.warnings' fips-report.json)
@@ -167,29 +159,16 @@ jobs:
 
             // Find existing comment
             const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
             });
-
-            const botComment = comments.find(comment =>
-              comment.user.type === 'Bot' &&
-              comment.body.includes('FIPS Compatibility Check')
-            );
-
+            const botComment = comments.find(c => c.user.type === 'Bot' && c.body.includes('FIPS Compatibility Check'));
             if (botComment) {
               await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: body
+                owner: context.repo.owner, repo: context.repo.repo, comment_id: botComment.id, body: body
               });
             } else {
               await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: body
               });
             }
 
@@ -234,22 +213,14 @@ jobs:
       - name: Test crypto imports in simulated FIPS mode
         run: |
           uv run python -c "
-          import os
-          import sys
-
-          # Simulate FIPS mode check
+          import hashlib, sys
           print('Testing crypto imports...')
-
-          # Test hashlib with usedforsecurity parameter
-          import hashlib
           try:
               h = hashlib.md5(b'test', usedforsecurity=False)
               print('hashlib.md5 with usedforsecurity=False works')
           except Exception as e:
               print(f'hashlib.md5 error: {e}')
               sys.exit(1)
-
-          # Test that SHA-256 works (FIPS approved)
           try:
               h = hashlib.sha256(b'test')
               print('hashlib.sha256 works')

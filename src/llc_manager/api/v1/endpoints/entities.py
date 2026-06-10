@@ -1,5 +1,8 @@
 """Entity (LLC) API endpoints."""
 
+# #CRITICAL: Security - entity endpoints currently unauthenticated; deferred to Phase 1.
+# #VERIFY: authentication dependency wired before any non-localhost deployment.
+
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
@@ -126,7 +129,7 @@ async def create_entity(
         if existing.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Entity with EIN {entity_in.ein} already exists",
+                detail="An entity with this EIN already exists",
             )
 
     entity = Entity(**entity_in.model_dump())
@@ -231,7 +234,7 @@ async def update_entity(
         if existing.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Entity with EIN {entity_in.ein} already exists",
+                detail="An entity with this EIN already exists",
             )
 
     update_data = entity_in.model_dump(exclude_unset=True)
@@ -282,4 +285,5 @@ async def delete_entity(
         )
 
     entity.deleted_at = datetime.now(UTC)
+    # #ASSUME: deleted_by populated once authentication ships; AuditMixin field intentionally None now.
     await db.flush()
