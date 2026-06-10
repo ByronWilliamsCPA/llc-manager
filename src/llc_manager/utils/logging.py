@@ -42,13 +42,13 @@ def setup_logging(
     for the environment (JSON for production, rich console for development).
 
     Args:
-        level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+        level (str): Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
             Defaults to INFO.
-        json_logs: If True, output JSON logs (production mode). If False,
+        json_logs (bool): If True, output JSON logs (production mode). If False,
             use rich console formatting (development mode). Defaults to False.
-        include_timestamp: Whether to include timestamps in log output.
+        include_timestamp (bool): Whether to include timestamps in log output.
             Defaults to True.
-        include_correlation: Whether to include correlation IDs from request
+        include_correlation (bool): Whether to include correlation IDs from request
             context in log output. Defaults to True. Requires API framework.
 
     Example:
@@ -139,15 +139,10 @@ def get_logger(name: str) -> BoundLogger:
     typically be called with __name__ to create module-specific loggers.
 
     Args:
-        name: Logger name (typically __name__ of the module).
+        name (str): Logger name (typically __name__ of the module).
 
     Returns:
-        Configured structlog logger instance with methods like:
-        - logger.info()
-        - logger.debug()
-        - logger.warning()
-        - logger.error()
-        - logger.exception()
+        BoundLogger: Configured structlog bound logger instance.
 
     Example:
         >>> logger = get_logger(__name__)
@@ -174,11 +169,11 @@ def log_performance(
     duration, success status, and additional context.
 
     Args:
-        logger: Structlog logger instance from get_logger().
-        operation: Name of the operation being timed.
-        duration_ms: Duration in milliseconds.
-        success: Whether the operation succeeded. Defaults to True.
-        **context: Additional context key-value pairs to include in the log.
+        logger (BoundLogger): Structlog logger instance from get_logger().
+        operation (str): Name of the operation being timed.
+        duration_ms (float): Duration in milliseconds.
+        success (bool): Whether the operation succeeded. Defaults to True.
+        **context (object): Additional context key-value pairs to include in the log.
 
     Example:
         >>> logger = get_logger(__name__)

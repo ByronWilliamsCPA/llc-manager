@@ -138,10 +138,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         - fastapi-limiter (https://github.com/long2ice/fastapi-limiter)
 
     Args:
-        requests_per_minute: Maximum requests per IP per minute
-        burst_size: Maximum burst requests allowed
-        max_tracked_ips: Maximum IPs to track (prevents memory exhaustion)
-        cleanup_interval: Seconds between full cleanup cycles
+        app (ASGIApp): The ASGI application to wrap.
+        requests_per_minute (int): Maximum requests per IP per minute.
+        burst_size (int): Maximum burst requests allowed.
+        max_tracked_ips (int): Maximum IPs to track (prevents memory exhaustion).
+        cleanup_interval (int): Seconds between full cleanup cycles.
     """
 
     def __init__(
@@ -152,7 +153,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         max_tracked_ips: int = 10000,
         cleanup_interval: int = 300,
     ) -> None:
-        """Initialize rate limiter."""
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
         self.burst_size = burst_size
@@ -169,7 +169,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         2. If we exceed max_tracked_ips, removes least recently active IPs
 
         Args:
-            current_time: Current timestamp for expiration checks
+            current_time (float): Current timestamp for expiration checks.
         """
         # Only run full cleanup periodically to avoid performance impact
         if current_time - self._last_cleanup < self.cleanup_interval:
@@ -311,10 +311,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         """Check if an IP address object is internal (private, loopback, etc.).
 
         Args:
-            ip: Parsed IP address object
+            ip (ipaddress.IPv4Address | ipaddress.IPv6Address): Parsed IP address object.
 
         Returns:
-            True if the IP is internal, False otherwise
+            bool: True if the IP is internal, False otherwise.
         """
         return (
             ip.is_private
@@ -330,10 +330,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         """Check if an IP address is private, loopback, or otherwise internal.
 
         Args:
-            ip_str: IP address string to validate
+            ip_str (str): IP address string to validate.
 
         Returns:
-            True if the IP is private/internal, False otherwise
+            bool: True if the IP is private/internal, False otherwise.
         """
         # #CRITICAL: Security - this is the SSRF defense choke point. Missing
         # an internal-network classification here allows an attacker-supplied
@@ -368,10 +368,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         """Extract hostname from URL string.
 
         Args:
-            url: URL string to parse
+            url (str): URL string to parse.
 
         Returns:
-            Hostname string or None if parsing fails
+            str | None: Hostname string or None if parsing fails.
         """
         from urllib.parse import urlparse
 
@@ -390,10 +390,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         """Extract scheme from URL string.
 
         Args:
-            url: URL string to parse
+            url (str): URL string to parse.
 
         Returns:
-            Scheme string or None if parsing fails
+            str | None: Scheme string or None if parsing fails.
         """
         from urllib.parse import urlparse
 
@@ -408,10 +408,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         """Check if URL uses a blocked scheme.
 
         Args:
-            url: URL string to validate
+            url (str): URL string to validate.
 
         Returns:
-            True if the scheme is blocked, False otherwise
+            bool: True if the scheme is blocked, False otherwise.
         """
         scheme = self._extract_scheme_from_url(url)
         return scheme is not None and scheme in self.BLOCKED_SCHEMES
@@ -420,10 +420,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         """Check if hostname is in the blocked hosts list or is a private IP.
 
         Args:
-            host: Hostname to validate
+            host (str): Hostname to validate.
 
         Returns:
-            True if the host should be blocked, False otherwise
+            bool: True if the host should be blocked, False otherwise.
         """
         host_lower = host.lower()
         return host_lower in self.BLOCKED_HOSTS or self._is_private_ip(host)
@@ -435,10 +435,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         e.g., 2130706433 = 127.0.0.1
 
         Args:
-            host: Hostname to check for obfuscated IP
+            host (str): Hostname to check for obfuscated IP.
 
         Returns:
-            True if host is an obfuscated private IP, False otherwise
+            bool: True if host is an obfuscated private IP, False otherwise.
         """
         if not host.isdigit():
             return False
@@ -457,10 +457,10 @@ class SSRFPreventionMiddleware(BaseHTTPMiddleware):
         """Check if a URL points to a blocked destination.
 
         Args:
-            url: URL string to validate
+            url (str): URL string to validate.
 
         Returns:
-            True if the URL should be blocked, False otherwise
+            bool: True if the URL should be blocked, False otherwise.
         """
         if self._has_blocked_scheme(url):
             return True
@@ -598,12 +598,12 @@ class SecurityConfig:
     Groups all security middleware options into a single configuration object.
 
     Attributes:
-        enable_https_redirect: Redirect HTTP to HTTPS (production only)
-        enable_rate_limiting: Enable rate limiting middleware
-        enable_ssrf_prevention: Enable SSRF prevention middleware
-        allowed_origins: CORS allowed origins (default: none)
-        allowed_hosts: Trusted host names (default: all)
-        rate_limit_rpm: Rate limit requests per minute
+        enable_https_redirect (bool): Redirect HTTP to HTTPS (production only).
+        enable_rate_limiting (bool): Enable rate limiting middleware.
+        enable_ssrf_prevention (bool): Enable SSRF prevention middleware.
+        allowed_origins (list[str]): CORS allowed origins (default: none).
+        allowed_hosts (list[str]): Trusted host names (default: all).
+        rate_limit_rpm (int): Rate limit requests per minute.
     """
 
     enable_https_redirect: bool = False
@@ -623,8 +623,8 @@ def add_security_middleware(
     This configures comprehensive security following OWASP best practices.
 
     Args:
-        app: FastAPI application instance
-        config: Security configuration options (uses defaults if not provided)
+        app (FastAPI): FastAPI application instance.
+        config (SecurityConfig | None): Security configuration options (uses defaults if not provided).
 
     Example:
         >>> from fastapi import FastAPI

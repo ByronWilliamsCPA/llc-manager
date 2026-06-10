@@ -89,7 +89,7 @@ dev = [
     "bandit>=1.7.0",
     "vulture>=2.11",  # Dead code detection
     "pip-audit>=2.7.0",  # Python vulnerability scanning
-    "darglint>=1.8.1",  # Docstring argument validation
+    "pydoclint>=0.8.4",  # Docstring argument validation
 
     # Pre-commit
     "pre-commit>=3.3.0",
@@ -592,26 +592,18 @@ ignore-init-method = true
 ignore-init-module = true
 color = true
 
-# Darglint Configuration (Docstring Argument Validation)
+# Pydoclint Configuration (Docstring Argument Validation)
 # Validates that docstring arguments match function signatures
-# Reference: https://github.com/terrencepreilly/darglint
-[tool.darglint]
-# Google-style docstrings (matches ruff pydocstyle convention)
-docstring_style = "google"
-# Strictness levels: short, long, full
-# - short: Only documented items must exist in signature
-# - long: All parameters must be documented (recommended)
-# - full: Types in docstring must match annotations
-strictness = "long"
-# Ignore missing parameter documentation in these cases
-ignore = [
-    "DAR101",  # Missing parameter(s) in Docstring (initially lenient)
-    "DAR201",  # Missing "Returns" in Docstring (handled by pydocstyle)
-    "DAR301",  # Missing "Yields" in Docstring
-    "DAR401",  # Missing exception(s) in Raises section
-]
-# Ignore in these directories
-ignore_regex = "^(tests|scripts|benchmarks|tools)/.*$"
+# Reference: https://github.com/jsh9/pydoclint
+[tool.pydoclint]
+style = "google"
+exclude = '\.git|tests/|scripts/|benchmarks/|tools/|noxfile\.py|\.claude/'
+arg-type-hints-in-docstring = true
+arg-type-hints-in-signature = true
+skip-checking-raises = false
+require-return-section-when-returning-nothing = false
+require-return-section-when-returning-values = false
+require-yield-section-when-yielding-values = false
 
 # Mutation Testing Configuration (mutmut)
 [tool.mutmut]

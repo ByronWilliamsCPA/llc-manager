@@ -88,10 +88,10 @@ def _sanitize_header_value(value: str | None) -> str | None:
     fresh correlation ID.
 
     Args:
-        value: Raw header value supplied by the client, or ``None``.
+        value (str | None): Raw header value supplied by the client, or ``None``.
 
     Returns:
-        The sanitized value, or ``None`` if the input was absent or invalid.
+        str | None: The sanitized value, or ``None`` if the input was absent or invalid.
     """
     if value is None:
         return None
@@ -106,7 +106,7 @@ def get_correlation_id() -> str | None:
     """Get the current request's correlation ID.
 
     Returns:
-        Correlation ID string or None if not in a request context.
+        str | None: Correlation ID string or None if not in a request context.
 
     Example:
         >>> from llc_manager.middleware.correlation import get_correlation_id
@@ -120,7 +120,7 @@ def get_request_id() -> str | None:
     """Get the current request's unique request ID.
 
     Returns:
-        Request ID string or None if not in a request context.
+        str | None: Request ID string or None if not in a request context.
     """
     return _request_id_ctx.get()
 
@@ -129,7 +129,7 @@ def get_trace_id() -> str | None:
     """Get the current request's trace ID for distributed tracing.
 
     Returns:
-        Trace ID string or None if not in a request context.
+        str | None: Trace ID string or None if not in a request context.
     """
     return _trace_id_ctx.get()
 
@@ -138,7 +138,7 @@ def get_span_id() -> str | None:
     """Get the current request's span ID.
 
     Returns:
-        Span ID string or None if not in a request context.
+        str | None: Span ID string or None if not in a request context.
     """
     return _span_id_ctx.get()
 
@@ -149,7 +149,7 @@ def set_correlation_id(correlation_id: str) -> None:
     Useful for background jobs or non-HTTP contexts.
 
     Args:
-        correlation_id: The correlation ID to set.
+        correlation_id (str): The correlation ID to set.
     """
     _correlation_id_ctx.set(correlation_id)
 
@@ -158,7 +158,7 @@ def generate_correlation_id() -> str:
     """Generate a new correlation ID.
 
     Returns:
-        A new UUID4 string suitable for use as a correlation ID.
+        str: A new UUID4 string suitable for use as a correlation ID.
     """
     return str(uuid.uuid4())
 
@@ -182,12 +182,12 @@ def correlation_context_processor(
         )
 
     Args:
-        logger: The wrapped logger instance.
-        method_name: The name of the log method called.
-        event_dict: The event dictionary to process.
+        _logger (WrappedLogger): The wrapped logger instance (unused; required by structlog processor interface).
+        _method_name (str): The name of the log method called (unused; required by structlog processor interface).
+        event_dict (EventDict): The event dictionary to process.
 
     Returns:
-        Updated event dictionary with correlation IDs.
+        EventDict: Updated event dictionary with correlation IDs.
     """
     correlation_id = _correlation_id_ctx.get()
     request_id = _request_id_ctx.get()
@@ -237,11 +237,11 @@ class CorrelationMiddleware(BaseHTTPMiddleware):
         """Process request with correlation ID handling.
 
         Args:
-            request: The incoming HTTP request.
-            call_next: The next middleware or route handler.
+            request (Request): The incoming HTTP request.
+            call_next (Callable[[Request], Awaitable[Response]]): The next middleware or route handler.
 
         Returns:
-            The HTTP response with correlation headers added.
+            Response: The HTTP response with correlation headers added.
         """
         # Extract or generate correlation ID. Values from untrusted clients
         # are sanitized (CR/LF stripped, length capped); invalid values fall
@@ -304,7 +304,7 @@ def _get_correlation_tags() -> dict[str, str]:
     """Get correlation context as a dictionary of tags.
 
     Returns:
-        Dictionary containing non-None correlation IDs.
+        dict[str, str]: Dictionary containing non-None correlation IDs.
     """
     tags: dict[str, str] = {}
 
@@ -330,11 +330,11 @@ def _add_correlation_to_sentry_event(  # pyright: ignore[reportUnusedFunction]  
     """Add correlation IDs to a Sentry event.
 
     Args:
-        event: The Sentry event dictionary.
-        _hint: Additional context about the event (unused, required by Sentry API).
+        event (dict[str, object]): The Sentry event dictionary.
+        _hint (dict[str, object]): Additional context about the event (unused, required by Sentry API).
 
     Returns:
-        The event with correlation tags added.
+        dict[str, object]: The event with correlation tags added.
     """
     tags = _get_correlation_tags()
     if tags:

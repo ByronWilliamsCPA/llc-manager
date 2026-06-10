@@ -57,7 +57,7 @@ async def get_redis() -> Redis:
     """Get Redis connection from pool.
 
     Returns:
-        Redis connection
+        Redis: Active Redis connection from the pool.
 
     Example:
         >>> redis = await get_redis()
@@ -111,12 +111,12 @@ def cached(
     """Cache async function results in Redis.
 
     Args:
-        ttl: Time to live in seconds (default: 1 hour)
-        key_prefix: Prefix for cache keys (default: function name)
-        key_builder: Custom key building function
+        ttl (int): Time to live in seconds (default: 1 hour).
+        key_prefix (str): Prefix for cache keys (default: function name).
+        key_builder (Callable[..., str] | None): Custom key building function.
 
     Returns:
-        Decorated function
+        Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]: Decorator that wraps an async function with caching.
 
     Example:
         >>> @cached(ttl=300, key_prefix="user")
@@ -155,14 +155,14 @@ def _build_cache_key(
     """Build cache key from function arguments.
 
     Args:
-        key_builder: Custom key building function
-        key_prefix: Prefix for cache keys
-        func: The function being cached
-        args: Positional arguments
-        kwargs: Keyword arguments
+        key_builder (Callable[..., str] | None): Custom key building function.
+        key_prefix (str): Prefix for cache keys.
+        func (Callable[..., Any]): The function being cached.
+        args (tuple[Any, ...]): Positional arguments.
+        kwargs (dict[str, Any]): Keyword arguments.
 
     Returns:
-        Cache key string
+        str: Cache key string.
     """
     if key_builder:
         return key_builder(*args, **kwargs)
@@ -183,14 +183,14 @@ async def _get_or_compute[T](
     """Get value from cache or compute and store it.
 
     Args:
-        cache_key: The cache key
-        func: Function to call on cache miss
-        args: Positional arguments for func
-        kwargs: Keyword arguments for func
-        ttl: Time to live in seconds
+        cache_key (str): The cache key.
+        func (Callable[..., Awaitable[T]]): Function to call on cache miss.
+        args (tuple[Any, ...]): Positional arguments for func.
+        kwargs (dict[str, Any]): Keyword arguments for func.
+        ttl (int): Time to live in seconds.
 
     Returns:
-        Cached or computed result
+        T: Cached or computed result.
     """
     try:
         redis = await get_redis()
@@ -232,7 +232,10 @@ def cache_invalidate(
     Useful for cache invalidation on data updates.
 
     Args:
-        key_pattern: Redis key pattern (supports * wildcard)
+        key_pattern (str): Redis key pattern (supports * wildcard).
+
+    Returns:
+        Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]: Decorator that invalidates cache after the wrapped function runs.
 
     Example:
         >>> @cache_invalidate("user:*")
@@ -272,11 +275,11 @@ async def get_cached(key: str, default: Any = None) -> Any:
     """Get value from cache.
 
     Args:
-        key: Cache key
-        default: Default value if key not found
+        key (str): Cache key.
+        default (Any): Default value if key not found.
 
     Returns:
-        Cached value or default
+        Any: Cached value or default.
     """
     try:
         redis = await get_redis()
@@ -296,12 +299,12 @@ async def set_cached(key: str, value: Any, ttl: int = 3600) -> bool:
     """Set value in cache.
 
     Args:
-        key: Cache key
-        value: Value to cache
-        ttl: Time to live in seconds
+        key (str): Cache key.
+        value (Any): Value to cache.
+        ttl (int): Time to live in seconds.
 
     Returns:
-        True if successful, False otherwise
+        bool: True if successful, False otherwise.
     """
     try:
         redis = await get_redis()
@@ -317,10 +320,10 @@ async def delete_cached(key: str) -> bool:
     """Delete value from cache.
 
     Args:
-        key: Cache key
+        key (str): Cache key.
 
     Returns:
-        True if key was deleted, False otherwise
+        bool: True if key was deleted, False otherwise.
     """
     try:
         redis = await get_redis()
@@ -336,10 +339,10 @@ async def invalidate_pattern(pattern: str) -> int:
     """Invalidate all cache keys matching a pattern.
 
     Args:
-        pattern: Redis key pattern (supports * wildcard)
+        pattern (str): Redis key pattern (supports * wildcard).
 
     Returns:
-        Number of keys deleted
+        int: Number of keys deleted.
 
     Example:
         >>> # Delete all user caches
@@ -383,13 +386,13 @@ async def warm_cache(
     Useful for frequently accessed data that's expensive to compute.
 
     Args:
-        key: Cache key
-        value_fn: Async function to get the value
-        ttl: Time to live in seconds
-        force: Force refresh even if key exists
+        key (str): Cache key.
+        value_fn (Callable[[], Awaitable[Any]]): Async function to get the value.
+        ttl (int): Time to live in seconds.
+        force (bool): Force refresh even if key exists.
 
     Returns:
-        True if cache was warmed, False if already exists (and not forced)
+        bool: True if cache was warmed, False if already exists (and not forced).
 
     Example:
         >>> async def get_popular_items():
@@ -475,7 +478,7 @@ async def get_cache_stats() -> dict[str, Any]:
     """Get cache statistics.
 
     Returns:
-        Dictionary with cache statistics
+        dict[str, Any]: Dictionary with cache statistics.
     """
     try:
         redis = await get_redis()

@@ -5,16 +5,23 @@ on:
     workflows: ["CI"]
     types:
       - completed
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly full-codebase health scan: Monday 07:00 UTC
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
 
 permissions: read-all
 
 concurrency:
-  group: qlty-coverage-${{ github.event.workflow_run.head_branch }}
+  group: qlty-${{ github.event.workflow_run.head_branch || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Coverage upload: runs after CI workflow completes successfully.
   qlty:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
     uses: ByronWilliamsCPA/.github/.github/workflows/python-qlty-coverage.yml@e8fc83c98c2971ad1ece71573d28171463e30c16 # main
     permissions:
       contents: read
@@ -26,3 +33,26 @@ jobs:
       workflow-run-id: ${{ github.event.workflow_run.id }}
     secrets:
       QLTY_COVERAGE_TOKEN: ${{ secrets.QLTY_COVERAGE_TOKEN }}
+
+  # PR gate: diff mode, block merges that introduce medium+ severity issues.
+  # Check name: "qlty-gate / Qlty Gate" -- required by org docs-tier ruleset.
+  qlty-gate:
+    if: github.event_name == 'pull_request'
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-qlty-gate.yml@040026ab682aa4b9ef491750d62cdd1592cdb659
+    permissions:
+      contents: read
+    with:
+      fail-level: medium
+      upstream: origin/${{ github.base_ref }}
+
+  # Weekly health scan: full codebase, informational only.
+  # Remove no-fail once existing qlty debt is resolved.
+  qlty-health:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-qlty-gate.yml@040026ab682aa4b9ef491750d62cdd1592cdb659
+    permissions:
+      contents: read
+    with:
+      fail-level: high
+      check-all: true
+      no-fail: true

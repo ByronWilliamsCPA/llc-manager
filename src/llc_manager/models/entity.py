@@ -36,25 +36,33 @@ class Entity(Base, UUIDPrimaryKeyMixin, AuditMixin):
     """Represents a business entity (LLC or other type).
 
     Attributes:
-        legal_name: The official legal name of the entity.
-        dba_names: Comma-separated list of DBA (Doing Business As) names.
-        ein: Employer Identification Number.
-        entity_type: Type of business entity.
-        formation_state: State where the entity was formed.
-        formation_date: Date the entity was formed.
-        fiscal_year_end: Fiscal year end month and day (e.g., "12-31").
-        business_address: Primary business address.
-        business_city: City of business address.
-        business_state: State of business address.
-        business_zip: ZIP code of business address.
-        mailing_address: Mailing address (if different from business).
-        mailing_city: City of mailing address.
-        mailing_state: State of mailing address.
-        mailing_zip: ZIP code of mailing address.
-        accounting_record_id: External accounting system record ID.
-        purpose: Purpose or business description.
-        notes: Additional notes about the entity.
-        is_active: Whether the entity is currently active.
+        legal_name (Mapped[str]): The official legal name of the entity.
+        dba_names (Mapped[str | None]): Comma-separated list of DBA (Doing Business As) names.
+        ein (Mapped[str | None]): Employer Identification Number.
+        entity_type (Mapped[EntityType]): Type of business entity.
+        formation_state (Mapped[str | None]): State where the entity was formed.
+        formation_date (Mapped[date | None]): Date the entity was formed.
+        fiscal_year_end (Mapped[str | None]): Fiscal year end month and day (e.g., "12-31").
+        business_address (Mapped[str | None]): Primary business address.
+        business_city (Mapped[str | None]): City of business address.
+        business_state (Mapped[str | None]): State of business address.
+        business_zip (Mapped[str | None]): ZIP code of business address.
+        mailing_address (Mapped[str | None]): Mailing address (if different from business).
+        mailing_city (Mapped[str | None]): City of mailing address.
+        mailing_state (Mapped[str | None]): State of mailing address.
+        mailing_zip (Mapped[str | None]): ZIP code of mailing address.
+        accounting_record_id (Mapped[str | None]): External accounting system record ID.
+        purpose (Mapped[str | None]): Purpose or business description.
+        notes (Mapped[str | None]): Additional notes about the entity.
+        is_active (Mapped[bool]): Whether the entity is currently active.
+        owners (Mapped[list['Owner']]): Related owner records.
+        bank_accounts (Mapped[list['BankAccount']]): Related bank account records.
+        state_registrations (Mapped[list['StateRegistration']]): Related state registration records.
+        registered_agents (Mapped[list['RegisteredAgent']]): Related registered agent records.
+        tax_filings (Mapped[list['TaxFiling']]): Related tax filing records.
+        documents (Mapped[list['Document']]): Related document records.
+        child_relationships (Mapped[list['EntityRelationship']]): Relationships where this entity is the parent.
+        parent_relationships (Mapped[list['EntityRelationship']]): Relationships where this entity is the child.
     """
 
     __tablename__ = "entities"

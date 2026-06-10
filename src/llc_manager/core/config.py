@@ -5,7 +5,7 @@ Pydantic-settings handles the parsing and validation.
 """
 
 import os
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import PostgresDsn, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,15 +27,33 @@ class Settings(BaseSettings):
     """Configuration settings for the application, loaded from environment variables.
 
     Attributes:
-        log_level: The logging level for the application.
-        json_logs: Flag to enable or disable JSON formatted logs.
-        include_timestamp: Flag to include timestamps in logs.
-        database_*: Database connection settings.
-        api_*: API server settings.
-        cors_origins: List of allowed CORS origins.
+        model_config (ClassVar[SettingsConfigDict]): Pydantic settings configuration (class-level config, not an instance field).
+        log_level (Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]): The logging level for the application.
+        json_logs (bool): Flag to enable or disable JSON formatted logs.
+        include_timestamp (bool): Flag to include timestamps in logs.
+        database_host (str): Database server hostname.
+        database_port (int): Database server port.
+        database_user (str): Database user name.
+        database_password (str): Database password.
+        database_name (str): Database name.
+        database_echo (bool): Echo SQL statements for debugging.
+        database_pool_size (int): Connection pool size.
+        database_max_overflow (int): Max overflow connections beyond pool size.
+        api_host (str): API server bind host.
+        api_port (int): API server port.
+        api_reload (bool): Enable auto-reload for development.
+        api_workers (int): Number of worker processes.
+        api_title (str): API documentation title.
+        api_version (str): API version string.
+        cors_origins (list[str]): List of allowed CORS origins.
+        secret_key (str): Secret key for signing tokens.
+        access_token_expire_minutes (int): Token expiration time in minutes.
+        authentik_issuer (str | None): Authentik OIDC issuer URL.
+        authentik_jwks_url (str | None): Authentik JWKS endpoint URL.
+        authentik_audience (str | None): Authentik token audience.
     """
 
-    model_config = SettingsConfigDict(
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
         env_prefix="LLC_MANAGER_",
         case_sensitive=False,
         extra="ignore",
