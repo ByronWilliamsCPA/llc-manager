@@ -96,6 +96,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(security): resolve CVE-2026-8643 -- bump transitive `pip` 26.1.1 to
+  26.1.2 (dev-only, via `pip-api`/`pip-audit`); pip wrote `console_scripts`
+  / `gui_scripts` entry points outside the installation directory without
+  sanitizing the resolved absolute path
+- `security-analysis.yml` now publishes the bare `Security Gate Validation`
+  status check context required by the default-branch ruleset via a thin
+  local gate job (reusable-workflow check runs carry a
+  `<calling-job> / <reusable-job>` prefix that cannot match the bare
+  context, which left every PR blocked from merging)
 - `python-compatibility.yml` workflow: moved the `-m "not slow and not
   integration"` marker filter out of the `test-command` string and into
   `pyproject.toml` `[tool.pytest.ini_options].addopts` as separate list
