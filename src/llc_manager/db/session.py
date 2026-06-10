@@ -45,6 +45,9 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 
     Yields:
         AsyncSession: An async database session.
+
+    Raises:
+        Exception: Re-raises any exception from the endpoint after rolling back the session.
     """
     # #CRITICAL: Data integrity - `yield` commits only if the endpoint returns
     # cleanly; any exception rolls back. FastAPI dependencies called mid-request

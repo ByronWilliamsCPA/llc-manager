@@ -39,15 +39,15 @@ class SentryConfig:
     """Configuration for Sentry initialization.
 
     Attributes:
-        dsn: Sentry DSN (Data Source Name). Defaults to SENTRY_DSN env var.
-        environment: Deployment environment (e.g., production, staging).
+        dsn (str | None): Sentry DSN (Data Source Name). Defaults to SENTRY_DSN env var.
+        environment (str | None): Deployment environment (e.g., production, staging).
             Defaults to SENTRY_ENVIRONMENT or ENVIRONMENT env var.
-        release: Application release version. Defaults to git SHA or version.
-        traces_sample_rate: Percentage of transactions to sample (0.0-1.0).
-        profiles_sample_rate: Percentage of profiling data to collect (0.0-1.0).
-        enable_tracing: Enable performance monitoring (APM).
-        enable_profiling: Enable profiling data collection.
-        debug: Enable Sentry SDK debug logging.
+        release (str | None): Application release version. Defaults to git SHA or version.
+        traces_sample_rate (float): Percentage of transactions to sample (0.0-1.0).
+        profiles_sample_rate (float): Percentage of profiling data to collect (0.0-1.0).
+        enable_tracing (bool): Enable performance monitoring (APM).
+        enable_profiling (bool): Enable profiling data collection.
+        debug (bool): Enable Sentry SDK debug logging.
     """
 
     dsn: str | None = None
@@ -74,7 +74,7 @@ def init_sentry(config: SentryConfig | None = None) -> None:
     """Initialize Sentry error tracking and performance monitoring.
 
     Args:
-        config: Sentry configuration. If None, configuration is loaded from
+        config (SentryConfig | None): Sentry configuration. If None, configuration is loaded from
             environment variables.
 
     Example:
@@ -190,7 +190,7 @@ def _get_release_version() -> str:
     """Get release version from git SHA or package version.
 
     Returns:
-        Release version string (e.g., "myapp@1.0.0" or "myapp@abc123")
+        str: Release version string (e.g., "myapp@1.0.0" or "myapp@abc123").
     """
     # Lazy imports: only paid when Sentry is actually initialised.
     import shutil  # noqa: PLC0415
@@ -267,11 +267,11 @@ def before_send_hook(
     - Modify error grouping
 
     Args:
-        event: Sentry event dictionary
-        hint: Additional information about the event
+        event (dict[str, Any]): Sentry event dictionary.
+        hint (dict[str, Any]): Additional information about the event.
 
     Returns:
-        Modified event dictionary, or None to drop the event
+        dict[str, Any] | None: Modified event dictionary, or None to drop the event.
     """
     if _should_ignore_exception(hint):
         return None
@@ -288,11 +288,11 @@ def before_breadcrumb_hook(
     Breadcrumbs are actions/events leading up to an error.
 
     Args:
-        crumb: Breadcrumb dictionary
-        hint: Additional information about the breadcrumb
+        crumb (dict[str, Any]): Breadcrumb dictionary.
+        _hint (dict[str, Any]): Additional information about the breadcrumb (unused).
 
     Returns:
-        Modified breadcrumb dictionary, or None to drop the breadcrumb
+        dict[str, Any] | None: Modified breadcrumb dictionary, or None to drop the breadcrumb.
     """
     # Example: Don't include query parameters in HTTP breadcrumbs
     if (
@@ -315,10 +315,10 @@ def capture_exception(
     """Manually capture an exception to Sentry with additional context.
 
     Args:
-        exception: The exception to capture
-        level: Severity level (debug, info, warning, error, fatal)
-        tags: Custom tags for filtering (e.g., {"api": "v1", "user_type": "premium"})
-        extra: Additional context data
+        exception (Exception): The exception to capture.
+        level (str): Severity level (debug, info, warning, error, fatal).
+        tags (dict[str, str] | None): Custom tags for filtering (e.g., {"api": "v1", "user_type": "premium"}).
+        extra (dict[str, Any] | None): Additional context data.
 
     Example:
         >>> try:
@@ -370,10 +370,10 @@ def capture_message(
     Use for non-error events that you want to track.
 
     Args:
-        message: The message to capture
-        level: Severity level (debug, info, warning, error, fatal)
-        tags: Custom tags for filtering
-        extra: Additional context data
+        message (str): The message to capture.
+        level (str): Severity level (debug, info, warning, error, fatal).
+        tags (dict[str, str] | None): Custom tags for filtering.
+        extra (dict[str, Any] | None): Additional context data.
 
     Example:
         >>> capture_message(
@@ -422,10 +422,10 @@ def set_user_context(
     This associates errors with specific users for better debugging.
 
     Args:
-        user_id: Unique user identifier
-        email: User email (will be scrubbed if PII filtering is enabled)
-        username: User username
-        **kwargs: Additional user attributes
+        user_id (str | None): Unique user identifier.
+        email (str | None): User email (will be scrubbed if PII filtering is enabled).
+        username (str | None): User username.
+        **kwargs (Any): Additional user attributes.
 
     Example:
         >>> set_user_context(
@@ -462,10 +462,10 @@ def add_breadcrumb(
     Breadcrumbs help you understand the sequence of events before an error.
 
     Args:
-        message: Breadcrumb message
-        category: Category (e.g., "auth", "query", "http")
-        level: Severity level
-        data: Additional data
+        message (str): Breadcrumb message.
+        category (str): Category (e.g., "auth", "query", "http").
+        level (str): Severity level.
+        data (dict[str, Any] | None): Additional data.
 
     Example:
         >>> add_breadcrumb(

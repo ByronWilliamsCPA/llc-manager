@@ -54,22 +54,23 @@ class TaxFiling(Base, UUIDPrimaryKeyMixin, AuditMixin):
     """Represents a tax filing obligation or completed filing for an entity.
 
     Attributes:
-        entity_id: Foreign key to the owning entity.
-        filing_type: Type of tax filing.
-        jurisdiction: State or jurisdiction (use "Federal" for federal).
-        tax_year: Tax year for the filing.
-        tax_period: Specific period (e.g., "Q1 2024", "2024").
-        frequency: How often this filing is required.
-        due_date: Date the filing is due.
-        extended_due_date: Extended due date if extension filed.
-        filed_date: Date the filing was completed.
-        status: Current status of the filing.
-        form_number: Tax form number (e.g., "1065", "Form 568").
-        confirmation_number: Filing confirmation number.
-        preparer: Name of tax preparer.
-        amount_due: Amount due with the filing.
-        amount_paid: Amount paid with the filing.
-        notes: Additional notes about the filing.
+        entity_id (Mapped[UUID]): Foreign key to the owning entity.
+        filing_type (Mapped[TaxFilingType]): Type of tax filing.
+        jurisdiction (Mapped[str]): State or jurisdiction (use "Federal" for federal).
+        tax_year (Mapped[int]): Tax year for the filing.
+        tax_period (Mapped[str | None]): Specific period (e.g., "Q1 2024", "2024").
+        frequency (Mapped[FilingFrequency]): How often this filing is required.
+        due_date (Mapped[date | None]): Date the filing is due.
+        extended_due_date (Mapped[date | None]): Extended due date if extension filed.
+        filed_date (Mapped[date | None]): Date the filing was completed.
+        status (Mapped[FilingStatus]): Current status of the filing.
+        form_number (Mapped[str | None]): Tax form number (e.g., "1065", "Form 568").
+        confirmation_number (Mapped[str | None]): Filing confirmation number.
+        preparer (Mapped[str | None]): Name of tax preparer.
+        amount_due (Mapped[str | None]): Amount due with the filing.
+        amount_paid (Mapped[str | None]): Amount paid with the filing.
+        notes (Mapped[str | None]): Additional notes about the filing.
+        entity (Mapped['Entity']): The owning entity relationship.
     """
 
     __tablename__ = "tax_filings"

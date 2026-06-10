@@ -34,26 +34,28 @@ class Owner(Base, UUIDPrimaryKeyMixin, AuditMixin):
     """Represents an owner or member of an entity.
 
     Attributes:
-        entity_id: Foreign key to the owning entity.
-        owner_name: Name of the owner (person or entity).
-        owner_entity_id: If owner is another entity, reference to it.
-        ownership_type: Type of ownership relationship.
-        ownership_percentage: Percentage of ownership.
-        capital_contribution: Capital contributed by the owner.
-        profit_share_percentage: Share of profits (if different from ownership).
-        loss_share_percentage: Share of losses (if different from ownership).
-        voting_percentage: Voting percentage (if different from ownership).
-        start_date: Date ownership began.
-        end_date: Date ownership ended (null if current).
-        ein_or_ssn: EIN or SSN of owner (encrypted/masked in display).
-        address: Owner's address.
-        city: Owner's city.
-        state: Owner's state.
-        zip_code: Owner's ZIP code.
-        email: Owner's email address.
-        phone: Owner's phone number.
-        notes: Additional notes.
-        is_active: Whether this ownership is currently active.
+        entity_id (Mapped[UUID]): Foreign key to the owning entity.
+        owner_name (Mapped[str]): Name of the owner (person or entity).
+        owner_entity_id (Mapped[UUID | None]): If owner is another entity, reference to it.
+        ownership_type (Mapped[OwnershipType]): Type of ownership relationship.
+        ownership_percentage (Mapped[Decimal]): Percentage of ownership.
+        capital_contribution (Mapped[Decimal | None]): Capital contributed by the owner.
+        profit_share_percentage (Mapped[Decimal | None]): Share of profits (if different from ownership).
+        loss_share_percentage (Mapped[Decimal | None]): Share of losses (if different from ownership).
+        voting_percentage (Mapped[Decimal | None]): Voting percentage (if different from ownership).
+        start_date (Mapped[date | None]): Date ownership began.
+        end_date (Mapped[date | None]): Date ownership ended (null if current).
+        ein_or_ssn (Mapped[str | None]): EIN or SSN of owner (encrypted/masked in display).
+        address (Mapped[str | None]): Owner's address.
+        city (Mapped[str | None]): Owner's city.
+        state (Mapped[str | None]): Owner's state.
+        zip_code (Mapped[str | None]): Owner's ZIP code.
+        email (Mapped[str | None]): Owner's email address.
+        phone (Mapped[str | None]): Owner's phone number.
+        notes (Mapped[str | None]): Additional notes.
+        is_active (Mapped[bool]): Whether this ownership is currently active.
+        entity (Mapped['Entity']): The owning entity relationship.
+        owner_entity (Mapped['Entity | None']): The owner entity if the owner is itself an entity.
     """
 
     __tablename__ = "owners"

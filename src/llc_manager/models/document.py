@@ -67,21 +67,22 @@ class Document(Base, UUIDPrimaryKeyMixin, AuditMixin):
     """Represents a document associated with an entity.
 
     Attributes:
-        entity_id: Foreign key to the owning entity.
-        document_type: Type of document.
-        title: Title or name of the document.
-        description: Description of the document.
-        file_path: Path to the stored file.
-        file_name: Original file name.
-        file_size: Size of the file in bytes.
-        mime_type: MIME type of the file.
-        document_date: Date of the document.
-        effective_date: Date the document became effective.
-        expiration_date: Date the document expires.
-        version: Version number of the document.
-        tags: Comma-separated tags for categorization.
-        notes: Additional notes about the document.
-        is_confidential: Whether the document is confidential.
+        entity_id (Mapped[UUID]): Foreign key to the owning entity.
+        document_type (Mapped[DocumentType]): Type of document.
+        title (Mapped[str]): Title or name of the document.
+        description (Mapped[str | None]): Description of the document.
+        file_path (Mapped[str | None]): Path to the stored file.
+        file_name (Mapped[str | None]): Original file name.
+        file_size (Mapped[int | None]): Size of the file in bytes.
+        mime_type (Mapped[str | None]): MIME type of the file.
+        document_date (Mapped[date | None]): Date of the document.
+        effective_date (Mapped[date | None]): Date the document became effective.
+        expiration_date (Mapped[date | None]): Date the document expires.
+        version (Mapped[str | None]): Version number of the document.
+        tags (Mapped[str | None]): Comma-separated tags for categorization.
+        notes (Mapped[str | None]): Additional notes about the document.
+        is_confidential (Mapped[bool]): Whether the document is confidential.
+        entity (Mapped['Entity']): The owning entity relationship.
     """
 
     __tablename__ = "documents"
