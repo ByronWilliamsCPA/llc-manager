@@ -80,9 +80,13 @@ jobs:
 
       - name: Run FIPS compatibility check
         id: fips-check
+        env:
+          # Shell template-injection mitigation: pass the dispatch input through
+          # an env var instead of interpolating it into the run block (issue #63)
+          STRICT_MODE: ${{ github.event.inputs.strict_mode }}
         run: |
           STRICT_FLAG=""
-          if [[ "${{ github.event.inputs.strict_mode }}" == "true" ]]; then
+          if [[ "$STRICT_MODE" == "true" ]]; then
             STRICT_FLAG="--strict"
           fi
           set +e
