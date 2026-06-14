@@ -32,7 +32,7 @@ jobs:
   # ==========================================================================
   core-validation:
     name: Core Validation
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-pr-validation.yml@d18c93045bef4f6669488c7657543a5b7e04f8ed # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-pr-validation.yml@01bb5747a7e14b480b26ab94123f25f5e591cde2 # main
     with:
       python-version: '3.12'
       source-directory: 'src'
