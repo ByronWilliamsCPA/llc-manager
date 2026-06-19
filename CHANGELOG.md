@@ -336,6 +336,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `libgssapi-krb5-2`)
   - CVE-2026-7598 -- libssh2 integer overflow via large username or password
     (affects `libssh2-1t64`)
+- fix(security): resolve HIGH/CRITICAL dependency CVEs by upgrading six locked
+  packages in `uv.lock`, clearing the OSV scanner gate that had been failing on
+  every branch (and on `main` since the 2026-06-15 scheduled run) because the
+  whole-lockfile scan fails on any advisory:
+  - `python-multipart` 0.0.29 -> 0.0.32 (CVE-2026-53540, CVE-2026-53539,
+    CVE-2026-53538, CVE-2026-42561)
+  - `starlette` 1.1.0 -> 1.3.1 (CVE-2026-54283, CVE-2026-54282)
+  - `tornado` 6.5.5 -> 6.5.7 (CVE-2026-49854, CVE-2026-49853, CVE-2026-49855,
+    GHSA-pw6j-qg29-8w7f)
+  - `jupyter-server` 2.18.2 -> 2.20.0 (CVE-2026-44727, CVE-2026-40110)
+  - `bleach` 6.3.0 -> 6.4.0
+  - `cryptography` 48.0.0 -> 49.0.0
+  - `jupyterlab` 4.5.7 -> 4.6.0 (GHSA-vmhf-c436-hxj4; flagged by osv-scanner
+    from the GitHub advisory feed, which pip-audit's PYSEC source did not
+    surface)
+- fix(security): track three HIGH-severity Debian CVEs with no upstream patch
+  available as of 2026-06-18 in `.trivyignore` and `docs/known-vulnerabilities.md`
+  per project policy, clearing the Container Security (Trivy) gate:
+  - CVE-2026-11822 -- SQLite memory corruption pre-3.53.2 (affects `libsqlite3-0`)
+  - CVE-2026-11824 -- SQLite heap-based buffer overflow pre-3.53.2 (affects
+    `libsqlite3-0`)
+  - CVE-2026-48962 -- perl-IO-Compress arbitrary code execution via
+    attacker-controlled output glob (affects `perl-base`)
 
 ## [0.1.0] - TBD
 

@@ -481,6 +481,83 @@ Alpine Python image). Monitor the Debian security tracker and re-run
 
 ---
 
+### CVE-2026-11822, CVE-2026-11824 - libsqlite3-0 base image package (reassess by 2026-08-17)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-11822, CVE-2026-11824 |
+| **Package** | libsqlite3-0 3.46.1-7+deb13u1 (Debian 13 package in `python:3.12-slim`) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-06-18 |
+| **Last reassessed** | 2026-06-18 |
+| **Reassess by** | 2026-08-17 |
+
+**Description**: Memory-safety vulnerabilities in SQLite before 3.53.2:
+
+- CVE-2026-11822 (High): memory corruption.
+- CVE-2026-11824 (High): heap-based buffer overflow.
+
+**Rationale for accepting**: `libsqlite3-0` is a transitive shared library in
+the `python:3.12-slim` base image. LLC Manager persists all data in PostgreSQL
+via `asyncpg`; no runtime code path opens a SQLite database or parses untrusted
+SQLite input, so the affected SQLite parser is never reached. No Debian patch is
+available as of 2026-06-18 (the Trivy `Fixed Version` column is empty for both).
+
+**Mitigation in place**:
+
+- No SQLite database is opened by the application or its runtime dependencies.
+- Container runs as a non-root user (`appuser`, UID 1000).
+- `.trivyignore` entries prevent CI failure until Debian releases a patch.
+- `apt-get upgrade -y` runs in the runtime stage so a future Debian backport is
+  picked up automatically on the next image rebuild.
+
+**Resolution path**: upgrade the base image when Debian 13 ships a patched
+`libsqlite3-0` (SQLite >= 3.53.2). Monitor the Debian security tracker and
+re-run `trivy image` monthly.
+
+**Tracking**: Debian security tracker; no upstream patch available as of 2026-06-18.
+
+---
+
+### CVE-2026-48962 - perl-base IO::Compress (reassess by 2026-08-17)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-48962 |
+| **Package** | perl-base 5.40.1-6 (Debian 13 package in `python:3.12-slim`) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-06-18 |
+| **Last reassessed** | 2026-06-18 |
+| **Reassess by** | 2026-08-17 |
+
+**Description**: Arbitrary code execution in Perl's `IO::Compress` modules via
+an attacker-controlled output glob.
+
+**Rationale for accepting**: `perl-base` is an `Essential` Debian package present
+transitively in the `python:3.12-slim` base image; it cannot be removed without
+breaking `dpkg`. The LLC Manager runtime is a Python/FastAPI application that
+never invokes the Perl interpreter or `IO::Compress`. No application code path,
+dependency, or container entrypoint executes Perl, so the vulnerable code is
+unreachable from the request path. No Debian patch is available as of 2026-06-18.
+
+**Mitigation in place**:
+
+- No Perl is invoked by the application, its dependencies, or the container
+  `CMD`/`HEALTHCHECK` (both use Python and `curl`, not Perl).
+- Container runs as a non-root user (`appuser`); no privileged Perl process runs.
+- `.trivyignore` entry prevents CI failure until Debian ships a patched package.
+
+**Resolution path**: upgrade the base image when Debian 13 ships a patched
+`perl-base`, or migrate to a Perl-free base image (for example a distroless or
+Alpine Python image). Monitor the Debian security tracker and re-run
+`trivy image` monthly.
+
+**Tracking**: Debian security tracker; no upstream patch available as of 2026-06-18.
+
+---
+
 ## Archive
 
 No resolved entries yet.
