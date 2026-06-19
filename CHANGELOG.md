@@ -348,6 +348,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `jupyter-server` 2.18.2 -> 2.20.0 (CVE-2026-44727, CVE-2026-40110)
   - `bleach` 6.3.0 -> 6.4.0
   - `cryptography` 48.0.0 -> 49.0.0
+  - `jupyterlab` 4.5.7 -> 4.6.0 (GHSA-vmhf-c436-hxj4; flagged by osv-scanner
+    from the GitHub advisory feed, which pip-audit's PYSEC source did not
+    surface)
 - fix(security): track three HIGH-severity Debian CVEs with no upstream patch
   available as of 2026-06-18 in `.trivyignore` and `docs/known-vulnerabilities.md`
   per project policy, clearing the Container Security (Trivy) gate:
