@@ -45,3 +45,18 @@ CVE-2026-9538
 # CVE-2026-4878: libcap2 privilege escalation via TOCTOU race in cap_set_file() -- no Debian fix available as of 2026-05-07
 # Affects: libcap2 1:2.75-10+b8 in python:3.12-slim base image
 CVE-2026-4878
+
+# libsqlite3-0 memory-safety CVEs (SQLite < 3.53.2) -- no Debian fix available as of 2026-06-18.
+# Affects: libsqlite3-0 in python:3.12-slim base image. The application talks to
+# PostgreSQL via asyncpg; no runtime code path opens a SQLite database or parses
+# untrusted SQLite input, so the affected parser is unreachable.
+# CVE-2026-11822: SQLite memory corruption (HIGH)
+# CVE-2026-11824: SQLite heap-based buffer overflow (HIGH)
+CVE-2026-11822
+CVE-2026-11824
+
+# CVE-2026-48962: perl-IO-Compress arbitrary code execution via attacker-controlled output glob (HIGH)
+# -- no Debian fix available as of 2026-06-18.
+# Affects: perl-base in python:3.12-slim base image. The Python/FastAPI runtime
+# never invokes Perl or IO::Compress.
+CVE-2026-48962
