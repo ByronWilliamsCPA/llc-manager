@@ -2,19 +2,48 @@ version: 2
 # Detection-only: Renovate is the sole PR-opener. open-pull-requests-limit: 0
 # suppresses Dependabot version PRs. Dependabot alerts (a repo setting) remain
 # the multi-ecosystem detection ledger. Refs: standards CI-021 (amended), CI-074.
+#
+# Grouping rationale: the OSV scanner gate scans the entire uv.lock on every PR.
+# When multiple deps are vulnerable simultaneously, single-dep PRs each trip over
+# the OTHER unpatched advisories, creating a deadlock where no individual PR can
+# pass CI. Grouping all updates into one PR ensures the gate sees a fully-patched
+# lockfile. PR #82 was the first manual resolution of such a pileup.
 updates:
   - package-ecosystem: "pip"            # Python: pyproject.toml / requirements / uv
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
+    groups:
+      # All runtime minor/patch updates land in one PR so OSV sees a full patch.
+      python-runtime:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      # All dev/test dependency updates land in one PR.
+      python-dev:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "github-actions" # if .github/workflows/ present
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
+    groups:
+      # All GitHub Actions bumps land in one PR.
+      github-actions-all:
+        patterns:
+          - "*"
   - package-ecosystem: "docker"         # if Dockerfile present
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 0
+    groups:
+      # All Docker base image bumps land in one PR.
+      docker-all:
+        patterns:
+          - "*"
