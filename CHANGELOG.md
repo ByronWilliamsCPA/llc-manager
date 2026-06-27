@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 <!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->
+- CI: Claude Tier 0 baseline PR review caller
+  (`.github/workflows/claude-baseline-review.yml`), a thin caller of the
+  org reusable in `ByronWilliamsCPA/.github`. Part of the org-wide
+  tiered-pr-review rollout.
 - qlty PR gate and weekly health scan in `.github/workflows/qlty.yml`:
   a diff-mode `qlty-gate` job that blocks PRs introducing medium+
   severity issues, and a scheduled Monday full-codebase `qlty-health`
