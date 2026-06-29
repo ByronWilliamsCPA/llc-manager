@@ -6,6 +6,7 @@
 name: PR Validation
 
 on:
+  merge_group:
   pull_request:
     # `labeled` / `unlabeled` are required for the changelog-enforcer skip
     # labels (skip-changelog, dependencies, documentation) to take effect
