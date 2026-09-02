@@ -161,6 +161,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   references (`Apache-2.0.txt`, `BSD-3-Clause.txt`, `GPL-3.0-or-later.txt`)
 - Placeholder `check_cache` and `check_external_service` probes in
   `health.py` that always returned `status=True`
+- `.github/workflows/codeql.yml` and `.github/workflows/dependency-review.yml`.
+  GitHub now bills Advanced Security (Code Security), so CodeQL code scanning
+  and the `dependency-review` action no longer function. Bandit and OSV
+  Scanner (`security-analysis.yml`) continue to run and are unaffected.
+  `security-analysis.yml`'s `run-codeql: true` / `run-dependency-review: true`
+  inputs to the org reusable workflow are left in place for a coordinated
+  fleet-wide follow-up.
 
 ### Fixed
 
