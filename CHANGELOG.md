@@ -103,6 +103,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `pr-validation.yml`: removed the `core-validation` job, which called
+  `ByronWilliamsCPA/.github`'s `python-pr-validation.yml`. That reusable
+  workflow is a retired tombstone that now hard-fails on every invocation,
+  which was breaking the required `Dependency & Standards Validation`
+  status check on every PR. Its former coverage (lint, type checking,
+  tests, security scanning, conventional-commit PR titles) is already
+  provided independently by `ci.yml` (`CI Gate`), `security-analysis.yml`
+  (`Security Gate Validation`), and `pr-title.yml` (`Validate PR Title`).
+  `dep-std-validation` and `validation-summary` no longer `need` the
+  removed job.
 - CORS middleware in `main.py` restricted from wildcard `allow_methods` /
   `allow_headers` to explicit allowlists (`GET, POST, PATCH, DELETE,
   OPTIONS` and `Authorization, Content-Type, X-Correlation-ID,
