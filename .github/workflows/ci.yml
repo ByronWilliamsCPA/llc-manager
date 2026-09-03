@@ -50,11 +50,25 @@ jobs:
   # "CI Pipeline / CI Gate"), which cannot match a bare-name ruleset context.
   # This thin local job depends on the reusable workflow call and publishes
   # the required bare name once the underlying gate passes.
+  # #CRITICAL: `if: always()` is what makes this gate capable of failing. Without
+  # it the job is SKIPPED when `ci` fails, and a skipped required check
+  # satisfies the ruleset, so a broken build would still report the bare
+  # `CI Gate` context as met.
+  # #VERIFY: keep both `if: always()` and the `needs.ci.result` comparison.
   ci-gate:
     name: CI Gate
     needs: ci
+    if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 5
+    permissions: {}
     steps:
-      - name: Confirm CI Pipeline reusable workflow succeeded
-        run: echo "CI Pipeline succeeded; bare CI Gate context satisfied for ruleset."
+      - name: Check CI Pipeline result
+        env:
+          CI_RESULT: ${{ needs.ci.result }}
+        run: |
+          if [ "$CI_RESULT" != "success" ]; then
+            echo "::error::CI Gate failed: CI Pipeline result is $CI_RESULT"
+            exit 1
+          fi
+          echo "CI Pipeline succeeded; bare CI Gate context satisfied."

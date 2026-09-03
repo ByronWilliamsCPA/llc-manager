@@ -173,14 +173,36 @@ jobs:
   # (lint, type, tests, security) and dead-code check both pass, which
   # collectively cover the dependency-and-standards surface area together
   # with the separately-gated dependency-review.yml and reuse.yml workflows.
+  #
+  # #CRITICAL: `if: always()` is required. Without it this job is SKIPPED when
+  # `core-validation` fails, and a skipped required check satisfies the
+  # ruleset, so the bare context would report green on a failed build.
+  # #VERIFY: keep `if: always()` and the explicit result comparisons below.
   dep-std-validation:
     name: Dependency & Standards Validation
     needs: [core-validation, dead-code]
+    if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 5
+    permissions: {}
     steps:
-      - name: Confirm dependency and standards gates passed
-        run: echo "Core validation and dead-code checks succeeded; bare Dependency & Standards Validation context satisfied for ruleset."
+      - name: Check dependency and standards results
+        env:
+          CORE_RESULT: ${{ needs.core-validation.result }}
+          DEAD_CODE_RESULT: ${{ needs.dead-code.result }}
+        run: |
+          # `dead-code` is advisory: the vulture step prints findings but the
+          # job always succeeds, so only a non-success job state (cancelled or
+          # infrastructure failure) is treated as blocking here.
+          if [ "$CORE_RESULT" != "success" ]; then
+            echo "::error::Dependency & Standards Validation failed: Core Validation result is $CORE_RESULT"
+            exit 1
+          fi
+          if [ "$DEAD_CODE_RESULT" != "success" ] && [ "$DEAD_CODE_RESULT" != "skipped" ]; then
+            echo "::error::Dependency & Standards Validation failed: Dead Code Check result is $DEAD_CODE_RESULT"
+            exit 1
+          fi
+          echo "Core validation and dead-code checks succeeded; bare Dependency & Standards Validation context satisfied."
 
   # ==========================================================================
   # Validation Summary
