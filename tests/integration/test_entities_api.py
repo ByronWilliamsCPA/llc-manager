@@ -158,9 +158,16 @@ class TestRouterWiring:
     @pytest.mark.integration
     def test_entities_router_mounted_on_v1(self) -> None:
         app = create_app()
-        paths = {route.path for route in app.routes}  # type: ignore[attr-defined]
+        # Read the mounted paths from the generated OpenAPI schema rather than
+        # from app.routes. FastAPI 0.141 defers include_router() expansion, so
+        # app.routes now holds private _IncludedRouter placeholders with no
+        # .path attribute and the routes only materialise later. The schema is
+        # public API, is built from the fully resolved route table, and states
+        # the same thing this test cares about: the endpoint is reachable at
+        # the expected URL.
+        paths = set(app.openapi()["paths"])
         assert any(p.startswith("/api/v1/entities") for p in paths), (
-            "entities router is not mounted on /api/v1/entities"
+            f"entities router is not mounted on /api/v1/entities; got {sorted(paths)}"
         )
         assert entities_router is not None
 
