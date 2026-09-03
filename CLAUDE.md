@@ -319,7 +319,11 @@ LLC_MANAGER_LOG_LEVEL=INFO
 **GitHub Actions workflows**:
 
 1. **CI** (`.github/workflows/ci.yml`): tests, linting, type checking
-2. **Security** (`.github/workflows/security-analysis.yml`): CodeQL, Bandit, Safety
+2. **Security** (`.github/workflows/security-analysis.yml`): Bandit, OSV Scanner.
+   CodeQL (`run-codeql: true`) is still passed to the org reusable workflow but
+   no longer functions: GitHub now bills Advanced Security (Code Security).
+   The input is left in place pending a coordinated fleet-wide update to the
+   shared reusable workflow.
 3. **Docs** (`.github/workflows/docs.yml`): build and deploy documentation
 4. **Publish** (`.github/workflows/publish-pypi.yml`): PyPI release automation
 5. **SonarCloud** (`.github/workflows/sonarcloud.yml`): code quality analysis
@@ -327,15 +331,17 @@ LLC_MANAGER_LOG_LEVEL=INFO
 7. **SLSA Provenance** (`.github/workflows/slsa-provenance.yml`): SLSA Level 3 attestations
 8. **Release** (`.github/workflows/release.yml`): semantic versioning and GitHub release creation
 9. **Container Security** (`.github/workflows/container-security.yml`): Trivy and Hadolint scanning
-10. **Dependency Review** (`.github/workflows/dependency-review.yml`): vulnerability and license checks on PRs
-11. **FIPS Compatibility** (`.github/workflows/fips-compatibility.yml`): crypto algorithm audit
-12. **Mutation Testing** (`.github/workflows/mutation-testing.yml`): test effectiveness validation
-13. **PR Validation** (`.github/workflows/pr-validation.yml`): conventional commits, changelog, dead code, link checks
-14. **Python Compatibility** (`.github/workflows/python-compatibility.yml`): multi-version and multi-OS matrix
-15. **REUSE Compliance** (`.github/workflows/reuse.yml`): SPDX license header validation
-16. **SBOM** (`.github/workflows/sbom.yml`): CycloneDX SBOM generation and Trivy scan
-17. **Codecov Upload** (`.github/workflows/codecov.yml`): coverage report upload to Codecov
-18. **Validate Cruft** (`.github/workflows/validate-cruft.yml`): template sync status check
+10. **FIPS Compatibility** (`.github/workflows/fips-compatibility.yml`): crypto algorithm audit
+11. **Mutation Testing** (`.github/workflows/mutation-testing.yml`): test effectiveness validation
+12. **PR Validation** (`.github/workflows/pr-validation.yml`): conventional commits, changelog, dead code, link checks
+13. **Python Compatibility** (`.github/workflows/python-compatibility.yml`): multi-version and multi-OS matrix
+14. **REUSE Compliance** (`.github/workflows/reuse.yml`): SPDX license header validation
+15. **SBOM** (`.github/workflows/sbom.yml`): CycloneDX SBOM generation and Trivy scan
+16. **Codecov Upload** (`.github/workflows/codecov.yml`): coverage report upload to Codecov
+17. **Validate Cruft** (`.github/workflows/validate-cruft.yml`): template sync status check
+
+`.github/workflows/codeql.yml` and `.github/workflows/dependency-review.yml`
+were removed (GitHub Advanced Security billing change; see `CHANGELOG.md`).
 
 Project-level gates (must all pass in CI):
 

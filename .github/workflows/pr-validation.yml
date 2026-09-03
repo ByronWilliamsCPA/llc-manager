@@ -172,7 +172,9 @@ jobs:
   # aggregator publishes the required bare name once the core CI checks
   # (lint, type, tests, security) and dead-code check both pass, which
   # collectively cover the dependency-and-standards surface area together
-  # with the separately-gated dependency-review.yml and reuse.yml workflows.
+  # with the separately-gated reuse.yml workflow. dependency-review.yml was
+  # removed (GitHub now bills Advanced Security; the dependency-review
+  # action no longer functions).
   dep-std-validation:
     name: Dependency & Standards Validation
     needs: [core-validation, dead-code]
