@@ -48,15 +48,8 @@
 # ============================================================================
 # Add your project's vulnerability exceptions below this line
 
-# ----------------------------------------------------------------------------
-# interrogate/py dependency - CVE-2022-42969 (DISPUTED)
-# ----------------------------------------------------------------------------
-[[IgnoredVulns]]
-id = "CVE-2022-42969"
-reason = """
-DISPUTED ReDoS vulnerability in py package (transitive dependency of interrogate).
-Only affects Subversion repository path parsing, which this project does not use.
-interrogate is a dev dependency for docstring coverage checking.
-The py package is unmaintained but poses no security risk in this context.
-See: https://nvd.nist.gov/vuln/detail/CVE-2022-42969
-"""
+# No project-specific exceptions are currently required.
+#
+# The former interrogate/py entry (CVE-2022-42969) was removed on
+# 2026-09-03: OSV withdrew that advisory on 2026-06-09, so nothing matched
+# it any more and osv-scanner exited 1 with "has unused ignores".

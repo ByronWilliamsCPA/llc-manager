@@ -47,39 +47,20 @@ older than 60 days (see global `~/.claude/CLAUDE.md` section on unfixed CVEs).
 
 ## Active Entries
 
-### PYSEC-2022-42969 - py (reassess by 2026-06-19)
+### PYSEC-2022-42969 - py (resolved 2026-09-03)
 
 | Field | Value |
 |-------|-------|
-| **ID** | PYSEC-2022-42969 |
-| **Package** | py==1.11.0 (unmaintained; transitive dep of pytest plugins) |
-| **Severity** | Medium |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-01-18 |
-| **Last reassessed** | 2026-04-20 |
-| **Reassess by** | 2026-06-19 |
+| **ID** | PYSEC-2022-42969 (aliases CVE-2022-42969, GHSA-w596-4wvx-j9j6) |
+| **Package** | py==1.11.0 (transitive dep of interrogate) |
+| **Status** | Resolved. No longer an accepted risk. |
+| **Resolved** | 2026-09-03 |
 
-**Description**: ReDoS in `py.path.svnwc.SvnWCCommandPath` when processing
-malicious SVN output. See <https://github.com/pytest-dev/py/issues/287>.
-
-**Rationale for accepting**: We do not use Subversion anywhere in the codebase
-or CI. The vulnerable code path is `py.path.svnwc.SvnWCCommandPath`, which
-only executes when `py.path` is used to inspect an SVN working copy. Our
-project uses git exclusively.
-
-**Mitigation in place**:
-
-- No SVN tooling in the project; `py.path.svnwc` is never imported.
-- `py` is only retained transitively by pytest-era plugins; removing it
-  is blocked on upstream maintainers migrating off `py`.
-
-**Resolution path**: monitor pytest and its plugin ecosystem for migration
-off `py`. Re-run `pip-audit` monthly; the entry is cleared automatically when
-the dep is dropped.
-
-**Tracking**: upstream issue <https://github.com/pytest-dev/py/issues/287>.
-
----
+**Resolution**: OSV withdrew the advisory on 2026-06-09 as disputed. Nothing
+matches it any more, so the `osv-scanner.toml` ignore entry became a dead
+rule; osv-scanner exits non-zero on unused ignores, which is what was failing
+the OSV Vulnerability Scanner job on `main`. The ignore entry was removed in
+the same change. No pinned version changed.
 
 ### CVE-2025-53000 - nbconvert (reassess by 2026-06-19)
 

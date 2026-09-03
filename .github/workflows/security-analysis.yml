@@ -63,11 +63,26 @@ jobs:
       run-safety: false
       run-osv: true
 
+  # #CRITICAL: without `if: always()` this job is SKIPPED whenever `security`
+  # fails, and GitHub rulesets treat a skipped required check as satisfied. The
+  # gate then reports green on a failed security scan, which is worse than
+  # having no gate because branch protection still shows the repo as covered.
+  # #VERIFY: `if: always()` and the explicit `needs.security.result` comparison
+  # below must both survive any edit to this job.
   security-gate:
     name: Security Gate Validation
     needs: security
+    if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 5
+    permissions: {}
     steps:
-      - name: Confirm Security Analysis reusable workflow succeeded
-        run: echo "Security Analysis succeeded; bare Security Gate Validation context satisfied for ruleset."
+      - name: Check Security Analysis result
+        env:
+          SECURITY_RESULT: ${{ needs.security.result }}
+        run: |
+          if [ "$SECURITY_RESULT" != "success" ]; then
+            echo "::error::Security Gate Validation failed: Security Analysis result is $SECURITY_RESULT"
+            exit 1
+          fi
+          echo "Security Analysis succeeded; bare Security Gate Validation context satisfied."
