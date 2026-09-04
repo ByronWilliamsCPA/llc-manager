@@ -1,8 +1,21 @@
 # PR Validation for LLC Manager
-# Comprehensive pull request validation using org-level workflow plus additional checks.
+# Supplementary pull request checks: dead code detection, changelog
+# enforcement, and documentation links.
 #
-# This workflow calls the org-level PR validation workflow and adds supplementary
-# checks for dead code detection, changelog enforcement, and documentation links.
+# The org-level python-pr-validation.yml reusable workflow this file used to
+# call has been retired (tombstoned) upstream in ByronWilliamsCPA/.github; it
+# now hard-fails on every call. #ASSUME its coverage (lint, type checking,
+# tests, security scanning, conventional-commit PR titles) is fully replaced
+# by this repo's own ci.yml (CI Gate), security-analysis.yml (Security Gate
+# Validation), and pr-title.yml (Validate PR Title), all of which already run
+# on the same pull_request events. #VERIFY on the next PR that CI Gate,
+# Security Gate Validation, and Validate PR Title all still post and are
+# green; if any is missing, re-add an equivalent local check here instead of
+# assuming coverage exists. The one core-validation input with no surviving
+# equivalent, require-description (minimum PR body length), was dropped
+# org-wide by design when python-pr-validation.yml was deprecated (see that
+# file's migration header: "PR title and description validation: removed,
+# use semantic-release"), so it is intentionally not reintroduced here.
 name: PR Validation
 
 on:
@@ -29,28 +42,16 @@ permissions:
 
 jobs:
   # ==========================================================================
-  # Org-Level PR Validation (Core Checks)
-  # ==========================================================================
-  core-validation:
-    name: Core Validation
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-pr-validation.yml@7d12f5486ab5c856397ebaa4acd3c99ca385227c # main
-    with:
-      python-version: '3.12'
-      source-directory: 'src'
-      test-directory: 'tests'
-      require-tests: true
-      require-conventional-commits: true
-      require-description: true
-      min-description-length: 50
-      check-breaking-changes: true
-      add-size-labels: true
-      coverage-threshold: 80
-
-  # ==========================================================================
   # Additional Checks (Template-Specific)
-  # `secrets: inherit` intentionally omitted from core-validation above:
-  # the org python-pr-validation reusable workflow references no secrets.
   # ==========================================================================
+  # core-validation (the org-level python-pr-validation.yml call) was removed
+  # here: that reusable workflow is a tombstone that now hard-fails on every
+  # invocation upstream (ByronWilliamsCPA/.github). Its previously-real
+  # coverage is already provided independently by this repo's ci.yml (CI
+  # Gate), security-analysis.yml (Security Gate Validation), and pr-title.yml
+  # (Validate PR Title); re-adding a second python-ci.yml caller here would
+  # just run the same lint/type/test/security suite twice per PR for no new
+  # signal. See the workflow-level comment above for the full rationale.
 
   # Dead Code Detection with Vulture
   dead-code:
@@ -166,23 +167,36 @@ jobs:
   # Dependency & Standards Validation Aggregator
   # ==========================================================================
   # Publishes the bare "Dependency & Standards Validation" status context
-  # required by the ByronWilliamsCPA-default-branch-baseline ruleset. The
-  # original job lives in python-pr-validation.yml, but PR #32 migrated this
-  # workflow to call python-ci.yml instead, orphaning the gate. This thin
-  # aggregator publishes the required bare name once the core CI checks
-  # (lint, type, tests, security) and dead-code check both pass, which
-  # collectively cover the dependency-and-standards surface area together
-  # with the separately-gated reuse.yml workflow. dependency-review.yml was
-  # removed (GitHub now bills Advanced Security; the dependency-review
-  # action no longer functions).
+  # required by the ByronWilliamsCPA-default-branch-baseline ruleset. This
+  # job previously also needed core-validation (the org-level
+  # python-pr-validation.yml call), which is now a tombstone that always
+  # fails; that need has been dropped so this gate is not permanently red
+  # for a reason unrelated to this repo's own code.
+  #
+  # #ASSUME dead-code remains a real, non-placeholder input: the vulture step
+  # itself is advisory only (dead-code findings never fail the job), but the
+  # preceding `uv sync --all-extras` step is a genuine dependency-resolution
+  # check that fails outright on a broken or inconsistent lockfile/
+  # pyproject.toml, and the checkout/setup steps fail on real environment
+  # problems. This job is intentionally not expanded to also need `changelog`:
+  # that would newly make a missing CHANGELOG.md entry block merges through a
+  # required ruleset check, reproducing the exact per-PR changelog/merge-queue
+  # conflict pattern the org deprecated elsewhere (per-PR CHANGELOG edits
+  # conflict in an ALLGREEN merge queue; the changelog is now generated at
+  # release from Conventional Commits instead). Deeper
+  # lint/type/test/security coverage is intentionally NOT duplicated here;
+  # it is already gated separately and required via ci.yml's CI Gate and
+  # security-analysis.yml's Security Gate Validation. #VERIFY that dead-code's
+  # `uv sync` step still fails loudly on a broken lockfile if this job's
+  # scope changes again.
   dep-std-validation:
     name: Dependency & Standards Validation
-    needs: [core-validation, dead-code]
+    needs: [dead-code]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
       - name: Confirm dependency and standards gates passed
-        run: echo "Core validation and dead-code checks succeeded; bare Dependency & Standards Validation context satisfied for ruleset."
+        run: echo "Dead-code job (dependency install plus standards check) succeeded; bare Dependency & Standards Validation context satisfied for ruleset."
 
   # ==========================================================================
   # Validation Summary
@@ -191,7 +205,7 @@ jobs:
     name: Validation Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [core-validation, dead-code, changelog, link-check]
+    needs: [dead-code, changelog, link-check]
     if: always()
     permissions:
       contents: read
@@ -203,19 +217,12 @@ jobs:
 
       - name: Check validation results
         env:
-          CORE_RESULT: ${{ needs.core-validation.result }}
           DEAD_CODE_RESULT: ${{ needs.dead-code.result }}
           CHANGELOG_RESULT: ${{ needs.changelog.result }}
           LINK_CHECK_RESULT: ${{ needs.link-check.result }}
         run: |
           echo "## PR Validation Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ "$CORE_RESULT" == "success" ]; then
-            echo "Core Validation: Passed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Core Validation: $CORE_RESULT" >> $GITHUB_STEP_SUMMARY
-          fi
 
           if [ "$DEAD_CODE_RESULT" == "success" ]; then
             echo "Dead Code Check: Passed" >> $GITHUB_STEP_SUMMARY
@@ -243,7 +250,6 @@ jobs:
           # `link-check` is also advisory (lychee runs with fail: false in
           # the job above).
           BLOCK=0
-          [ "$CORE_RESULT" != "success" ] && BLOCK=1
           # Changelog: success and skipped (skip-changelog label) both pass.
           case "$CHANGELOG_RESULT" in
             success|skipped) ;;
