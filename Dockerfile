@@ -25,13 +25,13 @@ COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies to a virtual environment
 # This creates .venv/ which we'll copy to the final stage
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --extra api --no-install-project
 
 # Copy application code
 COPY . .
 
 # Install the project itself
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --extra api
 
 # =============================================================================
 # Stage 2: Runtime - Minimal production image
