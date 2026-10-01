@@ -380,6 +380,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `libsqlite3-0`)
   - CVE-2026-48962 -- perl-IO-Compress arbitrary code execution via
     attacker-controlled output glob (affects `perl-base`)
+- Dependencies: refreshed `uv.lock` to clear advisories reported by pip-audit and OSV-Scanner (urllib3 2.8.0, tornado 6.5.10, virtualenv 21.14.2, cryptography 50.0.2, gitpython 3.2.0, and other flagged transitive packages).
 
 ## [0.1.0] - TBD
 
