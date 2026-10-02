@@ -523,7 +523,7 @@ ignore_names = [
 
 # [tool.semantic_release]
 # version_toml = ["pyproject.toml:project.version"]
-# commit_parser = "conventional_commits"
+# commit_parser = "conventional"
 # commit_parser_options = { parse_squash_commits = true, ignore_merge_commits = true }
 # major_on_zero = false  # Don't bump to 1.0.0 automatically
 # allow_zero_version = true  # Allow 0.x.x versions
