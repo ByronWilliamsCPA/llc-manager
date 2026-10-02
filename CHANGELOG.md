@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 <!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->
+- CI: `Build Image` workflow (`.github/workflows/build-image.yml`) that
+  builds the Dockerfile, smoke-tests the container against
+  `/api/health/live`, and publishes `ghcr.io/byronwilliamscpa/llc-manager`
+  on pushes to `main` with `sha-<7>`, date and `latest` tags, an SBOM,
+  max-mode provenance and a keyless cosign signature
 - CI: Claude Tier 0 baseline PR review caller
   (`.github/workflows/claude-baseline-review.yml`), a thin caller of the
   org reusable in `ByronWilliamsCPA/.github`. Part of the org-wide
@@ -103,6 +108,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `build(docker)`: the Dockerfile now uses the hardened
+  `ghcr.io/byronwilliamscpa/dhi-python` 3.12 images (`-dev` builder and
+  distroless runtime, both pinned by digest). The runtime runs as the
+  image's non-root UID 65532 and the `HEALTHCHECK` uses Python instead of
+  curl
 - `pr-validation.yml`: removed the `core-validation` job, which called
   `ByronWilliamsCPA/.github`'s `python-pr-validation.yml`. That reusable
   workflow is a retired tombstone that now hard-fails on every invocation,
@@ -185,6 +195,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `fix(docker)`: the image now installs the `api` extra, so uvicorn,
+  FastAPI and the database drivers are present and the container starts
 - fix(security): resolve CVE-2026-8643 -- bump transitive `pip` 26.1.1 to
   26.1.2 (dev-only, via `pip-api`/`pip-audit`); pip wrote `console_scripts`
   / `gui_scripts` entry points outside the installation directory without
