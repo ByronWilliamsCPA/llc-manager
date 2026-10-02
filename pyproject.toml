@@ -761,7 +761,7 @@ default = true
 version_toml = ["pyproject.toml:project.version"]
 
 # Commit message parsing
-commit_parser = "conventional_commits"
+commit_parser = "conventional"
 commit_parser_options = { parse_squash_commits = true, ignore_merge_commits = true }
 
 # Version behavior
