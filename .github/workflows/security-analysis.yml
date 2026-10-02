@@ -41,7 +41,7 @@ jobs:
   # as `ci-gate` in ci.yml).
   security:
     name: Security Analysis
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-security-analysis.yml@7d12f5486ab5c856397ebaa4acd3c99ca385227c # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-security-analysis.yml@b7c661ec3bfeb04370ce3a9c748bd8c4e93bfe89 # main
     permissions:
       contents: read
       security-events: write
