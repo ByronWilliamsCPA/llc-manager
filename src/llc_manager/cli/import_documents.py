@@ -92,7 +92,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--entity-map",
         type=Path,
         default=None,
-        help="Key-to-UUID map written by seed_entities --mapping-out.",
+        help="Key-to-UUID map written by seed_entities --mapping-out. It must "
+        "be under the home directory (or $LLC_MANAGER_MAPPING_DIR when set).",
     )
     parser.add_argument(
         "--documents-root",

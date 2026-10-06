@@ -135,8 +135,11 @@ def test_reads_valid_rows(tmp_path: Path) -> None:
 
 
 def test_document_id_is_stable_and_path_based() -> None:
-    assert document_id_for("x/a.pdf") == document_id_for("x/a.pdf")
-    assert document_id_for("x/a.pdf") != document_id_for("x/b.pdf")
+    first = document_id_for("x/a.pdf")
+    again = document_id_for("x/a.pdf")
+    other = document_id_for("x/b.pdf")
+    assert first == again
+    assert first != other
 
 
 def test_document_ids_match_golden_values() -> None:
@@ -377,7 +380,7 @@ def test_load_entity_map(tmp_path: Path) -> None:
     path.write_text(
         json.dumps({"entities": {"household": {"id": str(HOUSEHOLD)}}}), "utf-8"
     )
-    assert load_entity_map(path) == {"household": HOUSEHOLD}
+    assert load_entity_map(path, tmp_path) == {"household": HOUSEHOLD}
 
 
 @pytest.mark.parametrize("content", ["not json", '{"x": 1}', '{"entities": {"a": 1}}'])
@@ -385,8 +388,29 @@ def test_load_entity_map_malformed(tmp_path: Path, content: str) -> None:
     path = tmp_path / "map.json"
     path.write_text(content, "utf-8")
     with pytest.raises(ImportProblemError) as exc:
-        load_entity_map(path)
+        load_entity_map(path, tmp_path)
     assert exc.value.problems == ["entity map is missing or malformed"]
+
+
+def test_load_entity_map_rejects_a_path_outside_the_base_dir(tmp_path: Path) -> None:
+    base = tmp_path / "allowed"
+    base.mkdir()
+    outside = tmp_path / "map.json"
+    outside.write_text(
+        json.dumps({"entities": {"household": {"id": str(HOUSEHOLD)}}}), "utf-8"
+    )
+    with pytest.raises(ImportProblemError) as exc:
+        load_entity_map(outside, base)
+    assert exc.value.problems == ["entity map is outside the allowed mapping directory"]
+
+
+def test_load_entity_map_rejects_traversal_out_of_the_base_dir(tmp_path: Path) -> None:
+    base = tmp_path / "allowed"
+    base.mkdir()
+    (tmp_path / "map.json").write_text("{}", "utf-8")
+    with pytest.raises(ImportProblemError) as exc:
+        load_entity_map(base / ".." / "map.json", base)
+    assert exc.value.problems == ["entity map is outside the allowed mapping directory"]
 
 
 # ---------------------------------------------------------------------------

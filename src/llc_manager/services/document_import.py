@@ -37,6 +37,7 @@ from sqlalchemy import select
 from llc_manager.models.document import Document, DocumentCategory, DocumentType
 from llc_manager.models.entity import Entity
 from llc_manager.services.document_store import mime_for_source, stored_name
+from llc_manager.services.entity_seed import confine_path, mapping_base_dir
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Iterable
@@ -264,20 +265,33 @@ def document_id_for(file_key: str) -> UUID:
     return uuid5(DOCUMENT_NAMESPACE, file_key)
 
 
-def load_entity_map(path: Path) -> dict[str, UUID]:
+def load_entity_map(path: Path, base_dir: Path | None = None) -> dict[str, UUID]:
     """Load the key-to-UUID map written by the entity seed command.
+
+    The file must resolve inside ``base_dir`` (default
+    :func:`~llc_manager.services.entity_seed.mapping_base_dir`), the same
+    directory the seed command is confined to when it writes the map, so a
+    crafted path cannot make the import read an arbitrary file.
 
     Args:
         path (Path): Mapping JSON (``{"entities": {key: {"id": ...}}}``).
+        base_dir (Path | None): Directory the file must be inside.
 
     Returns:
         dict[str, UUID]: Entity key to entity ID.
 
     Raises:
-        ImportProblemError: If the file is missing or malformed.
+        ImportProblemError: If the file is outside the allowed directory,
+            missing, or malformed.
     """
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        target = confine_path(path, base_dir or mapping_base_dir())
+    except OSError:
+        raise ImportProblemError(
+            ["entity map is outside the allowed mapping directory"]
+        ) from None
+    try:
+        raw = json.loads(target.read_text(encoding="utf-8"))
         entities = raw["entities"]
         return {str(key): UUID(str(value["id"])) for key, value in entities.items()}
     except (OSError, ValueError, KeyError, TypeError, AttributeError):

@@ -50,14 +50,19 @@ whose name does not end in `.example.csv`.
 # Check the manifest and source files; change nothing.
 python -m llc_manager.cli.import_documents \
   --manifest /private/manifest.csv \
-  --entity-map /private/entity-map.json \
+  --entity-map ~/private/entity-map.json \
   --validate-only
 
 # Import.
 python -m llc_manager.cli.import_documents \
   --manifest /private/manifest.csv \
-  --entity-map /private/entity-map.json
+  --entity-map ~/private/entity-map.json
 ```
+
+The entity map must sit under the home directory, or under
+`$LLC_MANAGER_MAPPING_DIR` when that is set: the same directory
+`seed_entities --mapping-out` is confined to. A map anywhere else is refused
+with `entity map is outside the allowed mapping directory`.
 
 The command prints counts and value-free problems only, for example
 `rows=4`, `category[Tax Returns]=1`, `tax_returns_without_consent=0`, and

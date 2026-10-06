@@ -51,6 +51,11 @@ class _FakeSession:
         self.rolled_back = True
 
 
+@pytest.fixture(autouse=True)
+def _mapping_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLC_MANAGER_MAPPING_DIR", str(tmp_path))
+
+
 @pytest.fixture
 def repo(monkeypatch: pytest.MonkeyPatch) -> InMemoryRepo:
     fake = InMemoryRepo()
