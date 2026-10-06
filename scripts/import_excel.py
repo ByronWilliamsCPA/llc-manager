@@ -60,7 +60,14 @@ EXPECTED_TABS: list[str] = [
 ]
 
 # StrEnum values derived from the ORM models; stays in sync automatically.
-VALID_ENTITY_TYPES: frozenset[str] = frozenset(e.value for e in EntityType)
+# Individual and household entities are created by the entity seed command
+# (python -m llc_manager.cli.seed_entities), not by this importer: the
+# Entities tab requires an EIN, which those types never have (ADR-002).
+VALID_ENTITY_TYPES: frozenset[str] = frozenset(
+    e.value
+    for e in EntityType
+    if e not in {EntityType.INDIVIDUAL, EntityType.HOUSEHOLD}
+)
 VALID_OWNERSHIP_TYPES: frozenset[str] = frozenset(e.value for e in OwnershipType)
 VALID_REGISTRATION_STATUSES: frozenset[str] = frozenset(
     e.value for e in RegistrationStatus
