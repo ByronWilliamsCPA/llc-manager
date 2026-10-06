@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `feat(entities)`: `individual` and `household` entity types so personal
+  accounts and documents attach to a person or the family instead of to no
+  entity (ADR-002). New nullable `entities.xero_tenant_id` and
+  `bank_accounts.xero_account_id`, each unique among non-deleted rows. Entity
+  responses carry `xero_tenant_id` and a `bank_accounts` summary list (id,
+  nickname, last 4 digits, `xero_account_id`, active flag); the bank account
+  schemas accept `xero_account_id`. The entity list gains `entity_type` and
+  `xero_tenant_id` filters, and a unique-constraint race on create or update
+  now returns 409 instead of 500. An `individual` or `household` cannot set
+  `ein`, `formation_state`, or `formation_date`. Migration `316e25bc258b`.
+- `feat(cli)`: `python -m llc_manager.cli.seed_entities`, an idempotent seed
+  that reads a private JSON file from outside the repository
+  (`--file` or `LLC_MANAGER_ENTITY_SEED_FILE`), derives stable UUIDv5 entity
+  IDs from a private namespace, prints counts only, and can write an
+  owner-only key-to-UUID mapping file confined to the home directory (or
+  `LLC_MANAGER_MAPPING_DIR`). A synthetic example lives in
+  `data/examples/entity_seed.example.json`; see `docs/guides/entity-seed.md`.
+
 <!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->
 - CI: Claude Tier 0 baseline PR review caller
   (`.github/workflows/claude-baseline-review.yml`), a thin caller of the
@@ -335,6 +353,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- fix(security): the database engine sets `hide_parameters=True`, so
+  SQLAlchemy errors and echo logs no longer include bound values (names,
+  EINs, tenant IDs).
 - fix(security): pass the `strict_mode` dispatch input in
   `fips-compatibility.yml` through an `env:` variable instead of interpolating
   it into the `run:` block, removing a shell template-injection pattern

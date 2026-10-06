@@ -115,7 +115,7 @@ src/llc_manager/
 │   ├── base.py            # SQLAlchemy Base + mixins (UUIDPrimaryKeyMixin, AuditMixin)
 │   └── session.py         # Async engine, get_async_session() dependency
 ├── models/                 # SQLAlchemy ORM models
-│   ├── entity.py          # Core Entity (LLC) with all relationships
+│   ├── entity.py          # Core Entity (legal entity, individual, household)
 │   ├── owner.py           # Ownership structure
 │   ├── state_registration.py
 │   ├── bank_account.py
@@ -129,6 +129,10 @@ src/llc_manager/
 │   ├── health.py          # Kubernetes probes (/api/health/live, /ready, /startup)
 │   └── v1/endpoints/
 │       └── entities.py    # CRUD endpoints with pagination, search, filtering
+├── services/
+│   └── entity_seed.py     # Idempotent entity seed with stable UUIDv5 IDs
+├── cli/
+│   └── seed_entities.py   # python -m llc_manager.cli.seed_entities
 ├── middleware/
 │   ├── correlation.py     # X-Correlation-ID propagation
 │   └── security.py        # SSRF protection
@@ -174,7 +178,7 @@ src/llc_manager/
 
 ### API Endpoints
 
-- `GET/POST /api/v1/entities` - List (paginated, searchable) / Create
+- `GET/POST /api/v1/entities` - List (paginated, searchable; `entity_type` and `xero_tenant_id` filters) / Create
 - `GET/PATCH/DELETE /api/v1/entities/{id}` - Read / Update / Soft Delete
 - `GET /api/health/live|ready|startup` - Kubernetes probes
 

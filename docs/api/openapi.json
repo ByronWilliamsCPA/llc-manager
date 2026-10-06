@@ -1,6 +1,59 @@
 {
   "components": {
     "schemas": {
+      "EntityBankAccountRef": {
+        "description": "Bank account summary embedded in entity responses.\n\nCarries only what an external system needs to map its own account to this\nentity: the account UUID, its Xero account ID, and display hints. Contact\ndetails and routing numbers stay out of the entity response.",
+        "properties": {
+          "account_nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Nickname"
+          },
+          "account_number_last4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number Last4"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "xero_account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xero Account Id"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "EntityBankAccountRef",
+        "type": "object"
+      },
       "EntityCreate": {
         "description": "Schema for creating a new entity.",
         "properties": {
@@ -211,6 +264,19 @@
               }
             ],
             "title": "Purpose"
+          },
+          "xero_tenant_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xero Tenant Id"
           }
         },
         "required": [
@@ -270,6 +336,13 @@
               }
             ],
             "title": "Accounting Record Id"
+          },
+          "bank_accounts": {
+            "items": {
+              "$ref": "#/components/schemas/EntityBankAccountRef"
+            },
+            "title": "Bank Accounts",
+            "type": "array"
           },
           "business_address": {
             "anyOf": [
@@ -526,6 +599,19 @@
               }
             ],
             "title": "Updated By"
+          },
+          "xero_tenant_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xero Tenant Id"
           }
         },
         "required": [
@@ -538,7 +624,7 @@
         "type": "object"
       },
       "EntityType": {
-        "description": "Types of business entities.",
+        "description": "Types of entities.\n\n``INDIVIDUAL`` (one per person) and ``HOUSEHOLD`` (one per family) are not\nlegal entities. They exist so personal accounts and personal documents\n(wills, powers of attorney, health directives) attach to an entity like\neverything else. See ADR-002.",
         "enum": [
           "llc",
           "corporation",
@@ -547,6 +633,8 @@
           "sole_proprietorship",
           "trust",
           "non_profit",
+          "individual",
+          "household",
           "other"
         ],
         "title": "EntityType",
@@ -781,6 +869,19 @@
               }
             ],
             "title": "Purpose"
+          },
+          "xero_tenant_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xero Tenant Id"
           }
         },
         "title": "EntityUpdate",
@@ -1053,7 +1154,7 @@
     },
     "/api/v1/entities": {
       "get": {
-        "description": "Return a paginated, optionally filtered list of LLC entities. Supports full-text search across `legal_name`, `ein`, and `dba_names`, plus an `is_active` filter. Soft-deleted entities are excluded.",
+        "description": "Return a paginated, optionally filtered list of entities (legal entities, individuals, and households). Supports full-text search across `legal_name`, `ein`, and `dba_names`, plus `is_active`, `entity_type`, and exact `xero_tenant_id` filters. Soft-deleted entities are excluded.",
         "operationId": "list_entities_api_v1_entities_get",
         "parameters": [
           {
@@ -1118,6 +1219,43 @@
               "description": "Filter by active status",
               "title": "Is Active"
             }
+          },
+          {
+            "description": "Filter by entity type",
+            "in": "query",
+            "name": "entity_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EntityType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by entity type",
+              "title": "Entity Type"
+            }
+          },
+          {
+            "description": "Exact match on the Xero tenant ID",
+            "in": "query",
+            "name": "xero_tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact match on the Xero tenant ID",
+              "title": "Xero Tenant Id"
+            }
           }
         ],
         "responses": {
@@ -1148,7 +1286,7 @@
         ]
       },
       "post": {
-        "description": "Create a new LLC entity. The optional `ein` field must be unique across non-deleted entities; a duplicate value returns 409.",
+        "description": "Create a new entity. The optional `ein` and `xero_tenant_id` fields must be unique across non-deleted entities; a duplicate value returns 409. An `individual` or `household` entity must not set `ein`, `formation_state`, or `formation_date` (422).",
         "operationId": "create_entity_api_v1_entities_post",
         "requestBody": {
           "content": {
@@ -1172,7 +1310,7 @@
             "description": "Entity created successfully"
           },
           "409": {
-            "description": "Entity with the supplied EIN already exists"
+            "description": "Entity with the supplied EIN or Xero tenant ID exists"
           },
           "422": {
             "description": "Validation error"
@@ -1269,7 +1407,7 @@
         ]
       },
       "patch": {
-        "description": "Partially update an entity. Only fields included in the request body are modified. Updating `ein` to a value already held by another entity returns 409.",
+        "description": "Partially update an entity. Only fields included in the request body are modified. Updating `ein` or `xero_tenant_id` to a value already held by another entity returns 409. Sending `xero_tenant_id: null` clears the mapping.",
         "operationId": "update_entity_api_v1_entities__entity_id__patch",
         "parameters": [
           {
@@ -1308,7 +1446,7 @@
             "description": "Entity not found"
           },
           "409": {
-            "description": "Entity with the supplied EIN already exists"
+            "description": "Entity with the supplied EIN or Xero tenant ID exists"
           },
           "422": {
             "description": "Validation error"

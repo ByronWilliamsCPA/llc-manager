@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import Field
 
 from llc_manager.models.bank_account import AccountType
-from llc_manager.schemas.base import BaseSchema, FullSchema
+from llc_manager.schemas.base import BaseSchema, FullSchema, XeroId
 
 
 class BankAccountBase(BaseSchema):
@@ -27,6 +27,7 @@ class BankAccountBase(BaseSchema):
     contact_email: str | None = Field(None, max_length=255)
     branch_address: str | None = None
     online_banking_url: str | None = Field(None, max_length=500)
+    xero_account_id: XeroId | None = None
 
     notes: str | None = None
     is_primary: bool = False
@@ -57,6 +58,7 @@ class BankAccountUpdate(BaseSchema):
     contact_email: str | None = Field(None, max_length=255)
     branch_address: str | None = None
     online_banking_url: str | None = Field(None, max_length=500)
+    xero_account_id: XeroId | None = None
 
     notes: str | None = None
     is_primary: bool | None = None

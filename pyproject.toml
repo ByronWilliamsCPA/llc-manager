@@ -406,6 +406,12 @@ known-first-party = ["llc_manager"]
     "INP",    # Not packages
 ]
 
+# Command-line entry points: the database engine is imported lazily so a
+# validate-only run needs no database settings.
+"src/*/cli/*.py" = [
+    "PLC0415", # Lazy import of the database session module
+]
+
 # API health checks - Example code with template patterns
 "src/*/api/health.py" = [
     "ERA001",  # Commented code shows implementation examples
