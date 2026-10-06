@@ -1,6 +1,6 @@
 # ADR-002: Individual and Household Entities, Stable Seeded IDs
 
-> **Status**: Accepted
+> **Status**: Proposed
 > **Date**: 2026-10-05
 > **Supersedes**: None
 
@@ -45,7 +45,8 @@ entity was a legal entity (LLC, trust, corporation, and so on).
    the `household` entity.
 3. **Add external mapping fields.** `entities.xero_tenant_id` (nullable,
    unique among non-deleted rows) maps a Xero organisation to an entity;
-   `bank_accounts.xero_account_id` (nullable) maps a Xero bank account. Both
+   `bank_accounts.xero_account_id` (nullable, unique among non-deleted rows)
+   maps a Xero bank account. Both
    are returned by the entity API (`xero_tenant_id` on the entity, and a
    `bank_accounts` summary list carrying `xero_account_id`), and the entity
    list accepts `entity_type` and `xero_tenant_id` filters.
@@ -53,14 +54,19 @@ entity was a legal entity (LLC, trust, corporation, and so on).
    `python -m llc_manager.cli.seed_entities` reads a JSON seed file named by
    `--file` or `LLC_MANAGER_ENTITY_SEED_FILE`. The file lives outside this
    repository; the command refuses a file inside the checkout unless it is
-   marked `"synthetic": true` (as `data/examples/entity_seed.example.json`
-   is). It prints counts and value-free problems only.
+   under `data/examples/` and marked `"synthetic": true` (as
+   `data/examples/entity_seed.example.json` is), and it applies a synthetic
+   file to a database only with `--allow-synthetic`. It prints counts and
+   value-free problems only, and reports a database error by class and
+   constraint name only. The format is described in
+   `docs/guides/entity-seed.md`.
 5. **Stable IDs.** Each seed entry has a private `key`. Its UUID is
-   `uuid5(namespace, key)`, where `namespace` defaults to a constant in
-   `llc_manager.services.entity_seed` and may be overridden per seed file. An
-   entry may pin an explicit `id` instead, for entities that existed before
-   the seed. The seed creates missing entities, updates only the fields the
-   file names, and leaves soft-deleted entities alone.
+   `uuid5(namespace, key)`. A real seed file must set its own private
+   `namespace`; the constant in `llc_manager.services.entity_seed` is only
+   for synthetic files. An entry may pin an explicit `id` instead, for
+   entities that existed before the seed. The seed creates missing entities,
+   updates only the fields the file names, and leaves soft-deleted entities
+   alone (reporting them and leaving them out of the mapping).
 
 ## Consequences
 
@@ -69,8 +75,9 @@ entity was a legal entity (LLC, trust, corporation, and so on).
 - Every balance and document has a non-null owner, including personal ones.
 - Re-running the seed is safe and never changes an ID.
 - Downstream services can map Xero organisations to entities through the API.
-- The optional `--mapping-out` file (owner-only permissions) gives other
-  seeds the key-to-UUID map without querying the database.
+- The optional `--mapping-out` file (owner-only permissions on POSIX) gives
+  other seeds each key's UUID, entity type, and Xero tenant ID without
+  querying the database.
 
 ### Negative
 
@@ -78,9 +85,14 @@ entity was a legal entity (LLC, trust, corporation, and so on).
   about legal entities; many columns are simply null for them.
 - PostgreSQL cannot drop enum labels. The migration's downgrade rebuilds the
   type and refuses to run while any row uses the new types.
-- With the default namespace, anyone who can guess a key can compute its
-  UUID. UUIDs are identifiers, not secrets, but a seed file can set a private
-  `namespace` if that matters.
+- Changing a seed file's `namespace` or an entry's `key` re-keys that
+  entity, so both are permanent once used. The default namespace is public,
+  so real seeds must set their own; then a guessed key does not give the
+  UUID.
+- The entity API is not yet authenticated, and its responses now include
+  personal names (individual and household rows) and bank account last-4
+  digits. Real individual or household data must not be loaded into a
+  database that API serves beyond localhost until authentication lands.
 
 ### Neutral
 
@@ -109,7 +121,11 @@ function of the private key.
 ## Implementation
 
 - Migration `316e25bc258b`: enum labels, `xero_tenant_id` with partial unique
-  index `ix_entities_xero_tenant_id_active`, `xero_account_id` with an index.
+  index `ix_entities_xero_tenant_id_active`, `xero_account_id` with partial
+  unique index `ix_bank_accounts_xero_account_id_active`.
 - Service: `src/llc_manager/services/entity_seed.py`.
 - Command: `src/llc_manager/cli/seed_entities.py`.
 - Example: `data/examples/entity_seed.example.json` (synthetic).
+- Guide: `docs/guides/entity-seed.md`.
+- The Excel importer (`scripts/import_excel.py`) rejects `individual` and
+  `household`; the seed owns those rows.

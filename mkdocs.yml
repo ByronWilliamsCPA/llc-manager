@@ -161,6 +161,7 @@ nav:
 
   - User Guide:
       - Overview: guides/overview.md
+      - Entity Seed: guides/entity-seed.md
       - Configuration: guides/configuration.md
       - Usage: guides/usage.md
 
