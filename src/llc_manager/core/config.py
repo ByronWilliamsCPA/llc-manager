@@ -5,9 +5,10 @@ Pydantic-settings handles the parsing and validation.
 """
 
 import os
+from pathlib import Path
 from typing import ClassVar, Literal
 
-from pydantic import PostgresDsn, computed_field, model_validator
+from pydantic import PostgresDsn, SecretStr, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llc_manager.core.exceptions import ConfigurationError
@@ -51,6 +52,11 @@ class Settings(BaseSettings):
         authentik_issuer (str | None): Authentik OIDC issuer URL.
         authentik_jwks_url (str | None): Authentik JWKS endpoint URL.
         authentik_audience (str | None): Authentik token audience.
+        api_key (SecretStr | None): Shared key that callers of ``/api/v1``
+            send in the ``X-API-Key`` header. When unset, ``/api/v1`` refuses
+            every request with 503; there is no fallback.
+        documents_root (Path): Directory that holds stored document files,
+            named by document ID. Files are only ever served from here.
     """
 
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
@@ -97,6 +103,41 @@ class Settings(BaseSettings):
     authentik_issuer: str | None = None
     authentik_jwks_url: str | None = None
     authentik_audience: str | None = None
+
+    # Inbound service authentication for /api/v1 (see core/auth.py).
+    api_key: SecretStr | None = None
+
+    # Document file store. Files are written and served as
+    # ``{documents_root}/{document_id}{extension}`` and never by caller path.
+    documents_root: Path = Path("/data/docs")
+
+    @model_validator(mode="after")
+    def _enforce_api_key_min_length(self) -> "Settings":
+        """Reject a short API key outside development environments.
+
+        Returns:
+            Settings: The validated settings.
+
+        Raises:
+            ConfigurationError: If the key is shorter than the minimum length
+                outside development, local, and test environments.
+        """
+        if self.api_key is None:
+            return self
+        if len(self.api_key.get_secret_value()) >= _MIN_SECRET_KEY_LENGTH:
+            return self
+        env = (
+            os.getenv("LLC_MANAGER_ENVIRONMENT")
+            or os.getenv("ENVIRONMENT")
+            or "development"
+        ).lower()
+        if env in {"development", "local", "test"}:
+            return self
+        message = (
+            f"LLC_MANAGER_API_KEY must be at least {_MIN_SECRET_KEY_LENGTH} "
+            "characters outside development, local, and test environments."
+        )
+        raise ConfigurationError(message, details={"config_key": "api_key"})
 
     @model_validator(mode="after")
     def _reject_default_secret_key_outside_dev(self) -> "Settings":

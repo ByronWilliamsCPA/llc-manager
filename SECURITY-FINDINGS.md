@@ -47,6 +47,15 @@ Any caller can:
 
 There is no `User` model in `src/llc_manager/models/`, no `owner_id` column on `Entity`, no FastAPI authentication dependency wired into any router, and no middleware that rejects unauthenticated requests.
 
+**Interim mitigation (2026-10-05):** every `/api/v1` route now requires a
+shared service key in the `X-API-Key` header (`src/llc_manager/core/auth.py`).
+The key comes from `LLC_MANAGER_API_KEY`, is compared with
+`hmac.compare_digest`, and must be at least 32 characters outside
+development. When it is unset the API refuses every request with 503; there
+is no open fallback. This closes anonymous access for service-to-service
+callers but is not per-user authorization: any holder of the key sees every
+entity and document. The OIDC plan below remains the long-term fix.
+
 **Impact:** Anyone who can reach the API (over a misconfigured ingress, an exposed dev port, an internal pivot, or a leaked URL) can exfiltrate every customer's EIN and entity registration data, and can tamper with compliance records. EINs alone are PII under several state breach-notification laws.
 
 **Remediation (planned via Authentik):**

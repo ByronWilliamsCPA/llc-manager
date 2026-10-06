@@ -26,6 +26,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   owner-only key-to-UUID mapping file confined to the home directory (or
   `LLC_MANAGER_MAPPING_DIR`). A synthetic example lives in
   `data/examples/entity_seed.example.json`; see `docs/guides/entity-seed.md`.
+- `feat(api)`: read-only document API. `GET /api/v1/documents` lists
+  metadata with `page`/`size` pagination and `updated_since`, `entity_id`,
+  and `category` filters; `GET /api/v1/documents/{id}` returns one record;
+  `GET /api/v1/documents/{id}/file` streams the stored file by ID with its
+  MIME type and `Content-Length`, guarded against path traversal.
+- `feat(security)`: every `/api/v1` route requires the `X-API-Key` header,
+  compared in constant time against `LLC_MANAGER_API_KEY`. With no key
+  configured the API refuses requests (503) rather than allowing them.
+- `feat(documents)`: `category`, `sha256`, and `consent_on_file` columns and
+  `will`, `trust_agreement`, `power_of_attorney`, and `healthcare_directive`
+  document types. Migration `0e0121ec4817`.
+- `feat(cli)`: `python -m llc_manager.cli.import_documents`, an idempotent
+  manifest import that copies files into `LLC_MANAGER_DOCUMENTS_ROOT`,
+  records SHA-256, skips exact duplicates, and creates or updates rows;
+  `--validate-only` prints counts and problems only. Synthetic example in
+  `data/examples/document_manifest.example.csv`.
 
 <!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->
 - CI: Claude Tier 0 baseline PR review caller

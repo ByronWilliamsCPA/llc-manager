@@ -10,6 +10,10 @@ This module provides:
 from pathlib import Path
 
 import pytest
+from pydantic import SecretStr
+
+from llc_manager.core.config import settings
+from tests.auth_helpers import TEST_API_KEY
 
 # ============================================================================
 # Test Fixture Paths
@@ -155,3 +159,24 @@ def setup_logging() -> None:
     from llc_manager.utils.logging import setup_logging
 
     setup_logging(level="DEBUG", json_logs=False, include_timestamp=False)
+
+
+# ============================================================================
+# API Key Fixture
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def configured_api_key(monkeypatch: pytest.MonkeyPatch) -> str:
+    """Configure the /api/v1 key for every test.
+
+    Tests that exercise the unset-key path override it with monkeypatch.
+
+    Args:
+        monkeypatch: Pytest's monkeypatch fixture.
+
+    Returns:
+        The configured test key.
+    """
+    monkeypatch.setattr(settings, "api_key", SecretStr(TEST_API_KEY))
+    return TEST_API_KEY

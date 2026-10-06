@@ -1,11 +1,11 @@
 """Document schemas for API request/response validation."""
 
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import Field
 
-from llc_manager.models.document import DocumentType
+from llc_manager.models.document import DocumentCategory, DocumentType
 from llc_manager.schemas.base import BaseSchema, FullSchema
 
 
@@ -13,6 +13,7 @@ class DocumentBase(BaseSchema):
     """Base schema for document data."""
 
     document_type: DocumentType
+    category: DocumentCategory = DocumentCategory.OTHER
     title: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
 
@@ -30,6 +31,7 @@ class DocumentBase(BaseSchema):
 
     notes: str | None = None
     is_confidential: bool = False
+    consent_on_file: bool = False
 
 
 class DocumentCreate(DocumentBase):
@@ -42,6 +44,7 @@ class DocumentUpdate(BaseSchema):
     """Schema for updating an existing document."""
 
     document_type: DocumentType | None = None
+    category: DocumentCategory | None = None
     title: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
 
@@ -59,6 +62,7 @@ class DocumentUpdate(BaseSchema):
 
     notes: str | None = None
     is_confidential: bool | None = None
+    consent_on_file: bool | None = None
 
 
 class DocumentResponse(FullSchema, DocumentBase):
@@ -68,3 +72,36 @@ class DocumentResponse(FullSchema, DocumentBase):
     entity_id: UUID
     is_expired: bool
     tag_list: list[str]
+
+
+class DocumentRead(BaseSchema):
+    """Document metadata served to other services by ``/api/v1/documents``.
+
+    This is the cross-service document contract. It never includes a file
+    path; the file is fetched by ID from ``/api/v1/documents/{id}/file``.
+    """
+
+    id: UUID
+    title: str
+    category: DocumentCategory
+    document_type: DocumentType
+    entity_id: UUID
+    document_date: date | None = None
+    effective_date: date | None = None
+    is_confidential: bool
+    consent_on_file: bool
+    sha256: str | None = None
+    mime_type: str | None = None
+    file_size: int | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class DocumentListResponse(BaseSchema):
+    """Paginated document list, oldest ``updated_at`` first."""
+
+    items: list[DocumentRead]
+    total: int
+    page: int
+    size: int
+    pages: int
