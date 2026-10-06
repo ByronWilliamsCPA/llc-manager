@@ -1,12 +1,21 @@
-"""Entity (LLC) schemas for API request/response validation."""
+"""Entity schemas for API request/response validation.
+
+An entity is a legal entity (LLC, trust, corporation, and so on), a person
+(``individual``), or a family (``household``). See ADR-002.
+"""
 
 from datetime import date
+from typing import Self
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from llc_manager.models.entity import EntityType
-from llc_manager.schemas.base import BaseSchema, FullSchema
+from llc_manager.schemas.base import BaseSchema, FullSchema, XeroId
+
+# Entity types that are not legal entities and carry no legal-entity fields.
+PERSONAL_ENTITY_TYPES = frozenset({EntityType.INDIVIDUAL, EntityType.HOUSEHOLD})
+LEGAL_ONLY_FIELDS = ("ein", "formation_state", "formation_date")
 
 
 class EntityBase(BaseSchema):
@@ -34,7 +43,7 @@ class EntityBase(BaseSchema):
     mailing_zip: str | None = Field(None, max_length=10)
 
     accounting_record_id: str | None = Field(None, max_length=100)
-    xero_tenant_id: str | None = Field(None, min_length=1, max_length=64)
+    xero_tenant_id: XeroId | None = None
     purpose: str | None = None
     notes: str | None = None
     is_active: bool = True
@@ -42,6 +51,27 @@ class EntityBase(BaseSchema):
 
 class EntityCreate(EntityBase):
     """Schema for creating a new entity."""
+
+    @model_validator(mode="after")
+    def _no_legal_fields_on_personal_entities(self) -> Self:
+        """Reject legal-entity fields on an individual or household.
+
+        Returns:
+            Self: The validated model.
+
+        Raises:
+            ValueError: If an individual or household sets EIN, formation
+                state, or formation date. The message names fields only.
+        """
+        if self.entity_type in PERSONAL_ENTITY_TYPES and any(
+            getattr(self, name) for name in LEGAL_ONLY_FIELDS
+        ):
+            msg = (
+                "ein, formation_state, and formation_date must be empty for "
+                "individual and household entities"
+            )
+            raise ValueError(msg)
+        return self
 
 
 class EntityUpdate(BaseSchema):
@@ -69,7 +99,7 @@ class EntityUpdate(BaseSchema):
     mailing_zip: str | None = Field(None, max_length=10)
 
     accounting_record_id: str | None = Field(None, max_length=100)
-    xero_tenant_id: str | None = Field(None, min_length=1, max_length=64)
+    xero_tenant_id: XeroId | None = None
     purpose: str | None = None
     notes: str | None = None
     is_active: bool | None = None

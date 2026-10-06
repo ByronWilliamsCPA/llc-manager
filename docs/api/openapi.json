@@ -1154,7 +1154,7 @@
     },
     "/api/v1/entities": {
       "get": {
-        "description": "Return a paginated, optionally filtered list of LLC entities. Supports full-text search across `legal_name`, `ein`, and `dba_names`, plus `is_active`, `entity_type`, and exact `xero_tenant_id` filters. Soft-deleted entities are excluded.",
+        "description": "Return a paginated, optionally filtered list of entities (legal entities, individuals, and households). Supports full-text search across `legal_name`, `ein`, and `dba_names`, plus `is_active`, `entity_type`, and exact `xero_tenant_id` filters. Soft-deleted entities are excluded.",
         "operationId": "list_entities_api_v1_entities_get",
         "parameters": [
           {
@@ -1286,7 +1286,7 @@
         ]
       },
       "post": {
-        "description": "Create a new LLC entity. The optional `ein` field must be unique across non-deleted entities; a duplicate value returns 409.",
+        "description": "Create a new entity. The optional `ein` and `xero_tenant_id` fields must be unique across non-deleted entities; a duplicate value returns 409. An `individual` or `household` entity must not set `ein`, `formation_state`, or `formation_date` (422).",
         "operationId": "create_entity_api_v1_entities_post",
         "requestBody": {
           "content": {
@@ -1407,7 +1407,7 @@
         ]
       },
       "patch": {
-        "description": "Partially update an entity. Only fields included in the request body are modified. Updating `ein` to a value already held by another entity returns 409.",
+        "description": "Partially update an entity. Only fields included in the request body are modified. Updating `ein` or `xero_tenant_id` to a value already held by another entity returns 409. Sending `xero_tenant_id: null` clears the mapping.",
         "operationId": "update_entity_api_v1_entities__entity_id__patch",
         "parameters": [
           {

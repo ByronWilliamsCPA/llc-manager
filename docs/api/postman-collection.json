@@ -38,7 +38,7 @@
           ],
           "name": "List entities",
           "request": {
-            "description": "Return a paginated, optionally filtered list of LLC entities. Supports full-text search across `legal_name`, `ein`, and `dba_names`, plus an `is_active` filter. Soft-deleted entities are excluded.",
+            "description": "Return a paginated, optionally filtered list of entities (legal entities, individuals, and households). Supports full-text search across `legal_name`, `ein`, and `dba_names`, plus `is_active`, `entity_type`, and exact `xero_tenant_id` filters. Soft-deleted entities are excluded.",
             "header": [
               {
                 "key": "Accept",
@@ -86,6 +86,18 @@
                   "disabled": true,
                   "key": "is_active",
                   "value": ""
+                },
+                {
+                  "description": "Filter by entity type",
+                  "disabled": true,
+                  "key": "entity_type",
+                  "value": ""
+                },
+                {
+                  "description": "Exact match on the Xero tenant ID",
+                  "disabled": true,
+                  "key": "xero_tenant_id",
+                  "value": ""
                 }
               ],
               "raw": "{{baseUrl}}/api/v1/entities?",
@@ -128,7 +140,7 @@
               },
               "raw": "{\n  \"legal_name\": \"Legal Name\"\n}"
             },
-            "description": "Create a new LLC entity. The optional `ein` field must be unique across non-deleted entities; a duplicate value returns 409.",
+            "description": "Create a new entity. The optional `ein` and `xero_tenant_id` fields must be unique across non-deleted entities; a duplicate value returns 409. An `individual` or `household` entity must not set `ein`, `formation_state`, or `formation_date` (422).",
             "header": [
               {
                 "key": "Accept",
@@ -317,9 +329,9 @@
                   "language": "json"
                 }
               },
-              "raw": "{\n  \"accounting_record_id\": \"string\",\n  \"business_address\": \"string\",\n  \"business_city\": \"string\",\n  \"business_state\": \"string\",\n  \"business_zip\": \"string\",\n  \"dba_names\": \"string\",\n  \"ein\": \"string\",\n  \"entity_type\": \"llc\",\n  \"fiscal_year_end\": \"string\",\n  \"formation_date\": \"2026-01-01\",\n  \"formation_state\": \"string\",\n  \"is_active\": false,\n  \"legal_name\": \"string\",\n  \"mailing_address\": \"string\",\n  \"mailing_city\": \"string\",\n  \"mailing_state\": \"string\",\n  \"mailing_zip\": \"string\",\n  \"notes\": \"string\",\n  \"purpose\": \"string\"\n}"
+              "raw": "{\n  \"accounting_record_id\": \"string\",\n  \"business_address\": \"string\",\n  \"business_city\": \"string\",\n  \"business_state\": \"string\",\n  \"business_zip\": \"string\",\n  \"dba_names\": \"string\",\n  \"ein\": \"string\",\n  \"entity_type\": \"llc\",\n  \"fiscal_year_end\": \"string\",\n  \"formation_date\": \"2026-01-01\",\n  \"formation_state\": \"string\",\n  \"is_active\": false,\n  \"legal_name\": \"string\",\n  \"mailing_address\": \"string\",\n  \"mailing_city\": \"string\",\n  \"mailing_state\": \"string\",\n  \"mailing_zip\": \"string\",\n  \"notes\": \"string\",\n  \"purpose\": \"string\",\n  \"xero_tenant_id\": \"string\"\n}"
             },
-            "description": "Partially update an entity. Only fields included in the request body are modified. Updating `ein` to a value already held by another entity returns 409.",
+            "description": "Partially update an entity. Only fields included in the request body are modified. Updating `ein` or `xero_tenant_id` to a value already held by another entity returns 409. Sending `xero_tenant_id: null` clears the mapping.",
             "header": [
               {
                 "key": "Accept",
@@ -537,6 +549,306 @@
         }
       ],
       "name": "Health"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Entities List Page returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Entities List Page returns an empty body\", function () {",
+                  "    pm.expect(pm.response.text() || \"\").to.have.lengthOf.at.most(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Entities List Page",
+          "request": {
+            "description": "Render the entity list page (or the table-body partial for HTMX requests).",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities"
+              ],
+              "query": [
+                {
+                  "description": "Search by legal name or EIN",
+                  "disabled": true,
+                  "key": "q",
+                  "value": ""
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "description": "",
+                  "disabled": true,
+                  "key": "size",
+                  "value": "50"
+                }
+              ],
+              "raw": "{{baseUrl}}/entities?",
+              "variable": []
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Entity Detail Page returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Entity Detail Page returns an empty body\", function () {",
+                  "    pm.expect(pm.response.text() || \"\").to.have.lengthOf.at.most(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Entity Detail Page",
+          "request": {
+            "description": "Render the entity detail page.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                ":entity_id"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/entities/:entity_id",
+              "variable": [
+                {
+                  "description": "",
+                  "key": "entity_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Entity Detail Card returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Entity Detail Card returns an empty body\", function () {",
+                  "    pm.expect(pm.response.text() || \"\").to.have.lengthOf.at.most(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Entity Detail Card",
+          "request": {
+            "description": "HTMX fragment: the read-only detail card (used by the edit-form Cancel button).",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                ":entity_id",
+                "card"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/entities/:entity_id/card",
+              "variable": [
+                {
+                  "description": "",
+                  "key": "entity_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Entity Edit Form returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Entity Edit Form returns an empty body\", function () {",
+                  "    pm.expect(pm.response.text() || \"\").to.have.lengthOf.at.most(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Entity Edit Form",
+          "request": {
+            "description": "HTMX fragment: the inline edit form for an entity.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                ":entity_id",
+                "edit"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/entities/:entity_id/edit",
+              "variable": [
+                {
+                  "description": "",
+                  "key": "entity_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Entity Edit Save returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Entity Edit Save returns an empty body\", function () {",
+                  "    pm.expect(pm.response.text() || \"\").to.have.lengthOf.at.most(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Entity Edit Save",
+          "request": {
+            "description": "Apply an inline edit submission and return the read-only detail card.\n\nThe form posts URL-encoded fields (not JSON): blank optional inputs come\nthrough as empty strings, so they are coerced to None before validation,\nmatching edit-form semantics where a cleared field clears the column. The\nresponse is the HTML detail card so HTMX can swap #entity-card in place,\nrather than the JSON the API endpoint would return.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "PATCH",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "entities",
+                ":entity_id",
+                "edit"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/entities/:entity_id/edit",
+              "variable": [
+                {
+                  "description": "",
+                  "key": "entity_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "Web"
     }
   ],
   "variable": [

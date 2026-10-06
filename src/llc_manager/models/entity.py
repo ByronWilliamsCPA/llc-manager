@@ -1,4 +1,4 @@
-"""Entity (LLC) model representing the core business entity."""
+"""Entity model: a legal entity, an individual, or a household."""
 
 from datetime import date
 from enum import StrEnum
@@ -41,13 +41,13 @@ class EntityType(StrEnum):
 
 
 class Entity(Base, UUIDPrimaryKeyMixin, AuditMixin):
-    """Represents a business entity (LLC or other type).
+    """Represents a legal entity, an individual, or a household.
 
     Attributes:
         legal_name (Mapped[str]): The official legal name of the entity.
         dba_names (Mapped[str | None]): Comma-separated list of DBA (Doing Business As) names.
         ein (Mapped[str | None]): Employer Identification Number.
-        entity_type (Mapped[EntityType]): Type of business entity.
+        entity_type (Mapped[EntityType]): Type of entity.
         formation_state (Mapped[str | None]): State where the entity was formed.
         formation_date (Mapped[date | None]): Date the entity was formed.
         fiscal_year_end (Mapped[str | None]): Fiscal year end month and day (e.g., "12-31").

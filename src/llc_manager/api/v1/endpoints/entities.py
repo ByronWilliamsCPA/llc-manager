@@ -1,6 +1,9 @@
-"""Entity (LLC) API endpoints."""
+"""Entity API endpoints: legal entities, individuals, and households."""
 
 # #CRITICAL: Security - entity endpoints currently unauthenticated; deferred to Phase 1.
+# Responses include individual and household rows (personal names) and bank
+# account last-4 digits, so real individual or household data must not be
+# loaded into a database this API serves beyond localhost until then.
 # #VERIFY: authentication dependency wired before any non-localhost deployment.
 
 from datetime import UTC, datetime
@@ -9,6 +12,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from llc_manager.db.session import get_async_session
@@ -24,11 +28,17 @@ router = APIRouter()
 
 DBSession = Annotated[AsyncSession, Depends(get_async_session)]
 
+_UNIQUE_CONFLICT = "An entity with this EIN or Xero tenant ID already exists"
+
 
 async def _ensure_xero_tenant_free(
     db: AsyncSession, xero_tenant_id: str, exclude: UUID | None = None
 ) -> None:
     """Raise 409 when another live entity already holds the Xero tenant ID.
+
+    This pre-check gives a clear message in the common case. It is not
+    atomic: :func:`_flush_or_conflict` maps the unique-index violation from a
+    concurrent request to the same 409.
 
     Args:
         db (AsyncSession): Database session.
@@ -38,7 +48,11 @@ async def _ensure_xero_tenant_free(
     Raises:
         HTTPException: 409 when the tenant ID is already mapped.
     """
-    query = select(Entity).where(
+    # #ASSUME: Concurrency - check-then-write; two requests can both pass.
+    # The partial unique index ix_entities_xero_tenant_id_active is the real
+    # guard, and its violation is mapped to 409 at flush.
+    # #VERIFY: tests/unit/test_entities_xero_api.py covers the flush-time 409.
+    query = select(Entity.id).where(
         Entity.xero_tenant_id == xero_tenant_id, Entity.deleted_at.is_(None)
     )
     if exclude is not None:
@@ -51,13 +65,33 @@ async def _ensure_xero_tenant_free(
         )
 
 
+async def _flush_or_conflict(db: AsyncSession) -> None:
+    """Flush pending writes, mapping a unique-constraint violation to 409.
+
+    Args:
+        db (AsyncSession): Database session.
+
+    Raises:
+        HTTPException: 409 when the flush violates a unique constraint (EIN
+            or Xero tenant ID), for example after a concurrent request.
+    """
+    try:
+        await db.flush()
+    except IntegrityError:
+        # from None: the IntegrityError text carries the row's values.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=_UNIQUE_CONFLICT
+        ) from None
+
+
 @router.get(
     "",
     response_model=EntityListResponse,
     status_code=status.HTTP_200_OK,
     summary="List entities",
     description=(
-        "Return a paginated, optionally filtered list of LLC entities. "
+        "Return a paginated, optionally filtered list of entities (legal "
+        "entities, individuals, and households). "
         "Supports full-text search across `legal_name`, `ein`, and "
         "`dba_names`, plus `is_active`, `entity_type`, and exact "
         "`xero_tenant_id` filters. Soft-deleted entities are excluded."
@@ -137,8 +171,10 @@ async def list_entities(
     status_code=status.HTTP_201_CREATED,
     summary="Create entity",
     description=(
-        "Create a new LLC entity. The optional `ein` field must be unique "
-        "across non-deleted entities; a duplicate value returns 409."
+        "Create a new entity. The optional `ein` and `xero_tenant_id` fields "
+        "must be unique across non-deleted entities; a duplicate value returns "
+        "409. An `individual` or `household` entity must not set `ein`, "
+        "`formation_state`, or `formation_date` (422)."
     ),
     responses={
         201: {"description": "Entity created successfully"},
@@ -176,7 +212,7 @@ async def create_entity(
 
     entity = Entity(**entity_in.model_dump())
     db.add(entity)
-    await db.flush()
+    await _flush_or_conflict(db)
     await db.refresh(entity)
 
     return EntityResponse.model_validate(entity)
@@ -230,8 +266,9 @@ async def get_entity(
     summary="Update entity",
     description=(
         "Partially update an entity. Only fields included in the request body "
-        "are modified. Updating `ein` to a value already held by another entity "
-        "returns 409."
+        "are modified. Updating `ein` or `xero_tenant_id` to a value already "
+        "held by another entity returns 409. Sending `xero_tenant_id: null` "
+        "clears the mapping."
     ),
     responses={
         200: {"description": "Entity updated"},
@@ -256,7 +293,8 @@ async def update_entity(
         EntityResponse: Updated entity.
 
     Raises:
-        HTTPException: If entity not found.
+        HTTPException: 404 if the entity is not found; 409 if the EIN or Xero
+            tenant ID is already held by another entity.
     """
     result = await db.execute(
         select(Entity).where(Entity.id == entity_id, Entity.deleted_at.is_(None))
@@ -286,7 +324,7 @@ async def update_entity(
     for field, value in update_data.items():
         setattr(entity, field, value)
 
-    await db.flush()
+    await _flush_or_conflict(db)
     await db.refresh(entity)
 
     return EntityResponse.model_validate(entity)
