@@ -77,7 +77,8 @@ entity was a legal entity (LLC, trust, corporation, and so on).
 - Downstream services can map Xero organisations to entities through the API.
 - The optional `--mapping-out` file (owner-only permissions on POSIX) gives
   other seeds each key's UUID, entity type, and Xero tenant ID without
-  querying the database.
+  querying the database. It is confined to the home directory, or to
+  `LLC_MANAGER_MAPPING_DIR` when set.
 
 ### Negative
 

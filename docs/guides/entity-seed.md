@@ -99,7 +99,9 @@ both as permanent.
 "entity_type", "xero_tenant_id"}}}`. It is written after the database
 commit, atomically, with owner-only permissions on POSIX systems (on Windows
 it takes the directory's access control list). The path must be outside the
-repository. With `--validate-only` the mapping is computed from the file
+repository and must resolve under your home directory, or under
+`LLC_MANAGER_MAPPING_DIR` when that is set; any other path is refused before
+the database is touched. With `--validate-only` the mapping is computed from the file
 alone, so soft-deleted entities are not detected.
 
 ## Synthetic files

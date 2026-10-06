@@ -23,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that reads a private JSON file from outside the repository
   (`--file` or `LLC_MANAGER_ENTITY_SEED_FILE`), derives stable UUIDv5 entity
   IDs from a private namespace, prints counts only, and can write an
-  owner-only key-to-UUID mapping file. A synthetic example lives in
+  owner-only key-to-UUID mapping file confined to the home directory (or
+  `LLC_MANAGER_MAPPING_DIR`). A synthetic example lives in
   `data/examples/entity_seed.example.json`; see `docs/guides/entity-seed.md`.
 
 <!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->

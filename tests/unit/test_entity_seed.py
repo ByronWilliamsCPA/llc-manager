@@ -17,13 +17,16 @@ import pytest
 from llc_manager.models.entity import Entity, EntityType
 from llc_manager.services.entity_seed import (
     DEFAULT_ENTITY_NAMESPACE,
+    MAPPING_DIR_ENV,
     SeedFile,
     SeedFileError,
     apply_seed,
     build_mapping,
+    confine_path,
     is_inside_repo,
     is_repo_example,
     load_seed_file,
+    mapping_base_dir,
     resolve_entity_id,
     stable_entity_id,
     summarize_seed,
@@ -354,8 +357,9 @@ class TestApply:
     async def test_invalid_seed_is_refused(self) -> None:
         seed = _seed(_base_entities()[1:])  # no household
         session = _FakeSession()
+        db = _as_session(session)
         with pytest.raises(SeedFileError):
-            await apply_seed(_as_session(session), seed)
+            await apply_seed(db, seed)
         assert session.added == []
 
     async def test_changed_field_updates_only_named_fields(self) -> None:
@@ -465,14 +469,14 @@ class TestMapping:
 
     def test_write_mapping_content(self, tmp_path: Path) -> None:
         out = tmp_path / "private" / "map.json"
-        write_mapping(out, build_mapping(_seed(_base_entities())))
+        write_mapping(out, build_mapping(_seed(_base_entities())), tmp_path)
         assert json.loads(out.read_text(encoding="utf-8"))["entities"]["household"]
         assert [p.name for p in out.parent.iterdir()] == ["map.json"]
 
     @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes only")
     def test_write_mapping_is_owner_only(self, tmp_path: Path) -> None:
         out = tmp_path / "private" / "map.json"
-        write_mapping(out, build_mapping(_seed(_base_entities())))
+        write_mapping(out, build_mapping(_seed(_base_entities())), tmp_path)
         assert stat.S_IMODE(out.stat().st_mode) == 0o600
         assert stat.S_IMODE(out.parent.stat().st_mode) == 0o700
 
@@ -481,7 +485,7 @@ class TestMapping:
         out = tmp_path / "map.json"
         out.write_text("{}", encoding="utf-8")
         out.chmod(0o644)
-        write_mapping(out, build_mapping(_seed(_base_entities())))
+        write_mapping(out, build_mapping(_seed(_base_entities())), tmp_path)
         assert stat.S_IMODE(out.stat().st_mode) == 0o600
         assert "household" in json.loads(out.read_text(encoding="utf-8"))["entities"]
 
@@ -491,8 +495,9 @@ class TestMapping:
         target.write_text("{}", encoding="utf-8")
         link = tmp_path / "map.json"
         link.symlink_to(target)
+        mapping = build_mapping(_seed(_base_entities()))
         with pytest.raises(OSError, match="symbolic link"):
-            write_mapping(link, build_mapping(_seed(_base_entities())))
+            write_mapping(link, mapping, tmp_path)
         assert target.read_text(encoding="utf-8") == "{}"
 
     def test_failed_write_leaves_no_temp_file(
@@ -506,8 +511,52 @@ class TestMapping:
         out = tmp_path / "map.json"
         mapping = build_mapping(_seed(_base_entities()))
         with pytest.raises(OSError, match="disk full"):
-            write_mapping(out, mapping)
+            write_mapping(out, mapping, tmp_path)
         assert list(tmp_path.iterdir()) == []
+
+    def test_write_mapping_refuses_a_path_outside_the_base(
+        self, tmp_path: Path
+    ) -> None:
+        base = tmp_path / "base"
+        base.mkdir()
+        mapping = build_mapping(_seed(_base_entities()))
+        escape = base / ".." / "escaped.json"
+        with pytest.raises(OSError, match="outside the allowed mapping directory"):
+            write_mapping(escape, mapping, base)
+        assert not (tmp_path / "escaped.json").exists()
+
+    def test_write_mapping_defaults_to_the_configured_base(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(MAPPING_DIR_ENV, str(tmp_path))
+        out = tmp_path / "nested" / "map.json"
+        write_mapping(out, build_mapping(_seed(_base_entities())))
+        assert out.is_file()
+
+
+class TestConfinePath:
+    def test_inside_is_resolved(self, tmp_path: Path) -> None:
+        inside = tmp_path / "a" / ".." / "map.json"
+        assert confine_path(inside, tmp_path) == (tmp_path / "map.json").resolve()
+
+    def test_sibling_with_shared_prefix_is_refused(self, tmp_path: Path) -> None:
+        base = tmp_path / "base"
+        with pytest.raises(OSError, match="outside"):
+            confine_path(tmp_path / "base-other" / "map.json", base)
+
+    def test_base_itself_is_refused(self, tmp_path: Path) -> None:
+        with pytest.raises(OSError, match="outside"):
+            confine_path(tmp_path, tmp_path)
+
+    def test_base_dir_comes_from_the_environment(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(MAPPING_DIR_ENV, str(tmp_path))
+        assert mapping_base_dir() == tmp_path
+
+    def test_base_dir_defaults_to_home(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv(MAPPING_DIR_ENV, raising=False)
+        assert mapping_base_dir() == Path.home()
 
 
 class TestRepoGuard:

@@ -57,6 +57,10 @@ SEED_FILE_VERSION = 1
 # Root of the source checkout when running from one (``src/llc_manager/..``).
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
+# Environment variable naming the directory a mapping file may be written
+# under. Unset, the mapping must be under the user's home directory.
+MAPPING_DIR_ENV = "LLC_MANAGER_MAPPING_DIR"
+
 # Fields with a database uniqueness constraint. A re-seed may move one of these
 # values between seeded rows, so apply_seed releases them before reassigning.
 _UNIQUE_FIELDS = ("ein", "xero_tenant_id")
@@ -551,38 +555,82 @@ def build_mapping(
     }
 
 
-def write_mapping(path: Path, mapping: dict[str, Any]) -> None:
+def mapping_base_dir() -> Path:
+    """Return the directory a mapping file must be written under.
+
+    Returns:
+        Path: ``$LLC_MANAGER_MAPPING_DIR`` when set, else the home directory.
+    """
+    configured = os.environ.get(MAPPING_DIR_ENV)
+    return Path(configured).expanduser() if configured else Path.home()
+
+
+def confine_path(path: Path, base_dir: Path) -> Path:
+    """Resolve ``path`` and require it to sit inside ``base_dir``.
+
+    Both paths are canonicalized (``..`` and symbolic links resolved) before
+    the check, and the check compares against ``base_dir`` plus a separator,
+    so ``/base-other`` is not accepted for ``/base``.
+
+    Args:
+        path (Path): Path from the command line.
+        base_dir (Path): Directory the path must be inside.
+
+    Returns:
+        Path: The canonical path.
+
+    Raises:
+        OSError: If the canonical path is not inside ``base_dir``.
+    """
+    resolved = os.path.realpath(path)
+    base = os.path.realpath(base_dir).rstrip(os.sep) + os.sep
+    if not resolved.startswith(base):
+        msg = "the mapping path is outside the allowed mapping directory"
+        raise OSError(msg)
+    return Path(resolved)
+
+
+def write_mapping(
+    path: Path, mapping: dict[str, Any], base_dir: Path | None = None
+) -> None:
     """Write the mapping JSON atomically with owner-only permissions.
 
-    The data goes to a temporary file that ``mkstemp`` creates in the
-    destination directory (exclusive create, unpredictable name, mode 0600),
-    is flushed to disk, and is then renamed over the destination. No reader
-    sees a partial file, and the data is never readable by other users, even
-    briefly. The owner-only mode is a POSIX guarantee; on Windows the file
-    takes the directory's access control list instead.
+    The destination must resolve inside ``base_dir`` (default
+    :func:`mapping_base_dir`), so a crafted path cannot overwrite files
+    elsewhere. The data goes to a temporary file that ``mkstemp`` creates in
+    the destination directory (exclusive create, unpredictable name, mode
+    0600), is flushed to disk, and is then renamed over the destination. No
+    reader sees a partial file, and the data is never readable by other
+    users, even briefly. The owner-only mode is a POSIX guarantee; on Windows
+    the file takes the directory's access control list instead.
 
     Args:
         path (Path): Destination outside this repository.
         mapping (dict[str, Any]): Output of :func:`build_mapping`.
+        base_dir (Path | None): Directory the destination must be inside.
 
     Raises:
-        OSError: If the destination is a symbolic link, or the write fails.
-            A failed write leaves no temporary file behind.
+        OSError: If the destination is a symbolic link or outside
+            ``base_dir``, or the write fails. A failed write leaves no
+            temporary file behind.
     """
     if path.is_symlink():
         msg = "refusing to write the mapping through a symbolic link"
         raise OSError(msg)
-    parent = path.parent
+    target = confine_path(path, base_dir or mapping_base_dir())
+    parent = target.parent
     parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     payload = json.dumps(mapping, indent=2, sort_keys=True) + "\n"
-    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=parent)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{target.name}.", suffix=".tmp", dir=parent
+    )
     replaced = False
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        Path(tmp_name).replace(path)
+        Path(tmp_name).replace(target)
         replaced = True
     finally:
         if not replaced:

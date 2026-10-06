@@ -15,7 +15,8 @@ only; it never prints names, IDs, or tenant IDs, and it reports a database
 error by its class and constraint name only. See ``docs/guides/entity-seed.md``.
 
 ``--mapping-out`` is written after the database commit and leaves out entries
-whose entity is soft-deleted. With ``--validate-only`` it is computed from the
+whose entity is soft-deleted. It must resolve under the home directory, or
+under ``LLC_MANAGER_MAPPING_DIR`` when that is set. With ``--validate-only`` it is computed from the
 file alone, so soft-deleted entities are not detected.
 
 Exit codes:
@@ -40,14 +41,17 @@ from typing import TYPE_CHECKING, TextIO
 from sqlalchemy.exc import SQLAlchemyError
 
 from llc_manager.services.entity_seed import (
+    MAPPING_DIR_ENV,
     SeedFile,
     SeedFileError,
     SeedResult,
     apply_seed,
     build_mapping,
+    confine_path,
     is_inside_repo,
     is_repo_example,
     load_seed_file,
+    mapping_base_dir,
     summarize_seed,
     validate_seed,
     write_mapping,
@@ -97,7 +101,8 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help=(
-            "Write the key-to-UUID mapping JSON here (outside the repository). "
+            "Write the key-to-UUID mapping JSON here: outside the repository "
+            f"and under the home directory (or ${MAPPING_DIR_ENV} when set). "
             "Owner-only permissions on POSIX systems."
         ),
     )
@@ -199,7 +204,8 @@ def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path | None]:
 
     Raises:
         _UsageError: If no seed path is given, it does not exist, or the
-            mapping path is inside the repository.
+            mapping path is inside the repository or outside the allowed
+            mapping directory.
     """
     raw_path: Path | None = args.file
     if raw_path is None and os.environ.get(SEED_FILE_ENV):
@@ -218,6 +224,14 @@ def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path | None]:
         if is_inside_repo(mapping_out):
             msg = "--mapping-out must be outside the repository"
             raise _UsageError(msg)
+        try:
+            confine_path(mapping_out, mapping_base_dir())
+        except OSError:
+            msg = (
+                "--mapping-out must be under the home directory, or under "
+                f"${MAPPING_DIR_ENV} when it is set"
+            )
+            raise _UsageError(msg) from None
     return seed_path, mapping_out
 
 

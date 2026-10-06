@@ -22,6 +22,7 @@ from llc_manager.cli.seed_entities import (
     EXIT_OK,
     EXIT_SKIPPED,
     EXIT_USAGE,
+    MAPPING_DIR_ENV,
     main,
 )
 
@@ -103,6 +104,12 @@ def _write_seed(path: Path, **overrides: Any) -> Path:
     data.update(overrides)
     path.write_text(json.dumps(data), encoding="utf-8")
     return path
+
+
+@pytest.fixture(autouse=True)
+def _mapping_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Allow mapping files under each test's temporary directory."""
+    monkeypatch.setenv(MAPPING_DIR_ENV, str(tmp_path))
 
 
 def _run(argv: list[str], **kwargs: Any) -> tuple[int, str]:
@@ -217,6 +224,24 @@ def test_mapping_inside_repo_is_refused(tmp_path: Path) -> None:
     assert code == EXIT_USAGE
     assert "--mapping-out" in out
     assert not inside.exists()
+
+
+def test_mapping_outside_the_allowed_directory_is_refused_before_apply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    monkeypatch.setenv(MAPPING_DIR_ENV, str(allowed))
+    seed = _write_seed(tmp_path / "seed.json")
+    sessions: list[_FakeSession] = []
+    code, out = _run(
+        ["--file", str(seed), "--mapping-out", str(tmp_path / "map.json")],
+        session_factory=_factory({}, sessions),
+    )
+    assert code == EXIT_USAGE
+    assert MAPPING_DIR_ENV in out
+    assert sessions == []
+    assert not (tmp_path / "map.json").exists()
 
 
 def test_apply_twice_is_idempotent_and_writes_mapping(tmp_path: Path) -> None:
