@@ -6,7 +6,7 @@
 # =============================================================================
 # Hardened Python from the GHCR mirror; the -dev variant has a shell and apt.
 # Source tag: ghcr.io/byronwilliamscpa/dhi-python:3.12-debian13-dev
-FROM ghcr.io/byronwilliamscpa/dhi-python@sha256:e473be33548ba1374f21d4bdda388f6a10b32291f5dca61f1752e1c32d2fd76f AS builder
+FROM ghcr.io/byronwilliamscpa/dhi-python@sha256:22c8f3efaf3b7d65603802380aefaf30e5883858dc8a5c4431925afbefd9be4a AS builder
 
 # Set working directory
 WORKDIR /app
@@ -41,7 +41,7 @@ RUN uv sync --frozen --no-dev --extra api
 # Distroless runtime (no shell, no package manager) matching the builder's
 # Python path, so the copied virtualenv resolves its interpreter unchanged.
 # Source tag: ghcr.io/byronwilliamscpa/dhi-python:3.12-debian13
-FROM ghcr.io/byronwilliamscpa/dhi-python@sha256:16d369bd4628a6a02210e93e7a6c1c646782e3d19492a799c3d437b29a5543ce
+FROM ghcr.io/byronwilliamscpa/dhi-python@sha256:e9faf1bec1ef5c926718246eee615da7fe88d0687a8db074c2e33b4882ac6f75
 
 # Metadata labels (OCI standard)
 LABEL org.opencontainers.image.title="LLC Manager"

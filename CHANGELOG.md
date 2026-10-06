@@ -152,7 +152,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ghcr.io/byronwilliamscpa/dhi-python` 3.12 images (`-dev` builder and
   distroless runtime, both pinned by digest). The runtime runs as the
   image's non-root UID 65532 and the `HEALTHCHECK` uses Python instead of
-  curl
+  curl. Both digests were refreshed on 2026-10-05 to pick up the OpenSSL
+  `3.5.7-1~deb13u3` security update
 - `pr-validation.yml`: removed the `core-validation` job, which called
   `ByronWilliamsCPA/.github`'s `python-pr-validation.yml`. That reusable
   workflow is a retired tombstone that now hard-fails on every invocation,
