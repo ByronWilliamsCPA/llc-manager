@@ -19,6 +19,8 @@ LLC Manager uses environment variables for configuration:
 |----------|-------------|---------|
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | `INFO` |
 | `JSON_LOGS` | Enable JSON log format | `false` |
+| `LLC_MANAGER_API_KEY` | Shared `X-API-Key` for `/api/v1` (`LLC_MANAGER_SERVICE_API_KEY` is read when unset). Unset or empty means `/api/v1` answers 503. At least 32 characters outside development. | unset |
+| `LLC_MANAGER_DOCUMENTS_ROOT` | Directory that holds stored document files | `/data/docs` |
 
 ## Configuration File
 

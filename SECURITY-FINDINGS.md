@@ -49,7 +49,8 @@ There is no `User` model in `src/llc_manager/models/`, no `owner_id` column on `
 
 **Interim mitigation (2026-10-05):** every `/api/v1` route now requires a
 shared service key in the `X-API-Key` header (`src/llc_manager/core/auth.py`).
-The key comes from `LLC_MANAGER_API_KEY`, is compared with
+The key comes from `LLC_MANAGER_API_KEY` (or `LLC_MANAGER_SERVICE_API_KEY`
+when that is unset; an empty value counts as unset), is compared with
 `hmac.compare_digest`, and must be at least 32 characters outside
 development. When it is unset the API refuses every request with 503; there
 is no open fallback. This closes anonymous access for service-to-service

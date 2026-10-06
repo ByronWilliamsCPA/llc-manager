@@ -8,7 +8,15 @@ import os
 from pathlib import Path
 from typing import ClassVar, Literal
 
-from pydantic import PostgresDsn, SecretStr, computed_field, model_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    PostgresDsn,
+    SecretStr,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llc_manager.core.exceptions import ConfigurationError
@@ -22,6 +30,31 @@ _DEFAULT_SECRET_KEY_PLACEHOLDER = "change-me-in-production"  # noqa: S105  # nos
 # of entropy when sourced from a CSPRNG) is the OWASP recommendation for HMAC
 # and signed-cookie keys. See SECURITY-FINDINGS.md A02-1.
 _MIN_SECRET_KEY_LENGTH = 32
+
+# Environment names that count as non-production for the startup checks below.
+_DEVELOPMENT_ENVIRONMENTS = frozenset({"development", "local", "test"})
+
+
+def _is_development_environment() -> bool:
+    """Return True when the process runs in a development-class environment.
+
+    Reads ``LLC_MANAGER_ENVIRONMENT``, then ``ENVIRONMENT``. An unset name
+    counts as development.
+
+    Returns:
+        bool: True for ``development``, ``local``, ``test``, or no name at all.
+    """
+    # #ASSUME: Security - the environment name comes from the process
+    # environment, so a value set only in a ``.env`` file is not seen here and
+    # an unset name is treated as development.
+    # #VERIFY: production deployments set LLC_MANAGER_ENVIRONMENT in the
+    # container environment, not only in a file.
+    env = (
+        os.getenv("LLC_MANAGER_ENVIRONMENT")
+        or os.getenv("ENVIRONMENT")
+        or "development"
+    ).lower()
+    return env in _DEVELOPMENT_ENVIRONMENTS
 
 
 class Settings(BaseSettings):
@@ -53,8 +86,10 @@ class Settings(BaseSettings):
         authentik_jwks_url (str | None): Authentik JWKS endpoint URL.
         authentik_audience (str | None): Authentik token audience.
         api_key (SecretStr | None): Shared key that callers of ``/api/v1``
-            send in the ``X-API-Key`` header. When unset, ``/api/v1`` refuses
-            every request with 503; there is no fallback.
+            send in the ``X-API-Key`` header. Read from
+            ``LLC_MANAGER_API_KEY`` or, if that is unset,
+            ``LLC_MANAGER_SERVICE_API_KEY``. An unset or empty key means
+            ``/api/v1`` refuses every request with 503; there is no fallback.
         documents_root (Path): Directory that holds stored document files,
             named by document ID. Files are only ever served from here.
     """
@@ -62,6 +97,7 @@ class Settings(BaseSettings):
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
         env_prefix="LLC_MANAGER_",
         case_sensitive=False,
+        populate_by_name=True,
         extra="ignore",
         env_file=".env",
         env_file_encoding="utf-8",
@@ -98,18 +134,46 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
 
     # Authentik OIDC integration (placeholder - not yet wired into endpoints).
-    # When set, the planned core/auth.py dependency will validate Authorization:
-    # Bearer JWTs against Authentik's JWKS. See SECURITY-FINDINGS.md A01-1.
+    # When set, a future per-user check in core/auth.py will validate
+    # Authorization: Bearer JWTs against Authentik's JWKS. core/auth.py
+    # currently holds only the interim API-key check. See SECURITY-FINDINGS.md
+    # A01-1.
     authentik_issuer: str | None = None
     authentik_jwks_url: str | None = None
     authentik_audience: str | None = None
 
-    # Inbound service authentication for /api/v1 (see core/auth.py).
-    api_key: SecretStr | None = None
+    # Inbound service authentication for /api/v1 (see core/auth.py). An explicit
+    # validation alias bypasses env_prefix, so both full names are listed; the
+    # first one that is set wins.
+    api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "LLC_MANAGER_API_KEY", "LLC_MANAGER_SERVICE_API_KEY"
+        ),
+    )
 
     # Document file store. Files are written and served as
     # ``{documents_root}/{document_id}{extension}`` and never by caller path.
     documents_root: Path = Path("/data/docs")
+
+    @field_validator("api_key", mode="after")
+    @classmethod
+    def _empty_api_key_is_unset(cls, value: SecretStr | None) -> SecretStr | None:
+        """Treat an empty API key as unset.
+
+        An empty value (for example ``LLC_MANAGER_API_KEY=`` in an env file)
+        must behave like no key at all, so the API answers 503 as documented
+        instead of the startup length check failing.
+
+        Args:
+            value (SecretStr | None): The parsed key.
+
+        Returns:
+            SecretStr | None: None for an empty key, else the key unchanged.
+        """
+        if value is not None and not value.get_secret_value():
+            return None
+        return value
 
     @model_validator(mode="after")
     def _enforce_api_key_min_length(self) -> "Settings":
@@ -126,16 +190,12 @@ class Settings(BaseSettings):
             return self
         if len(self.api_key.get_secret_value()) >= _MIN_SECRET_KEY_LENGTH:
             return self
-        env = (
-            os.getenv("LLC_MANAGER_ENVIRONMENT")
-            or os.getenv("ENVIRONMENT")
-            or "development"
-        ).lower()
-        if env in {"development", "local", "test"}:
+        if _is_development_environment():
             return self
         message = (
-            f"LLC_MANAGER_API_KEY must be at least {_MIN_SECRET_KEY_LENGTH} "
-            "characters outside development, local, and test environments."
+            f"LLC_MANAGER_API_KEY (or LLC_MANAGER_SERVICE_API_KEY) must be at "
+            f"least {_MIN_SECRET_KEY_LENGTH} characters outside development, "
+            "local, and test environments."
         )
         raise ConfigurationError(message, details={"config_key": "api_key"})
 
@@ -151,13 +211,7 @@ class Settings(BaseSettings):
         if self.secret_key != _DEFAULT_SECRET_KEY_PLACEHOLDER:
             return self
 
-        env = (
-            os.getenv("LLC_MANAGER_ENVIRONMENT")
-            or os.getenv("ENVIRONMENT")
-            or "development"
-        ).lower()
-
-        if env in {"development", "local", "test"}:
+        if _is_development_environment():
             return self
 
         message = (
@@ -182,13 +236,7 @@ class Settings(BaseSettings):
         if len(self.secret_key) >= _MIN_SECRET_KEY_LENGTH:
             return self
 
-        env = (
-            os.getenv("LLC_MANAGER_ENVIRONMENT")
-            or os.getenv("ENVIRONMENT")
-            or "development"
-        ).lower()
-
-        if env in {"development", "local", "test"}:
+        if _is_development_environment():
             return self
 
         message = (

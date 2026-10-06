@@ -137,3 +137,29 @@ class TestApiKeyLength:
     ) -> None:
         monkeypatch.delenv("LLC_MANAGER_API_KEY", raising=False)
         assert Settings(_env_file=None).api_key is None
+
+    def test_empty_key_is_treated_as_unset(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_ENVIRONMENT", "production")
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
+        monkeypatch.setenv("LLC_MANAGER_API_KEY", "")
+        assert Settings(_env_file=None).api_key is None
+
+    def test_service_api_key_name_is_accepted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("LLC_MANAGER_API_KEY", raising=False)
+        monkeypatch.setenv("LLC_MANAGER_SERVICE_API_KEY", "svc-key")
+        key = Settings(_env_file=None).api_key
+        assert key is not None
+        assert key.get_secret_value() == "svc-key"
+
+    def test_primary_name_wins_over_service_name(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_API_KEY", "primary")
+        monkeypatch.setenv("LLC_MANAGER_SERVICE_API_KEY", "service")
+        key = Settings(_env_file=None).api_key
+        assert key is not None
+        assert key.get_secret_value() == "primary"

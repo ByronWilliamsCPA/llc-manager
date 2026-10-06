@@ -5,7 +5,8 @@ constant time with :func:`hmac.compare_digest`. When no key is configured the
 API refuses every request (503) instead of falling back to open access.
 
 This is the interim service-to-service check; per-user OIDC remains the
-long-term design (see ``SECURITY-FINDINGS.md``).
+long-term design (see ``SECURITY-FINDINGS.md``). It covers ``/api/v1`` only;
+the server-rendered HTML pages are not behind this key.
 """
 
 import hmac
@@ -64,12 +65,17 @@ async def require_api_key(
     configured = settings.api_key
     expected = configured.get_secret_value() if configured is not None else ""
     if not expected:
-        logger.error("api_key_not_configured")
+        # The missing key is logged once at startup (see ``main.lifespan``),
+        # not on every request.
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="API authentication is not configured",
         )
     if api_key is None or not keys_match(api_key, expected):
+        # Value-free: never log the supplied key.
+        logger.warning(
+            "api_key_rejected", reason="missing" if api_key is None else "mismatch"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",
