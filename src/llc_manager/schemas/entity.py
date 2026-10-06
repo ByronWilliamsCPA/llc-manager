@@ -16,6 +16,10 @@ from llc_manager.schemas.base import BaseSchema, FullSchema, XeroId
 # Entity types that are not legal entities and carry no legal-entity fields.
 PERSONAL_ENTITY_TYPES = frozenset({EntityType.INDIVIDUAL, EntityType.HOUSEHOLD})
 LEGAL_ONLY_FIELDS = ("ein", "formation_state", "formation_date")
+PERSONAL_LEGAL_FIELDS_MESSAGE = (
+    "ein, formation_state, and formation_date must be empty for "
+    "individual and household entities"
+)
 
 
 class EntityBase(BaseSchema):
@@ -66,11 +70,7 @@ class EntityCreate(EntityBase):
         if self.entity_type in PERSONAL_ENTITY_TYPES and any(
             getattr(self, name) for name in LEGAL_ONLY_FIELDS
         ):
-            msg = (
-                "ein, formation_state, and formation_date must be empty for "
-                "individual and household entities"
-            )
-            raise ValueError(msg)
+            raise ValueError(PERSONAL_LEGAL_FIELDS_MESSAGE)
         return self
 
 

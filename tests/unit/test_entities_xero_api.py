@@ -281,6 +281,59 @@ def test_personal_entity_rejects_ein(entity_type: str) -> None:
     assert session.added == []
 
 
+@pytest.mark.parametrize(
+    "field_value",
+    [
+        ("ein", "12-3456789"),
+        ("formation_state", "DE"),
+        ("formation_date", "2020-01-01"),
+    ],
+)
+def test_update_personal_entity_rejects_legal_field(
+    field_value: tuple[str, str],
+) -> None:
+    entity = _make_entity(legal_name="P", ein=None)
+    entity.entity_type = EntityType.INDIVIDUAL
+    session = _FakeAsyncSession([_FakeResult(scalar_one=entity)])
+    client = _client_with_session(session)
+    field, value = field_value
+
+    resp = client.patch(f"/api/v1/entities/{entity.id}", json={field: value})
+
+    assert resp.status_code == 422
+    assert "must be empty for individual" in resp.text
+    assert getattr(entity, field) is None
+    assert session.execute_count == 1
+
+
+def test_update_type_to_personal_with_existing_ein_is_rejected() -> None:
+    entity = _make_entity(legal_name="Co", ein="12-3456789")
+    session = _FakeAsyncSession([_FakeResult(scalar_one=entity)])
+    client = _client_with_session(session)
+
+    resp = client.patch(
+        f"/api/v1/entities/{entity.id}", json={"entity_type": "household"}
+    )
+
+    assert resp.status_code == 422
+    assert entity.entity_type == EntityType.LLC
+
+
+def test_update_type_to_personal_clearing_ein_succeeds() -> None:
+    entity = _make_entity(legal_name="Co", ein="12-3456789")
+    session = _FakeAsyncSession([_FakeResult(scalar_one=entity)])
+    client = _client_with_session(session)
+
+    resp = client.patch(
+        f"/api/v1/entities/{entity.id}",
+        json={"entity_type": "individual", "ein": None},
+    )
+
+    assert resp.status_code == 200
+    assert entity.entity_type == EntityType.INDIVIDUAL
+    assert entity.ein is None
+
+
 @pytest.mark.parametrize("account_id", ["", "   ", "x" * 65])
 def test_bank_account_schemas_reject_bad_xero_account_id(account_id: str) -> None:
     with pytest.raises(ValidationError):

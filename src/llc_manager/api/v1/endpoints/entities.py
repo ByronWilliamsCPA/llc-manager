@@ -18,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from llc_manager.db.session import get_async_session
 from llc_manager.models.entity import Entity, EntityType
 from llc_manager.schemas.entity import (
+    PERSONAL_ENTITY_TYPES,
+    PERSONAL_LEGAL_FIELDS_MESSAGE,
     EntityCreate,
     EntityListResponse,
     EntityResponse,
@@ -259,6 +261,36 @@ async def get_entity(
     return EntityResponse.model_validate(entity)
 
 
+def _personal_with_legal_fields(entity: Entity, entity_in: EntityUpdate) -> bool:
+    """Say whether the updated entity would break the personal-entity rule.
+
+    The entity is judged as it will be after the update, so a type change and
+    a field change in one request are checked together.
+
+    Args:
+        entity (Entity): The stored entity.
+        entity_in (EntityUpdate): The requested changes.
+
+    Returns:
+        bool: True if the result is an individual or household with an EIN,
+        formation state, or formation date.
+    """
+    sent = entity_in.model_fields_set
+    entity_type = entity_in.entity_type if "entity_type" in sent else entity.entity_type
+    if entity_type not in PERSONAL_ENTITY_TYPES:
+        return False
+    ein = entity_in.ein if "ein" in sent else entity.ein
+    state = (
+        entity_in.formation_state
+        if "formation_state" in sent
+        else entity.formation_state
+    )
+    formed = (
+        entity_in.formation_date if "formation_date" in sent else entity.formation_date
+    )
+    return bool(ein or state or formed)
+
+
 @router.patch(
     "/{entity_id}",
     response_model=EntityResponse,
@@ -293,8 +325,10 @@ async def update_entity(
         EntityResponse: Updated entity.
 
     Raises:
-        HTTPException: 404 if the entity is not found; 409 if the EIN or Xero
-            tenant ID is already held by another entity.
+        HTTPException: 404 if the entity is not found; 422 if the updated
+            entity would be an individual or household with an EIN or
+            formation field; 409 if the EIN or Xero tenant ID is already held
+            by another entity.
     """
     result = await db.execute(
         select(Entity).where(Entity.id == entity_id, Entity.deleted_at.is_(None))
@@ -305,6 +339,12 @@ async def update_entity(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Entity with ID {entity_id} not found",
+        )
+
+    if _personal_with_legal_fields(entity, entity_in):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=PERSONAL_LEGAL_FIELDS_MESSAGE,
         )
 
     if entity_in.ein and entity_in.ein != entity.ein:
