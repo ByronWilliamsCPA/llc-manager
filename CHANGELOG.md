@@ -32,15 +32,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `GET /api/v1/documents/{id}/file` streams the stored file by ID with its
   MIME type and `Content-Length`, guarded against path traversal.
 - `feat(security)`: every `/api/v1` route requires the `X-API-Key` header,
-  compared in constant time against `LLC_MANAGER_API_KEY`. With no key
-  configured the API refuses requests (503) rather than allowing them.
+  compared in constant time against `LLC_MANAGER_API_KEY` (or
+  `LLC_MANAGER_SERVICE_API_KEY`). With no key configured, or an empty one, the
+  API refuses requests (503) rather than allowing them; the condition is
+  logged once at startup.
 - `feat(documents)`: `category`, `sha256`, and `consent_on_file` columns and
   `will`, `trust_agreement`, `power_of_attorney`, and `healthcare_directive`
   document types. Migration `0e0121ec4817`.
 - `feat(cli)`: `python -m llc_manager.cli.import_documents`, an idempotent
   manifest import that copies files into `LLC_MANAGER_DOCUMENTS_ROOT`,
   records SHA-256, skips exact duplicates, and creates or updates rows;
-  `--validate-only` prints counts and problems only. Synthetic example in
+  `--validate-only` prints counts and problems only. The import stages files,
+  commits the database, then publishes the files, so a failure never leaves a
+  stored file without a row; re-running repairs an interrupted import. Source
+  paths are confined to the source root, and an unexpected failure prints only
+  the exception class (exit 3). Synthetic example in
   `data/examples/document_manifest.example.csv`.
 
 <!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->

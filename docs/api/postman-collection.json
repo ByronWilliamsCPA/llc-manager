@@ -38,7 +38,7 @@
           ],
           "name": "List documents",
           "request": {
-            "description": "Return document metadata, oldest `updated_at` first, so a consumer can page through changes. `updated_since` returns documents created or replaced at or after the given time (a timestamp without a zone is read as UTC). Soft-deleted documents are excluded.",
+            "description": "Return document metadata, oldest `updated_at` first, so a consumer can page through changes. `updated_since` returns documents whose `updated_at` is at or after the given time (a timestamp without a zone is read as UTC); any create, file replacement, or metadata edit moves `updated_at`. Paging is by offset, so a document edited while a consumer pages can shift later rows: re-poll with a watermark a few minutes behind the newest `updated_at` seen and de-duplicate by `id`. Soft-deleted documents are excluded, so deletions do not appear in this feed.",
             "header": [
               {
                 "key": "Accept",
@@ -125,7 +125,7 @@
           ],
           "name": "Get document metadata",
           "request": {
-            "description": "Return one document's metadata.\n\nArgs:\n    db (DBSession): Database session.\n    document_id (UUID): Document ID.\n\nReturns:\n    DocumentRead: The document metadata.",
+            "description": "Return one non-deleted document's metadata. No file path is returned.",
             "header": [
               {
                 "key": "Accept",

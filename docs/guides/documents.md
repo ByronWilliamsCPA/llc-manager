@@ -17,7 +17,7 @@ the store through an admin manifest and the `import_documents` command.
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
-| `LLC_MANAGER_API_KEY` | Shared key every `/api/v1` caller sends as `X-API-Key`. At least 32 characters outside development. | unset (all `/api/v1` requests get 503) |
+| `LLC_MANAGER_API_KEY` | Shared key every `/api/v1` caller sends as `X-API-Key`. At least 32 characters outside development. `LLC_MANAGER_SERVICE_API_KEY` is read when this is unset. | unset or empty (all `/api/v1` requests get 503) |
 | `LLC_MANAGER_DOCUMENTS_ROOT` | Directory that holds stored files. | `/data/docs` |
 | `LLC_MANAGER_DOCUMENT_MANIFEST` | Manifest path when `--manifest` is not given. | unset |
 
@@ -63,16 +63,29 @@ The command prints counts and value-free problems only, for example
 `rows=4`, `category[Tax Returns]=1`, `tax_returns_without_consent=0`, and
 `problem: line 3: column 'category': unknown category`. It never prints
 titles, paths, or IDs. Exit codes: 0 success, 1 validation problems, 2 usage
-or file errors. Entity existence is checked at import time, before any file
-is copied.
+or file errors (including a manifest that cannot be opened or decoded), 3
+unexpected failure while importing. An exit-3 run prints only the exception
+class name, for example `error: import failed (OSError)`, rolls back the
+database transaction, and deletes any staged files. Entity existence is
+checked at import time, before any file is copied. When a run skips
+duplicates it also prints `duplicate_lines=` with the manifest line numbers.
+
+The manifest, the entity map, and every source file must live outside the
+repository's source tree; a `file` entry that resolves outside the source root
+(through `..` or a symlink) is reported as a problem and not read.
 
 ## What an import does
 
 - **Stable IDs.** A document's ID is `uuid5(namespace, file)`, where `file`
   is the path relative to the source root. Re-importing the same manifest
   updates rows in place.
-- **Copy.** Each new or changed file is copied atomically to
-  `{documents_root}/{document_id}{extension}` with mode `0640`.
+- **Stage, commit, publish.** Each new or changed file is first copied to a
+  hidden temporary name in the documents root with mode `0640`. The database
+  transaction commits next, and only then are the staged files renamed to
+  `{documents_root}/{document_id}{extension}`. A failure before the commit
+  leaves the store untouched. If the process dies between the commit and the
+  rename, re-running the import detects a missing or mismatched stored file
+  (by re-hashing the stored bytes) and repairs it.
 - **Hash.** SHA-256 is computed for every row. A changed file updates
   `sha256`, `file_size`, and `updated_at`.
 - **Duplicates.** A new row whose bytes match a document already stored (or
@@ -85,7 +98,10 @@ Importing the same manifest twice creates each document once.
 ## Read-only API
 
 All routes require the `X-API-Key` header. A missing or wrong key returns
-401; an unconfigured server returns 503.
+401; an unconfigured server returns 503. Requests are rate limited per client
+address (60 per minute, 10 per second burst); a limited request gets 429 with
+`Retry-After`. Send the key from server-side code only: CORS does not allow
+the `X-API-Key` header from a browser.
 
 | Route | Returns |
 | --- | --- |
@@ -101,3 +117,14 @@ filesystem path is ever returned.
 The file route locates the file by document ID only. It never uses a path
 from the request or the database, and it refuses any resolved path outside
 the documents root, including through a symlink.
+
+## Polling for changes
+
+`updated_since` matches any document whose `updated_at` is at or after the
+given time; a create, a file replacement, or a metadata edit all move
+`updated_at`. Paging is by offset, and `updated_at` is the transaction start
+time, so a document edited while a consumer pages (or committed late by a long
+import) can land behind the consumer's watermark. A consumer should poll with
+a watermark a few minutes behind the newest `updated_at` it has seen and
+de-duplicate by `id`. Soft-deleted documents are excluded from the list, so
+deletions do not appear in this feed.

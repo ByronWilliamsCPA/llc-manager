@@ -34,6 +34,24 @@ CRUD operations for LLC entities.
 | PATCH | `/api/v1/entities/{id}` | Partially update an entity |
 | DELETE | `/api/v1/entities/{id}` | Soft-delete an entity |
 
+### Documents (`/api/v1/documents`)
+
+Read-only access to stored document metadata and files. See
+[Document Store and Import](../guides/documents.md) for the import command
+and the polling rules.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/documents` | List document metadata (paginated; `updated_since`, `entity_id`, `category` filters) |
+| GET | `/api/v1/documents/{id}` | Retrieve one document's metadata |
+| GET | `/api/v1/documents/{id}/file` | Stream the stored file |
+
+### Authentication
+
+Every `/api/v1` route requires the `X-API-Key` header. A missing or wrong key
+returns 401; a server with no key configured returns 503. The health probes
+below do not require a key.
+
 ### Health Probes (`/api/health`)
 
 Kubernetes liveness, readiness, and startup probes.
