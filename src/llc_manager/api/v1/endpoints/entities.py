@@ -1,10 +1,14 @@
 """Entity API endpoints: legal entities, individuals, and households."""
 
-# #CRITICAL: Security - entity endpoints currently unauthenticated; deferred to Phase 1.
-# Responses include individual and household rows (personal names) and bank
-# account last-4 digits, so real individual or household data must not be
-# loaded into a database this API serves beyond localhost until then.
-# #VERIFY: authentication dependency wired before any non-localhost deployment.
+# #CRITICAL: Security - these routes require the shared X-API-Key (the
+# router-level require_api_key dependency), which is a service-level check,
+# not per-user authorization: any holder of the key can read and change every
+# entity. Per-user authorization is deferred to Phase 1. Responses include
+# individual and household rows (personal names) and bank account last-4
+# digits, so real individual or household data must not be loaded into a
+# database this API serves beyond localhost until then.
+# #VERIFY: per-user authorization wired before any non-localhost deployment
+# that holds real individual or household data.
 
 from datetime import UTC, datetime
 from typing import Annotated

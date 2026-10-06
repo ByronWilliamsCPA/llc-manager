@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from llc_manager.models.document import DocumentCategory, DocumentType
 from llc_manager.schemas.base import BaseSchema, FullSchema
@@ -35,9 +35,29 @@ class DocumentBase(BaseSchema):
 
 
 class DocumentCreate(DocumentBase):
-    """Schema for creating a new document."""
+    """Schema for creating a new document.
+
+    ``consent_on_file`` records taxpayer consent for a tax return, so it may
+    be true only in the Tax Returns category (the manifest import enforces the
+    same rule).
+    """
 
     entity_id: UUID
+
+    @model_validator(mode="after")
+    def _consent_only_for_tax_returns(self) -> "DocumentCreate":
+        """Reject ``consent_on_file`` outside the Tax Returns category.
+
+        Returns:
+            DocumentCreate: The validated schema.
+
+        Raises:
+            ValueError: If consent is set for any other category.
+        """
+        if self.consent_on_file and self.category is not DocumentCategory.TAX_RETURNS:
+            msg = "consent_on_file is only valid for the Tax Returns category"
+            raise ValueError(msg)
+        return self
 
 
 class DocumentUpdate(BaseSchema):

@@ -4,22 +4,28 @@ An admin manifest (CSV) lists the files to import with their metadata. The
 import copies each file to ``{documents_root}/{document_id}{extension}``,
 records its SHA-256, skips exact duplicates, and creates or updates the
 ``documents`` row. The manifest format is described in
-``docs/guides/document-manifest.md``.
+``docs/guides/documents.md``.
 
-Document IDs are stable: ``uuid5(DOCUMENT_NAMESPACE, <file path as written
-relative to the source root>)``. Re-importing the same manifest therefore
-updates rows in place instead of creating new ones.
+Document IDs are stable: ``uuid5(DOCUMENT_NAMESPACE, <file path relative to
+the source root>)``, taken after ``..`` segments and symlinks are resolved.
+Every file must live under the source root. Re-importing the same manifest
+therefore updates rows in place instead of creating new ones.
 
-Problems are reported by manifest line and column name only; no cell value,
-title, or path is ever included.
+Files are staged under temporary names and renamed into place only after the
+database transaction commits, so a failed import leaves the store as it was.
+
+Problems are reported by manifest line and column name or position only; no
+cell value, title, or path is ever included.
 """
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import hashlib
 import json
-import shutil
+import os
+import tempfile
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -33,10 +39,16 @@ from llc_manager.models.entity import Entity
 from llc_manager.services.document_store import mime_for_source, stored_name
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Awaitable, Callable, Iterable
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
+# #CRITICAL: Data integrity - this namespace turns a relative file path into a
+# document ID. Changing even one digit re-mints every ID: re-imports create
+# duplicates and IDs held by other services stop resolving. The value is public
+# on purpose: document IDs are identifiers, not secrets (every read is behind
+# the API key), unlike the private entity-seed namespace.
+# #VERIFY: tests/unit/test_document_import.py pins golden IDs for this value.
 DOCUMENT_NAMESPACE = UUID("b1f8a6f4-1c0e-4f43-9a52-7d0c2e6b9a10")
 
 REQUIRED_COLUMNS = ("file", "entity", "document_type", "category", "title")
@@ -54,6 +66,9 @@ _CATEGORY_BY_LOWER = {c.value.lower(): c for c in DocumentCategory}
 _TYPE_BY_LOWER = {t.value: t for t in DocumentType}
 _CHUNK = 1024 * 1024
 _MAX_TITLE = 255  # Document.title is String(255)
+_MAX_FILE_NAME = 255  # Document.file_name is String(255)
+_EXTRA_CELLS_KEY = "__extra_cells__"  # csv.DictReader restkey for long rows
+_STORED_MODE = 0o640
 
 
 @dataclass(frozen=True)
@@ -61,7 +76,8 @@ class ManifestRow:
     """One validated manifest row.
 
     Attributes:
-        line (int): Line number in the manifest (header is line 1).
+        line (int): Line number where the record ends in the manifest (the
+            header is line 1; a quoted multi-line cell moves it down).
         document_id (UUID): Stable document ID.
         source (Path): Resolved source file.
         mime_type (str): Store MIME type for the source file.
@@ -95,11 +111,15 @@ class ManifestReport:
 
     Attributes:
         rows (list[ManifestRow]): Rows that passed validation.
-        problems (list[str]): Problems, by line and column name only.
+        problems (list[str]): Problems, by line and column name or position
+            only.
+        unreadable (bool): True when the manifest file itself could not be
+            opened or decoded (a file error, not a validation problem).
     """
 
     rows: list[ManifestRow] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
+    unreadable: bool = False
 
 
 @dataclass(frozen=True)
@@ -113,6 +133,8 @@ class ImportResult:
         duplicates (int): New rows skipped because identical bytes are
             already stored under another document.
         skipped_deleted (int): Rows whose document is soft-deleted.
+        duplicate_lines (tuple[int, ...]): Manifest line numbers of the
+            skipped duplicates, so a skipped row is never silent.
     """
 
     created: int = 0
@@ -120,6 +142,7 @@ class ImportResult:
     unchanged: int = 0
     duplicates: int = 0
     skipped_deleted: int = 0
+    duplicate_lines: tuple[int, ...] = ()
 
 
 class ImportProblemError(Exception):
@@ -299,24 +322,48 @@ def _parse_entity(value: str, entity_map: dict[str, UUID]) -> UUID:
 
 
 def _parse_source(value: str, source_root: Path) -> tuple[str, Path, str]:
+    """Resolve a manifest ``file`` cell to its ID key, path, and MIME type.
+
+    Args:
+        value (str): The cell text.
+        source_root (Path): Directory that the file must live under.
+
+    Returns:
+        tuple[str, Path, str]: POSIX path relative to the source root, the
+            resolved path, and the store MIME type.
+
+    Raises:
+        _RowError: If the cell is empty, outside the root, missing, or of an
+            unsupported type.
+    """
     text = value.strip()
     if not text:
         msg = "column 'file': empty"
         raise _RowError(msg)
-    written = Path(text)
-    source = (written if written.is_absolute() else source_root / written).resolve()
-    if not source.is_file():
-        msg = "column 'file': file not found"
-        raise _RowError(msg)
+    # #EDGE: Security - a manifest path is untrusted input. Resolve ``..`` and
+    # symlinks, then require the result to stay under the source root, so a
+    # row cannot import a file from elsewhere on the disk.
+    # #VERIFY: tests/unit/test_document_import.py covers an absolute path, a
+    # ``..`` path, and a symlink that point outside the source root.
+    try:
+        root = source_root.resolve()
+        written = Path(text)
+        source = (written if written.is_absolute() else root / written).resolve()
+        if not source.is_relative_to(root):
+            msg = "column 'file': path is outside the source root"
+            raise _RowError(msg)
+        if not source.is_file():
+            msg = "column 'file': file not found"
+            raise _RowError(msg)
+    except (OSError, ValueError, RuntimeError):
+        # An embedded NUL, an over-long name, or a symlink loop.
+        msg = "column 'file': path could not be read"
+        raise _RowError(msg) from None
     mime = mime_for_source(source)
     if mime is None:
         msg = "column 'file': unsupported file type"
         raise _RowError(msg)
-    try:
-        key = source.relative_to(source_root.resolve()).as_posix()
-    except ValueError:
-        key = source.as_posix()
-    return key, source, mime
+    return source.relative_to(root).as_posix(), source, mime
 
 
 def _parse_row(
@@ -365,13 +412,70 @@ def _parse_row(
     )
 
 
-def _check_header(fieldnames: Iterable[str] | None) -> list[str]:
-    names = [n.strip() for n in fieldnames or []]
+def _check_header(names: list[str]) -> list[str]:
+    """Check the header row without echoing any cell text.
+
+    A manifest saved without a header row makes its first data row the
+    header, so unknown columns are reported by position, never by name.
+
+    Args:
+        names (list[str]): Stripped header cells.
+
+    Returns:
+        list[str]: Value-free problems; empty when the header is valid.
+    """
     problems = [
         f"header: missing column '{c}'" for c in REQUIRED_COLUMNS if c not in names
     ]
-    problems += [f"header: unknown column '{n}'" for n in names if n not in ALL_COLUMNS]
+    seen: set[str] = set()
+    for position, name in enumerate(names, start=1):
+        if name not in ALL_COLUMNS:
+            problems.append(f"header: unknown column at position {position}")
+        elif name in seen:
+            problems.append(f"header: duplicate column at position {position}")
+        seen.add(name)
     return problems
+
+
+def _read_rows(
+    handle: Iterable[str],
+    source_root: Path,
+    keys: dict[str, UUID],
+    report: ManifestReport,
+) -> None:
+    """Validate the header and every row of an open manifest into ``report``.
+
+    Args:
+        handle (Iterable[str]): Open manifest text.
+        source_root (Path): Directory that ``file`` cells resolve against.
+        keys (dict[str, UUID]): Entity key to UUID.
+        report (ManifestReport): Receives rows and problems.
+    """
+    reader = csv.DictReader(handle, restkey=_EXTRA_CELLS_KEY)
+    names = [n.strip() for n in reader.fieldnames or []]
+    report.problems += _check_header(names)
+    if report.problems:
+        return
+    # Normalize so a space-padded header cell still matches its column.
+    reader.fieldnames = names
+    seen: dict[UUID, int] = {}
+    for raw in reader:
+        line = reader.line_num
+        if _EXTRA_CELLS_KEY in raw:
+            report.problems.append(f"line {line}: more cells than header columns")
+            continue
+        try:
+            row = _parse_row(line, raw, source_root, keys)
+        except _RowError as exc:
+            report.problems.append(f"line {line}: {exc}")
+            continue
+        if row.document_id in seen:
+            report.problems.append(
+                f"line {line}: column 'file': same file as line {seen[row.document_id]}"
+            )
+            continue
+        seen[row.document_id] = line
+        report.rows.append(row)
 
 
 def read_manifest(
@@ -387,35 +491,19 @@ def read_manifest(
             entity seed's mapping file.
 
     Returns:
-        ManifestReport: Valid rows and value-free problems.
+        ManifestReport: Valid rows and value-free problems. A manifest that
+            cannot be opened or decoded yields one problem and
+            ``unreadable=True``.
     """
     report = ManifestReport()
-    keys = entity_map or {}
     try:
-        handle = manifest.open(encoding="utf-8-sig", newline="")
-    except OSError:
-        report.problems.append("manifest could not be read")
-        return report
-    with handle:
-        reader = csv.DictReader(handle)
-        report.problems += _check_header(reader.fieldnames)
-        if report.problems:
-            return report
-        seen: dict[UUID, int] = {}
-        for raw in reader:
-            line = reader.line_num
-            try:
-                row = _parse_row(line, raw, source_root, keys)
-            except _RowError as exc:
-                report.problems.append(f"line {line}: {exc}")
-                continue
-            if row.document_id in seen:
-                report.problems.append(
-                    f"line {line}: column 'file': same file as line {seen[row.document_id]}"
-                )
-                continue
-            seen[row.document_id] = line
-            report.rows.append(row)
+        # Decoding is lazy, so a bad byte surfaces inside the row loop.
+        with manifest.open(encoding="utf-8-sig", newline="") as handle:
+            _read_rows(handle, source_root, entity_map or {}, report)
+    except (OSError, ValueError, csv.Error):
+        # ValueError covers UnicodeDecodeError. Drop partial results: a
+        # manifest that fails midway is not trustworthy.
+        return ManifestReport(problems=["manifest could not be read"], unreadable=True)
     if not report.rows and not report.problems:
         report.problems.append("manifest has no rows")
     return report
@@ -437,25 +525,79 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def copy_into_store(source: Path, root: Path, document_id: UUID, mime_type: str) -> str:
-    """Copy a file into the store atomically and return its stored name.
+class StagedFiles:
+    """Files copied next to the store under temporary names.
+
+    :meth:`stage` copies a source file into a temporary file inside the
+    documents root. :meth:`publish` renames every staged file to its final
+    name; :meth:`discard` deletes them. Nothing reaches a final name until
+    the caller has committed the database transaction.
 
     Args:
-        source (Path): Source file.
-        root (Path): Documents root.
-        document_id (UUID): Document ID.
-        mime_type (str): Store MIME type.
-
-    Returns:
-        str: The stored file name, relative to ``root``.
+        root (Path): Documents root directory.
     """
-    root.mkdir(parents=True, exist_ok=True)
-    name = stored_name(document_id, mime_type)
-    tmp = root / f".{name}.tmp"
-    shutil.copyfile(source, tmp)
-    tmp.chmod(0o640)
-    tmp.replace(root / name)
-    return name
+
+    def __init__(self, root: Path) -> None:
+        self._root = root
+        self._pending: list[tuple[Path, Path]] = []
+
+    def stage(self, source: Path, name: str) -> tuple[str, int]:
+        """Copy ``source`` to a temporary file and report what was copied.
+
+        Args:
+            source (Path): Source file.
+            name (str): Final file name, relative to the root.
+
+        Returns:
+            tuple[str, int]: Hex SHA-256 and size of the bytes actually copied.
+        """
+        self._root.mkdir(parents=True, exist_ok=True)
+        descriptor, temp_name = tempfile.mkstemp(
+            dir=self._root, prefix=".stage-", suffix=".tmp"
+        )
+        temp = Path(temp_name)
+        # Registered before any write so discard() removes it on failure.
+        self._pending.append((temp, self._root / name))
+        digest = hashlib.sha256()
+        size = 0
+        with os.fdopen(descriptor, "wb") as target, source.open("rb") as origin:
+            while chunk := origin.read(_CHUNK):
+                digest.update(chunk)
+                target.write(chunk)
+                size += len(chunk)
+            target.flush()
+            os.fsync(target.fileno())
+        temp.chmod(_STORED_MODE)
+        return digest.hexdigest(), size
+
+    def publish(self) -> None:
+        """Rename every staged file to its final name, replacing any old file.
+
+        Raises:
+            OSError: If a rename fails; staged files not yet renamed are
+                deleted first.
+        """
+        # #ASSUME: Data integrity - staged files sit in the documents root, so
+        # the rename stays on one filesystem and is atomic.
+        # #VERIFY: documents_root is one mounted volume, not a union of mounts.
+        pending, self._pending = self._pending, []
+        for index, (temp, final) in enumerate(pending):
+            try:
+                temp.replace(final)
+            except OSError:
+                self._remove(pending[index:])
+                raise
+
+    def discard(self) -> None:
+        """Delete every staged file that has not been published."""
+        pending, self._pending = self._pending, []
+        self._remove(pending)
+
+    @staticmethod
+    def _remove(pending: list[tuple[Path, Path]]) -> None:
+        for temp, _final in pending:
+            with contextlib.suppress(OSError):
+                temp.unlink(missing_ok=True)
 
 
 def _metadata(row: ManifestRow) -> dict[str, object]:
@@ -471,34 +613,174 @@ def _metadata(row: ManifestRow) -> dict[str, object]:
     }
 
 
-def _file_fields(row: ManifestRow, sha: str, stored: str) -> dict[str, object]:
+def _file_fields(
+    row: ManifestRow, sha: str, stored: str, size: int
+) -> dict[str, object]:
     return {
         "sha256": sha,
         "mime_type": row.mime_type,
-        "file_size": row.source.stat().st_size,
-        "file_name": row.source.name[:_MAX_TITLE],
+        "file_size": size,
+        "file_name": row.source.name[:_MAX_FILE_NAME],
         "file_path": stored,
     }
 
 
-async def apply_import(
-    repo: DocumentRepository, rows: list[ManifestRow], documents_root: Path
-) -> ImportResult:
-    """Copy files into the store and create or update their rows.
+@dataclass
+class _Tally:
+    """Running counts for one import."""
 
-    The caller owns the transaction. Every row's entity must exist first;
-    otherwise nothing is imported.
+    created: int = 0
+    updated: int = 0
+    unchanged: int = 0
+    skipped_deleted: int = 0
+    duplicate_lines: list[int] = field(default_factory=list)
+    # Hashes staged earlier in this run: the repository may not see pending
+    # rows until the flush, so a repeated file in one manifest is caught here.
+    staged_hashes: set[str] = field(default_factory=set)
+
+    def result(self) -> ImportResult:
+        """Return the counts as an immutable result."""
+        return ImportResult(
+            created=self.created,
+            updated=self.updated,
+            unchanged=self.unchanged,
+            duplicates=len(self.duplicate_lines),
+            skipped_deleted=self.skipped_deleted,
+            duplicate_lines=tuple(self.duplicate_lines),
+        )
+
+
+def _stage_row(row: ManifestRow, sha: str, staged: StagedFiles) -> tuple[str, int]:
+    """Stage a row's file and confirm it still matches the hash taken earlier.
+
+    Args:
+        row (ManifestRow): The row.
+        sha (str): SHA-256 computed before staging.
+        staged (StagedFiles): Where the copy is staged.
+
+    Returns:
+        tuple[str, int]: Stored file name and the copied size in bytes.
+
+    Raises:
+        ImportProblemError: If the source changed between hashing and copying.
+    """
+    name = stored_name(row.document_id, row.mime_type)
+    copied_sha, size = staged.stage(row.source, name)
+    if copied_sha != sha:
+        msg = f"line {row.line}: column 'file': file changed while importing"
+        raise ImportProblemError([msg])
+    return name, size
+
+
+def _stored_file_matches(path: Path, sha: str) -> bool:
+    """Return True when ``path`` is a regular file holding bytes with ``sha``."""
+    return path.is_file() and sha256_file(path) == sha
+
+
+async def _create_row(
+    repo: DocumentRepository,
+    row: ManifestRow,
+    sha: str,
+    staged: StagedFiles,
+    tally: _Tally,
+) -> None:
+    if sha in tally.staged_hashes or await repo.live_id_with_sha(sha) is not None:
+        tally.duplicate_lines.append(row.line)
+        return
+    stored, size = _stage_row(row, sha, staged)
+    repo.add(
+        Document(
+            id=row.document_id,
+            **_metadata(row),
+            **_file_fields(row, sha, stored, size),
+        )
+    )
+    tally.staged_hashes.add(sha)
+    tally.created += 1
+
+
+def _update_row(
+    existing: Document,
+    row: ManifestRow,
+    sha: str,
+    documents_root: Path,
+    staged: StagedFiles,
+    tally: _Tally,
+) -> None:
+    wanted = _metadata(row)
+    stored_file = documents_root / stored_name(row.document_id, row.mime_type)
+    # The stored bytes are checked, not just the row: a crash between commit
+    # and publish, or a file deleted by hand, leaves a row that claims bytes the
+    # store does not hold. Re-importing repairs it.
+    restage = (
+        existing.sha256 != sha
+        or existing.mime_type != row.mime_type
+        or not _stored_file_matches(stored_file, sha)
+    )
+    if restage:
+        stored, size = _stage_row(row, sha, staged)
+        wanted.update(_file_fields(row, sha, stored, size))
+    changed = restage
+    for name, value in wanted.items():
+        if getattr(existing, name) != value:
+            setattr(existing, name, value)
+            changed = True
+    tally.staged_hashes.add(sha)
+    if changed:
+        tally.updated += 1
+    else:
+        tally.unchanged += 1
+
+
+async def _record_rows(
+    repo: DocumentRepository,
+    rows: list[ManifestRow],
+    documents_root: Path,
+    staged: StagedFiles,
+) -> ImportResult:
+    tally = _Tally()
+    for row in rows:
+        sha = sha256_file(row.source)
+        existing = await repo.get(row.document_id)
+        if existing is None:
+            await _create_row(repo, row, sha, staged, tally)
+        elif existing.deleted_at is not None:
+            tally.skipped_deleted += 1
+        else:
+            _update_row(existing, row, sha, documents_root, staged, tally)
+    await repo.flush()
+    return tally.result()
+
+
+async def apply_import(
+    repo: DocumentRepository,
+    rows: list[ManifestRow],
+    documents_root: Path,
+    *,
+    commit: Callable[[], Awaitable[None]],
+) -> ImportResult:
+    """Stage files, record rows, commit, then publish the files.
+
+    Every row's entity must exist first; otherwise nothing is imported. Files
+    are copied to temporary names, ``commit`` runs, and only then are the
+    files renamed to their final names. A failure before the commit deletes
+    the staged files and leaves the store untouched.
 
     Args:
         repo (DocumentRepository): Database operations.
         rows (list[ManifestRow]): Rows from :func:`read_manifest`.
         documents_root (Path): Documents root directory.
+        commit (Callable[[], Awaitable[None]]): Commits the caller's
+            transaction. The caller still owns rollback.
 
     Returns:
         ImportResult: Counts by outcome.
 
     Raises:
-        ImportProblemError: If any row names an entity that does not exist.
+        ImportProblemError: If any row names an entity that does not exist,
+            or a source file changes while it is copied.
+        BaseException: Whatever staging or ``commit`` raised, re-raised after
+            the staged files are deleted.
     """
     live = await repo.live_entity_ids({r.entity_id for r in rows})
     missing = [
@@ -509,56 +791,18 @@ async def apply_import(
     if missing:
         raise ImportProblemError(missing)
 
-    counts = {
-        "created": 0,
-        "updated": 0,
-        "unchanged": 0,
-        "duplicates": 0,
-        "skipped_deleted": 0,
-    }
-    stored_this_run: set[str] = set()
-    for row in rows:
-        sha = sha256_file(row.source)
-        existing = await repo.get(row.document_id)
-        if existing is None:
-            if sha in stored_this_run or await repo.live_id_with_sha(sha) is not None:
-                counts["duplicates"] += 1
-                continue
-            stored = copy_into_store(
-                row.source, documents_root, row.document_id, row.mime_type
-            )
-            repo.add(
-                Document(
-                    id=row.document_id,
-                    **_metadata(row),
-                    **_file_fields(row, sha, stored),
-                )
-            )
-            stored_this_run.add(sha)
-            counts["created"] += 1
-            continue
-        if existing.deleted_at is not None:
-            counts["skipped_deleted"] += 1
-            continue
-
-        wanted = _metadata(row)
-        stored_file = documents_root / stored_name(row.document_id, row.mime_type)
-        if (
-            existing.sha256 != sha
-            or existing.mime_type != row.mime_type
-            or not stored_file.is_file()
-        ):
-            stored = copy_into_store(
-                row.source, documents_root, row.document_id, row.mime_type
-            )
-            wanted.update(_file_fields(row, sha, stored))
-        changed = False
-        for name, value in wanted.items():
-            if getattr(existing, name) != value:
-                setattr(existing, name, value)
-                changed = True
-        stored_this_run.add(sha)
-        counts["updated" if changed else "unchanged"] += 1
-
-    await repo.flush()
-    return ImportResult(**counts)
+    # #ASSUME: Data integrity - one importer runs at a time against a store.
+    # #EDGE: a crash after the commit but before publish() leaves rows whose
+    # files are missing or stale; the next import notices (the stored bytes are
+    # re-hashed) and repairs them.
+    # #VERIFY: tests/unit/test_document_import.py fails the commit and a later
+    # row and asserts the store is unchanged.
+    staged = StagedFiles(documents_root)
+    try:
+        result = await _record_rows(repo, rows, documents_root, staged)
+        await commit()
+    except BaseException:
+        staged.discard()
+        raise
+    staged.publish()
+    return result

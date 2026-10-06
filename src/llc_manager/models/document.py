@@ -94,7 +94,9 @@ class Document(Base, UUIDPrimaryKeyMixin, AuditMixin):
         category (Mapped[DocumentCategory]): Top-level folder for consumers.
         title (Mapped[str]): Title or name of the document.
         description (Mapped[str | None]): Description of the document.
-        file_path (Mapped[str | None]): Path to the stored file.
+        file_path (Mapped[str | None]): Bare stored file name under the
+            documents root (``{id}{extension}``). Informational only: the file
+            endpoint locates the file by ID and never reads this value.
         file_name (Mapped[str | None]): Original file name.
         file_size (Mapped[int | None]): Size of the file in bytes.
         mime_type (Mapped[str | None]): MIME type of the file.

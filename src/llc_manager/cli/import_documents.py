@@ -1,9 +1,11 @@
-"""Import documents into the store from an admin manifest.
+r"""Import documents into the store from an admin manifest.
 
 Usage::
 
-    python -m llc_manager.cli.import_documents --manifest /private/manifest.csv
-        --source-root /private/scans --entity-map /private/entity-map.json
+    python -m llc_manager.cli.import_documents \
+        --manifest /private/manifest.csv \
+        --source-root /private/scans \
+        --entity-map /private/entity-map.json
     python -m llc_manager.cli.import_documents --validate-only ...
 
 The manifest path comes from ``--manifest`` or ``LLC_MANAGER_DOCUMENT_MANIFEST``.
@@ -12,11 +14,16 @@ A manifest inside this source checkout is refused unless its name ends in
 ``--documents-root`` (default: the ``LLC_MANAGER_DOCUMENTS_ROOT`` setting).
 
 The command prints counts and value-free problems only; it never prints
-titles, paths, or IDs. ``--validate-only`` checks the manifest and the source
-files without touching the database or the store (entity existence is
-checked when importing).
+titles, paths, or IDs. An unexpected failure prints only the exception class
+name. ``--validate-only`` checks the manifest and the source files without
+touching the database or the store (entity existence is checked when
+importing).
 
-Exit codes: 0 success, 1 validation problems, 2 usage or file errors.
+Exit codes: 0 success, 1 validation problems, 2 usage or file errors
+(including a manifest that cannot be opened or decoded), 3 unexpected
+failure while importing (the transaction is rolled back and staged files are
+deleted; if it happened while renaming files after the commit, re-run the
+import to repair the store).
 """
 
 from __future__ import annotations
@@ -28,6 +35,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
+
+from sqlalchemy.exc import SQLAlchemyError
 
 from llc_manager.core.config import settings
 from llc_manager.db.session import AsyncSessionLocal
@@ -44,6 +53,7 @@ from llc_manager.services.entity_seed import is_inside_repo
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+    from uuid import UUID
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,6 +63,7 @@ EXAMPLE_SUFFIX = ".example.csv"
 EXIT_OK = 0
 EXIT_INVALID = 1
 EXIT_USAGE = 2
+EXIT_FAILURE = 3
 
 
 class _UsageError(Exception):
@@ -140,9 +151,11 @@ async def _apply(
     async with session_factory() as session:
         try:
             result = await apply_import(
-                SqlDocumentRepository(session), rows, documents_root
+                SqlDocumentRepository(session),
+                rows,
+                documents_root,
+                commit=session.commit,
             )
-            await session.commit()
         except Exception:
             await session.rollback()
             raise
@@ -152,6 +165,63 @@ async def _apply(
         f"skipped_deleted={result.skipped_deleted}",
         file=out,
     )
+    if result.duplicate_lines:
+        lines = ",".join(str(number) for number in result.duplicate_lines)
+        print(f"duplicate_lines={lines}", file=out)
+
+
+def _import(
+    session_factory: Callable[[], AsyncSession],
+    rows: list[ManifestRow],
+    documents_root: Path,
+    out: TextIO,
+) -> int:
+    """Apply the import and map failures to exit codes without leaking values.
+
+    Args:
+        session_factory (Callable[[], AsyncSession]): Session factory.
+        rows (list[ManifestRow]): Validated manifest rows.
+        documents_root (Path): Store directory.
+        out (TextIO): Output stream.
+
+    Returns:
+        int: Exit code.
+    """
+    try:
+        asyncio.run(_apply(session_factory, rows, documents_root, out))
+    except ImportProblemError as exc:
+        for problem in exc.problems:
+            print(f"problem: {problem}", file=out)
+        return EXIT_INVALID
+    except (OSError, SQLAlchemyError) as exc:
+        # #CRITICAL: Security - the message of these exceptions can carry a
+        # file path or bound SQL parameters (a title, a file name), so only the
+        # class name is printed and the traceback is suppressed.
+        # #VERIFY: tests/unit/test_import_documents_cli.py injects an OSError
+        # and an IntegrityError carrying sentinel values and checks the output.
+        print(f"error: import failed ({type(exc).__name__})", file=out)
+        return EXIT_FAILURE
+    return EXIT_OK
+
+
+def _load_inputs(args: argparse.Namespace) -> tuple[Path, dict[str, UUID] | None]:
+    """Resolve the manifest path and load the optional entity map.
+
+    Args:
+        args (argparse.Namespace): Parsed arguments.
+
+    Returns:
+        tuple[Path, dict[str, UUID] | None]: Manifest path and entity map.
+
+    Raises:
+        _UsageError: If the manifest or the entity map cannot be used.
+    """
+    manifest = _resolve_manifest(args)
+    try:
+        entity_map = load_entity_map(args.entity_map) if args.entity_map else None
+    except ImportProblemError as exc:
+        raise _UsageError("; ".join(exc.problems)) from None
+    return manifest, entity_map
 
 
 def main(
@@ -174,14 +244,9 @@ def main(
     stream = out or sys.stdout
     args = _build_parser().parse_args(argv)
     try:
-        manifest = _resolve_manifest(args)
-        entity_map = load_entity_map(args.entity_map) if args.entity_map else None
+        manifest, entity_map = _load_inputs(args)
     except _UsageError as exc:
         print(f"error: {exc}", file=stream)
-        return EXIT_USAGE
-    except ImportProblemError as exc:
-        for problem in exc.problems:
-            print(f"error: {problem}", file=stream)
         return EXIT_USAGE
 
     source_root: Path = (args.source_root or manifest.parent).expanduser()
@@ -189,26 +254,17 @@ def main(
     _summarize(report.rows, stream)
     for problem in report.problems:
         print(f"problem: {problem}", file=stream)
+    if report.unreadable:
+        return EXIT_USAGE
     if report.problems:
         return EXIT_INVALID
     if args.validate_only:
         return EXIT_OK
 
     documents_root: Path = (args.documents_root or settings.documents_root).expanduser()
-    try:
-        asyncio.run(
-            _apply(
-                session_factory or AsyncSessionLocal,
-                report.rows,
-                documents_root,
-                stream,
-            )
-        )
-    except ImportProblemError as exc:
-        for problem in exc.problems:
-            print(f"problem: {problem}", file=stream)
-        return EXIT_INVALID
-    return EXIT_OK
+    return _import(
+        session_factory or AsyncSessionLocal, report.rows, documents_root, stream
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover

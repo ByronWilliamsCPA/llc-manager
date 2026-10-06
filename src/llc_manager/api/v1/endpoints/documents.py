@@ -65,9 +65,14 @@ async def _get_live_document(db: AsyncSession, document_id: UUID) -> Document:
     summary="List documents",
     description=(
         "Return document metadata, oldest `updated_at` first, so a consumer "
-        "can page through changes. `updated_since` returns documents created "
-        "or replaced at or after the given time (a timestamp without a zone "
-        "is read as UTC). Soft-deleted documents are excluded."
+        "can page through changes. `updated_since` returns documents whose "
+        "`updated_at` is at or after the given time (a timestamp without a "
+        "zone is read as UTC); any create, file replacement, or metadata edit "
+        "moves `updated_at`. Paging is by offset, so a document edited while "
+        "a consumer pages can shift later rows: re-poll with a watermark a "
+        "few minutes behind the newest `updated_at` seen and de-duplicate by "
+        "`id`. Soft-deleted documents are excluded, so deletions do not "
+        "appear in this feed."
     ),
     responses={
         200: {"description": "Paginated list of documents"},
@@ -98,6 +103,12 @@ async def list_documents(
     Returns:
         DocumentListResponse: The page of documents and totals.
     """
+    # #EDGE: Concurrency - offset paging over a sort key that edits change can
+    # skip a row at a page boundary, and updated_at is the transaction start
+    # time, so a long import can commit rows behind a consumer's watermark.
+    # Consumers overlap their updated_since watermark and de-duplicate by id.
+    # #VERIFY: docs/guides/documents.md states the overlap rule; revisit with
+    # keyset paging on (updated_at, id) if a consumer cannot de-duplicate.
     query = select(Document).where(Document.deleted_at.is_(None))
     if updated_since is not None:
         if updated_since.tzinfo is None:
@@ -132,10 +143,12 @@ async def list_documents(
     "/{document_id}",
     response_model=DocumentRead,
     summary="Get document metadata",
+    description="Return one non-deleted document's metadata. No file path is returned.",
     responses={
         200: {"description": "Document metadata"},
         401: {"description": "Missing or invalid API key"},
         404: {"description": "Document not found"},
+        503: {"description": "API key not configured on the server"},
     },
 )
 async def get_document(db: DBSession, document_id: UUID) -> DocumentRead:
@@ -164,6 +177,7 @@ async def get_document(db: DBSession, document_id: UUID) -> DocumentRead:
         200: {"description": "File bytes", "content": {DEFAULT_MIME: {}}},
         401: {"description": "Missing or invalid API key"},
         404: {"description": "Document or file not found"},
+        503: {"description": "API key not configured on the server"},
     },
 )
 async def get_document_file(db: DBSession, document_id: UUID) -> FileResponse:
