@@ -167,23 +167,21 @@ class DocumentRepository(Protocol):
 
     async def live_entity_ids(self, ids: set[UUID]) -> set[UUID]:
         """Return the subset of ``ids`` that are non-deleted entities."""
-        ...
+        raise NotImplementedError
 
     async def get(self, document_id: UUID) -> Document | None:
         """Return a document by ID, including soft-deleted ones."""
-        ...
+        raise NotImplementedError
 
     async def live_id_with_sha(self, sha256: str) -> UUID | None:
         """Return the ID of a non-deleted document with these bytes, if any."""
-        ...
+        raise NotImplementedError
 
     def add(self, document: Document) -> None:
         """Stage a new document."""
-        ...
 
     async def flush(self) -> None:
         """Flush staged changes."""
-        ...
 
 
 class SqlDocumentRepository:
