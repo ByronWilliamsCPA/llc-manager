@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid4
 
 import pytest
@@ -13,6 +14,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import ClauseElement
 
+from llc_manager.api.v1.endpoints.documents import get_document_file
 from llc_manager.core.config import settings
 from llc_manager.db.session import get_async_session
 from llc_manager.main import create_app
@@ -20,9 +22,12 @@ from llc_manager.models.document import Document, DocumentCategory, DocumentType
 from tests.auth_helpers import AUTH_HEADERS
 from tests.integration.test_entities_api import _FakeAsyncSession, _FakeResult
 
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 pytestmark = pytest.mark.unit
 
-C2_FIELDS = {
+DOCUMENT_READ_FIELDS = {
     "id",
     "title",
     "category",
@@ -34,6 +39,7 @@ C2_FIELDS = {
     "consent_on_file",
     "sha256",
     "mime_type",
+    "file_size",
     "created_at",
     "updated_at",
 }
@@ -99,7 +105,7 @@ class TestList:
         assert body["total"] == 1
         assert (body["page"], body["size"], body["pages"]) == (1, 50, 1)
         item = body["items"][0]
-        assert set(item) >= C2_FIELDS
+        assert set(item) == DOCUMENT_READ_FIELDS
         assert "file_path" not in item
         assert item["category"] == "LLCs"
         assert item["document_type"] == "operating_agreement"
@@ -175,6 +181,11 @@ class TestDetail:
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Document not found"
 
+    def test_query_excludes_soft_deleted_rows(self) -> None:
+        session = _RecordingSession([_FakeResult(scalar_one=None)])
+        _client(session).get(f"/api/v1/documents/{uuid4()}")
+        assert "documents.deleted_at IS NULL" in session.sql[-1]
+
 
 class TestFile:
     @pytest.fixture
@@ -198,6 +209,21 @@ class TestFile:
         assert resp.headers["content-type"] == "application/pdf"
         assert resp.headers["content-length"] == str(len(payload))
         assert resp.headers["x-content-type-options"] == "nosniff"
+
+    def test_file_query_excludes_soft_deleted_rows(self, root: Path) -> None:
+        session = _RecordingSession([_FakeResult(scalar_one=None)])
+        resp = _client(session).get(f"/api/v1/documents/{uuid4()}/file")
+        assert resp.status_code == 404
+        assert "documents.deleted_at IS NULL" in session.sql[-1]
+
+    def test_endpoint_sets_nosniff_without_the_middleware(self, root: Path) -> None:
+        # The security middleware also sets this header; the endpoint must not
+        # depend on it, so call the handler directly.
+        doc = _doc()
+        (root / f"{doc.id}.pdf").write_bytes(b"%PDF-1.4")
+        session = _FakeAsyncSession([_FakeResult(scalar_one=doc)])
+        response = asyncio.run(get_document_file(cast("AsyncSession", session), doc.id))
+        assert response.headers["x-content-type-options"] == "nosniff"
 
     def test_uses_stored_mime_type(self, root: Path) -> None:
         doc = _doc(mime_type="image/png")

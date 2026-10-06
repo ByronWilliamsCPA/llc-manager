@@ -87,7 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rejection
 - Authentik OIDC configuration placeholders (`authentik_issuer`,
   `authentik_jwks_url`, `authentik_audience`); default `None` and inert
-  until the planned `core/auth.py` dependency is wired in
+  until a per-user check in `core/auth.py` is wired in
 - `Cache-Control: no-store` and `Pragma: no-cache` response headers on
   `/api/v1/*` data endpoints to prevent caching of EINs and compliance data
 - Compliance audit remediation (2026-05-08): native pre-commit hooks for ruff,
