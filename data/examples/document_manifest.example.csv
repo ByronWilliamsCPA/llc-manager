@@ -1,0 +1,5 @@
+file,entity,document_type,category,title,document_date,effective_date,confidential,consent_on_file
+documents/household-insurance-policy.pdf,household,insurance_policy,Insurance,Example household umbrella policy,2025-01-15,2025-02-01,false,
+documents/person-a-will.pdf,person-a,will,Estate Planning,Example will (person A),2024-06-30,,true,
+documents/holding-llc-operating-agreement.pdf,holding-llc,operating_agreement,LLCs,Example operating agreement,2023-03-10,2023-03-10,false,
+documents/person-b-2025-tax-return.pdf,person-b,tax_return,Tax Returns,Example 2025 individual return (person B),2026-04-10,,true,true

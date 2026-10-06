@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Date, Enum, ForeignKey, String, Text
+from sqlalchemy import Date, Enum, ForeignKey, Index, String, Text, false
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,6 +13,22 @@ from llc_manager.db.base import AuditMixin, Base, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from llc_manager.models.entity import Entity
+
+
+class DocumentCategory(StrEnum):
+    """Top-level document folders shared with the document consumers.
+
+    A consumer that has to guess a category uses ``OTHER``, never a specific
+    folder.
+    """
+
+    ESTATE_PLANNING = "Estate Planning"
+    LLCS = "LLCs"
+    TRUSTS = "Trusts"
+    TAX_RETURNS = "Tax Returns"
+    INSURANCE = "Insurance"
+    PERSONAL_RECORDS = "Personal records"
+    OTHER = "Other"
 
 
 class DocumentType(StrEnum):
@@ -38,6 +54,12 @@ class DocumentType(StrEnum):
     STATEMENT_OF_INFORMATION = "statement_of_information"
     CERTIFICATE_OF_GOOD_STANDING = "certificate_of_good_standing"
     FOREIGN_QUALIFICATION = "foreign_qualification"
+
+    # Estate planning and personal
+    WILL = "will"
+    TRUST_AGREEMENT = "trust_agreement"
+    POWER_OF_ATTORNEY = "power_of_attorney"
+    HEALTHCARE_DIRECTIVE = "healthcare_directive"
 
     # Tax documents
     EIN_LETTER = "ein_letter"
@@ -69,12 +91,16 @@ class Document(Base, UUIDPrimaryKeyMixin, AuditMixin):
     Attributes:
         entity_id (Mapped[UUID]): Foreign key to the owning entity.
         document_type (Mapped[DocumentType]): Type of document.
+        category (Mapped[DocumentCategory]): Top-level folder for consumers.
         title (Mapped[str]): Title or name of the document.
         description (Mapped[str | None]): Description of the document.
-        file_path (Mapped[str | None]): Path to the stored file.
+        file_path (Mapped[str | None]): Bare stored file name under the
+            documents root (``{id}{extension}``). Informational only: the file
+            endpoint locates the file by ID and never reads this value.
         file_name (Mapped[str | None]): Original file name.
         file_size (Mapped[int | None]): Size of the file in bytes.
         mime_type (Mapped[str | None]): MIME type of the file.
+        sha256 (Mapped[str | None]): Hex SHA-256 of the stored file.
         document_date (Mapped[date | None]): Date of the document.
         effective_date (Mapped[date | None]): Date the document became effective.
         expiration_date (Mapped[date | None]): Date the document expires.
@@ -82,10 +108,15 @@ class Document(Base, UUIDPrimaryKeyMixin, AuditMixin):
         tags (Mapped[str | None]): Comma-separated tags for categorization.
         notes (Mapped[str | None]): Additional notes about the document.
         is_confidential (Mapped[bool]): Whether the document is confidential.
+        consent_on_file (Mapped[bool]): True only when signed consent to use
+            a tax return is on file from each taxpayer; meaningful only for
+            the ``Tax Returns`` category.
         entity (Mapped['Entity']): The owning entity relationship.
     """
 
     __tablename__ = "documents"
+    # Supports the incremental ``updated_since`` listing.
+    __table_args__ = (Index("ix_documents_updated_at", "updated_at"),)
 
     # Entity relationship
     entity_id: Mapped[UUID] = mapped_column(
@@ -100,6 +131,13 @@ class Document(Base, UUIDPrimaryKeyMixin, AuditMixin):
         Enum(DocumentType, name="document_type_enum"),
         nullable=False,
     )
+    category: Mapped[DocumentCategory] = mapped_column(
+        Enum(DocumentCategory, name="document_category_enum"),
+        nullable=False,
+        default=DocumentCategory.OTHER,
+        server_default=DocumentCategory.OTHER.name,
+        index=True,
+    )
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -108,6 +146,7 @@ class Document(Base, UUIDPrimaryKeyMixin, AuditMixin):
     file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     file_size: Mapped[int | None] = mapped_column(nullable=True)
     mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    sha256: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     # Dates
     document_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -121,6 +160,9 @@ class Document(Base, UUIDPrimaryKeyMixin, AuditMixin):
     # Additional info
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_confidential: Mapped[bool] = mapped_column(default=False, nullable=False)
+    consent_on_file: Mapped[bool] = mapped_column(
+        default=False, server_default=false(), nullable=False
+    )
 
     # Relationships
     entity: Mapped["Entity"] = relationship("Entity", back_populates="documents")

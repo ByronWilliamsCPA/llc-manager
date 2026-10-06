@@ -732,7 +732,7 @@ class DocumentChunk(Base):
 | Auth | POST | `/auth/logout` | Yes |
 | Health | GET | `/api/v1/health` | No |
 | Metrics | GET | `/metrics` | No |
-| Documents | GET | `/api/v1/documents/{id}/download` | Yes |
+| Documents | GET | `/api/v1/documents/{id}/file` | Yes |
 
 ### Performance Targets
 

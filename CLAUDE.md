@@ -180,6 +180,8 @@ src/llc_manager/
 
 - `GET/POST /api/v1/entities` - List (paginated, searchable; `entity_type` and `xero_tenant_id` filters) / Create
 - `GET/PATCH/DELETE /api/v1/entities/{id}` - Read / Update / Soft Delete
+- `GET /api/v1/documents`, `GET /api/v1/documents/{id}`, `GET /api/v1/documents/{id}/file` - Read-only document metadata and file stream
+- Every `/api/v1` route requires the `X-API-Key` header (503 when no key is configured)
 - `GET /api/health/live|ready|startup` - Kubernetes probes
 
 ### Database

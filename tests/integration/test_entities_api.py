@@ -35,6 +35,7 @@ from llc_manager.api.v1.endpoints.entities import router as entities_router
 from llc_manager.db.session import get_async_session
 from llc_manager.main import create_app
 from llc_manager.models.entity import Entity, EntityType
+from tests.auth_helpers import AUTH_HEADERS
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -144,7 +145,7 @@ def _client_with_session(session: _FakeAsyncSession) -> TestClient:
         yield session
 
     app.dependency_overrides[get_async_session] = _override
-    return TestClient(app)
+    return TestClient(app, headers=AUTH_HEADERS)
 
 
 class TestRouterWiring:

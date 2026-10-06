@@ -19,6 +19,220 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "pm.test(\"List documents returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"List documents returns a JSON body\", function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body, \"JSON body\").to.satisfy(function (value) {",
+                  "        return value !== null && (typeof value === \"object\" || Array.isArray(value));",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "List documents",
+          "request": {
+            "description": "Return document metadata, oldest `updated_at` first, so a consumer can page through changes. `updated_since` returns documents whose `updated_at` is at or after the given time (a timestamp without a zone is read as UTC); any create, file replacement, or metadata edit moves `updated_at`. Paging is by offset, so a document edited while a consumer pages can shift later rows: re-poll with a watermark a few minutes behind the newest `updated_at` seen and de-duplicate by `id`. Soft-deleted documents are excluded, so deletions do not appear in this feed.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents"
+              ],
+              "query": [
+                {
+                  "description": "Page number",
+                  "disabled": true,
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "description": "Items per page",
+                  "disabled": true,
+                  "key": "size",
+                  "value": "50"
+                },
+                {
+                  "description": "Only documents updated at or after this time",
+                  "disabled": true,
+                  "key": "updated_since",
+                  "value": ""
+                },
+                {
+                  "description": "Filter by entity",
+                  "disabled": true,
+                  "key": "entity_id",
+                  "value": ""
+                },
+                {
+                  "description": "Filter by category",
+                  "disabled": true,
+                  "key": "category",
+                  "value": ""
+                }
+              ],
+              "raw": "{{baseUrl}}/api/v1/documents?",
+              "variable": []
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Get document metadata returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Get document metadata returns a JSON body\", function () {",
+                  "    pm.response.to.be.withBody;",
+                  "    pm.response.to.be.json;",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body, \"JSON body\").to.satisfy(function (value) {",
+                  "        return value !== null && (typeof value === \"object\" || Array.isArray(value));",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Get document metadata",
+          "request": {
+            "description": "Return one non-deleted document's metadata. No file path is returned.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents",
+                ":document_id"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/api/v1/documents/:document_id",
+              "variable": [
+                {
+                  "description": "",
+                  "key": "document_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Download document file returns 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Download document file returns an empty body\", function () {",
+                  "    pm.expect(pm.response.text() || \"\").to.have.lengthOf.at.most(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Download document file",
+          "request": {
+            "description": "Stream the stored file with its MIME type and `Content-Length`. The file is located by document ID under the server's documents root; no path is accepted from the caller.",
+            "header": [
+              {
+                "key": "Accept",
+                "type": "text",
+                "value": "application/json"
+              },
+              {
+                "description": "Supplied via Postman environment variable.",
+                "key": "X-API-Key",
+                "type": "text",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents",
+                ":document_id",
+                "file"
+              ],
+              "query": [],
+              "raw": "{{baseUrl}}/api/v1/documents/:document_id/file",
+              "variable": [
+                {
+                  "description": "",
+                  "key": "document_id",
+                  "value": "00000000-0000-0000-0000-000000000000"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "name": "Documents"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
                   "pm.test(\"List entities returns 200\", function () {",
                   "    pm.response.to.have.status(200);",
                   "});",

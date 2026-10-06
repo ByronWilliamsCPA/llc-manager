@@ -164,6 +164,7 @@ nav:
       - Entity Seed: guides/entity-seed.md
       - Configuration: guides/configuration.md
       - Usage: guides/usage.md
+      - Documents: guides/documents.md
 
   - API Reference:
       - Overview: api-reference.md
