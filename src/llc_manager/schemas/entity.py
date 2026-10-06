@@ -34,6 +34,7 @@ class EntityBase(BaseSchema):
     mailing_zip: str | None = Field(None, max_length=10)
 
     accounting_record_id: str | None = Field(None, max_length=100)
+    xero_tenant_id: str | None = Field(None, min_length=1, max_length=64)
     purpose: str | None = None
     notes: str | None = None
     is_active: bool = True
@@ -68,15 +69,32 @@ class EntityUpdate(BaseSchema):
     mailing_zip: str | None = Field(None, max_length=10)
 
     accounting_record_id: str | None = Field(None, max_length=100)
+    xero_tenant_id: str | None = Field(None, min_length=1, max_length=64)
     purpose: str | None = None
     notes: str | None = None
     is_active: bool | None = None
+
+
+class EntityBankAccountRef(BaseSchema):
+    """Bank account summary embedded in entity responses.
+
+    Carries only what an external system needs to map its own account to this
+    entity: the account UUID, its Xero account ID, and display hints. Contact
+    details and routing numbers stay out of the entity response.
+    """
+
+    id: UUID
+    account_nickname: str | None = None
+    account_number_last4: str | None = None
+    xero_account_id: str | None = None
+    is_active: bool = True
 
 
 class EntityResponse(FullSchema, EntityBase):
     """Schema for entity response."""
 
     id: UUID
+    bank_accounts: list[EntityBankAccountRef] = Field(default_factory=list)
 
 
 class EntityListResponse(BaseSchema):

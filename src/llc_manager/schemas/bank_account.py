@@ -27,6 +27,7 @@ class BankAccountBase(BaseSchema):
     contact_email: str | None = Field(None, max_length=255)
     branch_address: str | None = None
     online_banking_url: str | None = Field(None, max_length=500)
+    xero_account_id: str | None = Field(None, min_length=1, max_length=64)
 
     notes: str | None = None
     is_primary: bool = False
@@ -57,6 +58,7 @@ class BankAccountUpdate(BaseSchema):
     contact_email: str | None = Field(None, max_length=255)
     branch_address: str | None = None
     online_banking_url: str | None = Field(None, max_length=500)
+    xero_account_id: str | None = Field(None, min_length=1, max_length=64)
 
     notes: str | None = None
     is_primary: bool | None = None

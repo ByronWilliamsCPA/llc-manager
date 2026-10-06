@@ -4,7 +4,7 @@ from datetime import date
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, Enum, String, Text
+from sqlalchemy import Date, Enum, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from llc_manager.db.base import AuditMixin, Base, UUIDPrimaryKeyMixin
@@ -20,7 +20,13 @@ if TYPE_CHECKING:
 
 
 class EntityType(StrEnum):
-    """Types of business entities."""
+    """Types of entities.
+
+    ``INDIVIDUAL`` (one per person) and ``HOUSEHOLD`` (one per family) are not
+    legal entities. They exist so personal accounts and personal documents
+    (wills, powers of attorney, health directives) attach to an entity like
+    everything else. See ADR-002.
+    """
 
     LLC = "llc"
     CORPORATION = "corporation"
@@ -29,6 +35,8 @@ class EntityType(StrEnum):
     SOLE_PROPRIETORSHIP = "sole_proprietorship"
     TRUST = "trust"
     NON_PROFIT = "non_profit"
+    INDIVIDUAL = "individual"
+    HOUSEHOLD = "household"
     OTHER = "other"
 
 
@@ -52,6 +60,8 @@ class Entity(Base, UUIDPrimaryKeyMixin, AuditMixin):
         mailing_state (Mapped[str | None]): State of mailing address.
         mailing_zip (Mapped[str | None]): ZIP code of mailing address.
         accounting_record_id (Mapped[str | None]): External accounting system record ID.
+        xero_tenant_id (Mapped[str | None]): Xero organisation (tenant) ID that
+            maps to this entity, unique among non-deleted entities.
         purpose (Mapped[str | None]): Purpose or business description.
         notes (Mapped[str | None]): Additional notes about the entity.
         is_active (Mapped[bool]): Whether the entity is currently active.
@@ -66,6 +76,14 @@ class Entity(Base, UUIDPrimaryKeyMixin, AuditMixin):
     """
 
     __tablename__ = "entities"
+    __table_args__ = (
+        Index(
+            "ix_entities_xero_tenant_id_active",
+            "xero_tenant_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
 
     # Basic identification
     legal_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
@@ -102,6 +120,7 @@ class Entity(Base, UUIDPrimaryKeyMixin, AuditMixin):
     accounting_record_id: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True
     )
+    xero_tenant_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Additional info
     purpose: Mapped[str | None] = mapped_column(Text, nullable=True)

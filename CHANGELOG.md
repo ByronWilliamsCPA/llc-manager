@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `feat(entities)`: `individual` and `household` entity types so personal
+  accounts and documents attach to a person or the family instead of to no
+  entity (ADR-002). New nullable `entities.xero_tenant_id` (unique among
+  non-deleted entities) and `bank_accounts.xero_account_id`, both returned by
+  the entity API; the entity list gains `entity_type` and `xero_tenant_id`
+  filters. Migration `316e25bc258b`.
+- `feat(cli)`: `python -m llc_manager.cli.seed_entities`, an idempotent seed
+  that reads a private JSON file from outside the repository
+  (`--file` or `LLC_MANAGER_ENTITY_SEED_FILE`), derives stable UUIDv5 entity
+  IDs, prints counts only, and can write a key-to-UUID mapping file. A
+  synthetic example lives in `data/examples/entity_seed.example.json`.
+
 <!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->
 - CI: Claude Tier 0 baseline PR review caller
   (`.github/workflows/claude-baseline-review.yml`), a thin caller of the

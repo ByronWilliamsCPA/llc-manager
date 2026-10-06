@@ -47,6 +47,8 @@ class BankAccount(Base, UUIDPrimaryKeyMixin, AuditMixin):
         contact_email (Mapped[str | None]): Email for the contact.
         branch_address (Mapped[str | None]): Address of the bank branch.
         online_banking_url (Mapped[str | None]): URL for online banking.
+        xero_account_id (Mapped[str | None]): Xero account ID for this bank
+            account inside the entity's Xero organisation.
         notes (Mapped[str | None]): Additional notes about the account.
         is_primary (Mapped[bool]): Whether this is the primary account for the entity.
         is_active (Mapped[bool]): Whether the account is currently active.
@@ -87,6 +89,11 @@ class BankAccount(Base, UUIDPrimaryKeyMixin, AuditMixin):
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     branch_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     online_banking_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # External references
+    xero_account_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
 
     # Additional info
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

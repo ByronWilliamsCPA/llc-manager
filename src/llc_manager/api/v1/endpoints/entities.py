@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from llc_manager.db.session import get_async_session
-from llc_manager.models.entity import Entity
+from llc_manager.models.entity import Entity, EntityType
 from llc_manager.schemas.entity import (
     EntityCreate,
     EntityListResponse,
@@ -25,6 +25,32 @@ router = APIRouter()
 DBSession = Annotated[AsyncSession, Depends(get_async_session)]
 
 
+async def _ensure_xero_tenant_free(
+    db: AsyncSession, xero_tenant_id: str, exclude: UUID | None = None
+) -> None:
+    """Raise 409 when another live entity already holds the Xero tenant ID.
+
+    Args:
+        db (AsyncSession): Database session.
+        xero_tenant_id (str): Tenant ID requested by the caller.
+        exclude (UUID | None): Entity being updated, ignored in the check.
+
+    Raises:
+        HTTPException: 409 when the tenant ID is already mapped.
+    """
+    query = select(Entity).where(
+        Entity.xero_tenant_id == xero_tenant_id, Entity.deleted_at.is_(None)
+    )
+    if exclude is not None:
+        query = query.where(Entity.id != exclude)
+    existing = await db.execute(query)
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An entity with this Xero tenant ID already exists",
+        )
+
+
 @router.get(
     "",
     response_model=EntityListResponse,
@@ -33,8 +59,8 @@ DBSession = Annotated[AsyncSession, Depends(get_async_session)]
     description=(
         "Return a paginated, optionally filtered list of LLC entities. "
         "Supports full-text search across `legal_name`, `ein`, and "
-        "`dba_names`, plus an `is_active` filter. Soft-deleted entities "
-        "are excluded."
+        "`dba_names`, plus `is_active`, `entity_type`, and exact "
+        "`xero_tenant_id` filters. Soft-deleted entities are excluded."
     ),
     responses={
         200: {"description": "Paginated list of entities"},
@@ -46,6 +72,10 @@ async def list_entities(
     size: int = Query(20, ge=1, le=100, description="Items per page"),
     search: str | None = Query(None, description="Search by legal name or EIN"),
     is_active: bool | None = Query(None, description="Filter by active status"),
+    entity_type: EntityType | None = Query(None, description="Filter by entity type"),
+    xero_tenant_id: str | None = Query(
+        None, max_length=64, description="Exact match on the Xero tenant ID"
+    ),
 ) -> EntityListResponse:
     """List all entities with pagination and filtering.
 
@@ -55,6 +85,8 @@ async def list_entities(
         size (int): Number of items per page.
         search (str | None): Optional search string for legal name or EIN.
         is_active (bool | None): Optional filter for active/inactive entities.
+        entity_type (EntityType | None): Optional filter by entity type.
+        xero_tenant_id (str | None): Optional exact match on Xero tenant ID.
 
     Returns:
         EntityListResponse: Paginated list of entities.
@@ -71,6 +103,12 @@ async def list_entities(
 
     if is_active is not None:
         query = query.where(Entity.is_active == is_active)
+
+    if entity_type is not None:
+        query = query.where(Entity.entity_type == entity_type)
+
+    if xero_tenant_id is not None:
+        query = query.where(Entity.xero_tenant_id == xero_tenant_id)
 
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
@@ -104,7 +142,7 @@ async def list_entities(
     ),
     responses={
         201: {"description": "Entity created successfully"},
-        409: {"description": "Entity with the supplied EIN already exists"},
+        409: {"description": "Entity with the supplied EIN or Xero tenant ID exists"},
         422: {"description": "Validation error"},
     },
 )
@@ -122,7 +160,8 @@ async def create_entity(
         EntityResponse: Created entity.
 
     Raises:
-        HTTPException: If an entity with the supplied EIN already exists.
+        HTTPException: If an entity with the supplied EIN or Xero tenant ID
+            already exists.
     """
     if entity_in.ein:
         existing = await db.execute(select(Entity).where(Entity.ein == entity_in.ein))
@@ -131,6 +170,9 @@ async def create_entity(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="An entity with this EIN already exists",
             )
+
+    if entity_in.xero_tenant_id:
+        await _ensure_xero_tenant_free(db, entity_in.xero_tenant_id)
 
     entity = Entity(**entity_in.model_dump())
     db.add(entity)
@@ -194,7 +236,7 @@ async def get_entity(
     responses={
         200: {"description": "Entity updated"},
         404: {"description": "Entity not found"},
-        409: {"description": "Entity with the supplied EIN already exists"},
+        409: {"description": "Entity with the supplied EIN or Xero tenant ID exists"},
         422: {"description": "Validation error"},
     },
 )
@@ -236,6 +278,9 @@ async def update_entity(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="An entity with this EIN already exists",
             )
+
+    if entity_in.xero_tenant_id and entity_in.xero_tenant_id != entity.xero_tenant_id:
+        await _ensure_xero_tenant_free(db, entity_in.xero_tenant_id, exclude=entity_id)
 
     update_data = entity_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():

@@ -158,7 +158,9 @@ class TestRouterWiring:
     @pytest.mark.integration
     def test_entities_router_mounted_on_v1(self) -> None:
         app = create_app()
-        paths = {route.path for route in app.routes}  # type: ignore[attr-defined]
+        # Read mounted paths from the OpenAPI schema: newer FastAPI versions
+        # wrap included routers in objects that have no ``path`` attribute.
+        paths = set(app.openapi()["paths"])
         assert any(p.startswith("/api/v1/entities") for p in paths), (
             "entities router is not mounted on /api/v1/entities"
         )
