@@ -372,6 +372,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CVE-2026-27135, CVE-2026-29111) have no Debian patch available; added
   `.trivyignore` to prevent CI gate failure and documented all three in
   `docs/known-vulnerabilities.md` per project policy
+- Renovate: lock file maintenance PRs are exempt from the minimum release age gate, so they no longer stall on stability-days.
 
 ### Security
 
