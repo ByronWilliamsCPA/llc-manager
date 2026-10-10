@@ -54,7 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   builds the Dockerfile, smoke-tests the container against
   `/api/health/live`, and publishes `ghcr.io/byronwilliamscpa/llc-manager`
   on pushes to `main` with `sha-<7>`, date and `latest` tags, an SBOM,
-  max-mode provenance and a keyless cosign signature
+  max-mode provenance and a keyless cosign signature; the build job
+  needs a `quality-gate` job (the org `python-ci.yml` reusable) to pass
+  first, so no image is published without the mandatory checks
 - CI: Claude Tier 0 baseline PR review caller
   (`.github/workflows/claude-baseline-review.yml`), a thin caller of the
   org reusable in `ByronWilliamsCPA/.github`. Part of the org-wide

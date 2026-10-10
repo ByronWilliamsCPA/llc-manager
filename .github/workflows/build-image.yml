@@ -29,8 +29,29 @@ env:
   IMAGE: ghcr.io/byronwilliamscpa/llc-manager
 
 jobs:
+  # Mandatory quality gates before any image is built or published. Reuses the
+  # same org reusable workflow and inputs as ci.yml: Ruff format and lint,
+  # BasedPyright, unit, integration and security tests with an 80% coverage
+  # floor, Bandit, and pip-audit.
+  quality-gate:
+    name: Quality gate
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-ci.yml@7d12f5486ab5c856397ebaa4acd3c99ca385227c # main
+    with:
+      python-version: '3.12'
+      coverage-threshold: 80
+      source-directory: 'src'
+      test-directory: 'tests'
+      run-integration-tests: true
+      run-security-tests: true
+      fail-on-llm-tags: false
+
   build:
     name: Build image
+    needs: quality-gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
