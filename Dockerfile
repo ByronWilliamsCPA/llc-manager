@@ -4,7 +4,9 @@
 # =============================================================================
 # Stage 1: Builder - Install dependencies
 # =============================================================================
-FROM python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203 AS builder
+# Hardened Python from the GHCR mirror; the -dev variant has a shell and apt.
+# Source tag: ghcr.io/byronwilliamscpa/dhi-python:3.12-debian13-dev
+FROM ghcr.io/byronwilliamscpa/dhi-python@sha256:22c8f3efaf3b7d65603802380aefaf30e5883858dc8a5c4431925afbefd9be4a AS builder
 
 # Set working directory
 WORKDIR /app
@@ -25,18 +27,21 @@ COPY pyproject.toml uv.lock README.md ./
 
 # Install dependencies to a virtual environment
 # This creates .venv/ which we'll copy to the final stage
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --extra api --no-install-project
 
 # Copy application code
 COPY . .
 
 # Install the project itself
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --extra api
 
 # =============================================================================
 # Stage 2: Runtime - Minimal production image
 # =============================================================================
-FROM python:3.12-slim@sha256:090ba77e2958f6af52a5341f788b50b032dd4ca28377d2893dcf1ecbdfdfe203
+# Distroless runtime (no shell, no package manager) matching the builder's
+# Python path, so the copied virtualenv resolves its interpreter unchanged.
+# Source tag: ghcr.io/byronwilliamscpa/dhi-python:3.12-debian13
+FROM ghcr.io/byronwilliamscpa/dhi-python@sha256:e9faf1bec1ef5c926718246eee615da7fe88d0687a8db074c2e33b4882ac6f75
 
 # Metadata labels (OCI standard)
 LABEL org.opencontainers.image.title="LLC Manager"
@@ -47,32 +52,14 @@ LABEL org.opencontainers.image.url="https://github.com/ByronWilliamsCPA/llc-mana
 LABEL org.opencontainers.image.source="https://github.com/ByronWilliamsCPA/llc-manager"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# Install runtime dependencies only
-# DL3005: apt-get upgrade applies Debian security backports for HIGH/CRITICAL CVEs
-# affecting both OS packages already in python:3.12-slim and packages installed
-# in this layer (curl, libcurl4t64, ca-certificates). Trade-off is per-build
-# non-determinism; acceptable because the Container Security gate fails the
-# build on unpatched CVEs.
-# hadolint ignore=DL3008,DL3005
-RUN apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Security: Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser -u 1000 appuser
-
 # Set working directory
 WORKDIR /app
 
 # Copy virtual environment from builder
-COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
+COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
 
 # Copy application code
-COPY --chown=appuser:appuser . .
+COPY --chown=65532:65532 . .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -80,14 +67,14 @@ ENV PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH=/app/src
 
-# Switch to non-root user
-USER appuser
+# Switch to the image's built-in non-root user (UID/GID 65532)
+USER 65532:65532
 
 # Expose port (default for FastAPI/web apps)
 EXPOSE 8000
 # Health check - adjust endpoint based on your app
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/api/health/live || exit 1
+    CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health/live', timeout=2).status == 200 else 1)"]
 
 # Default command - run web server
 CMD ["uvicorn", "llc_manager.main:app", "--host", "0.0.0.0", "--port", "8000"]
