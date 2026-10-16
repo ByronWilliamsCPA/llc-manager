@@ -116,11 +116,14 @@ class ManifestReport:
             only.
         unreadable (bool): True when the manifest file itself could not be
             opened or decoded (a file error, not a validation problem).
+        lines (list[int]): Line number of every data record read, valid or
+            not, so a dry run can report on each row.
     """
 
     rows: list[ManifestRow] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     unreadable: bool = False
+    lines: list[int] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -473,6 +476,7 @@ def _read_rows(
     seen: dict[UUID, int] = {}
     for raw in reader:
         line = reader.line_num
+        report.lines.append(line)
         if _EXTRA_CELLS_KEY in raw:
             report.problems.append(f"line {line}: more cells than header columns")
             continue
@@ -535,6 +539,35 @@ def sha256_file(path: Path) -> str:
         while chunk := handle.read(_CHUNK):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def verify_sources(report: ManifestReport) -> None:
+    """Read every valid row's file and add the problems found to ``report``.
+
+    This is the part of a dry run that needs the file bytes: each source must
+    be readable, and no two rows may point at files with identical bytes (an
+    import would silently skip the second row). Nothing is written anywhere.
+
+    Args:
+        report (ManifestReport): A report from :func:`read_manifest`; problems
+            are appended in place, by line and column name only.
+    """
+    first_line_by_sha: dict[str, int] = {}
+    for row in report.rows:
+        try:
+            digest = sha256_file(row.source)
+        except OSError:
+            report.problems.append(
+                f"line {row.line}: column 'file': file could not be read"
+            )
+            continue
+        if digest in first_line_by_sha:
+            first = first_line_by_sha[digest]
+            report.problems.append(
+                f"line {row.line}: column 'file': same bytes (SHA-256) as line {first}"
+            )
+            continue
+        first_line_by_sha[digest] = row.line
 
 
 class StagedFiles:

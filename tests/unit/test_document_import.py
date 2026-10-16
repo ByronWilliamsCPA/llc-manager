@@ -24,6 +24,7 @@ from llc_manager.services.document_import import (
     load_entity_map,
     read_manifest,
     sha256_file,
+    verify_sources,
 )
 
 if TYPE_CHECKING:
@@ -103,6 +104,76 @@ def _rows(root: Path, *lines: str) -> list[ManifestRow]:
     report = read_manifest(_manifest(root, *lines), root, _entity_map())
     assert report.problems == []
     return report.rows
+
+
+# ---------------------------------------------------------------------------
+# verify_sources (dry-run checks that need the file bytes)
+# ---------------------------------------------------------------------------
+
+
+def test_report_lists_every_record_line(tmp_path: Path) -> None:
+    _files(tmp_path, **{"a.pdf": b"A"})
+    report = read_manifest(
+        _manifest(
+            tmp_path,
+            "a.pdf,household,will,Estate Planning,T,,,,",
+            "missing.pdf,household,will,Estate Planning,T,,,,",
+        ),
+        tmp_path,
+        _entity_map(),
+    )
+    assert report.lines == [2, 3]
+    assert len(report.rows) == 1
+
+
+def test_verify_sources_accepts_distinct_files(tmp_path: Path) -> None:
+    _files(tmp_path, **{"a.pdf": b"A", "b.pdf": b"B"})
+    report = read_manifest(
+        _manifest(
+            tmp_path,
+            "a.pdf,household,will,Estate Planning,T,,,,",
+            "b.pdf,household,will,Estate Planning,T,,,,",
+        ),
+        tmp_path,
+        _entity_map(),
+    )
+    verify_sources(report)
+    assert report.problems == []
+
+
+def test_verify_sources_flags_identical_bytes_by_line(tmp_path: Path) -> None:
+    _files(tmp_path, **{"a.pdf": b"SAME", "b.pdf": b"SAME", "c.pdf": b"OTHER"})
+    report = read_manifest(
+        _manifest(
+            tmp_path,
+            f"a.pdf,household,will,Estate Planning,{SENTINEL_TITLE},,,,",
+            "c.pdf,household,will,Estate Planning,T,,,,",
+            "b.pdf,household,will,Estate Planning,T,,,,",
+        ),
+        tmp_path,
+        _entity_map(),
+    )
+    verify_sources(report)
+    assert report.problems == [
+        "line 4: column 'file': same bytes (SHA-256) as line 2",
+    ]
+    assert all(SENTINEL_TITLE not in p for p in report.problems)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
+def test_verify_sources_flags_an_unreadable_file(tmp_path: Path) -> None:
+    _files(tmp_path, **{"a.pdf": b"A"})
+    report = read_manifest(
+        _manifest(tmp_path, "a.pdf,household,will,Estate Planning,T,,,,"),
+        tmp_path,
+        _entity_map(),
+    )
+    # Simulate a file that exists but cannot be opened.
+    (tmp_path / "a.pdf").unlink()
+    (tmp_path / "a.pdf").mkdir()
+    verify_sources(report)
+    assert report.problems == ["line 2: column 'file': file could not be read"]
+    assert str(tmp_path) not in report.problems[0]
 
 
 # ---------------------------------------------------------------------------

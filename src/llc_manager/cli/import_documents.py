@@ -6,7 +6,7 @@ Usage::
         --manifest /private/manifest.csv \
         --source-root /private/scans \
         --entity-map /private/entity-map.json
-    python -m llc_manager.cli.import_documents --validate-only ...
+    python -m llc_manager.cli.import_documents --dry-run ...
 
 The manifest path comes from ``--manifest`` or ``LLC_MANAGER_DOCUMENT_MANIFEST``.
 A manifest inside this source checkout is refused unless its name ends in
@@ -15,9 +15,12 @@ A manifest inside this source checkout is refused unless its name ends in
 
 The command prints counts and value-free problems only; it never prints
 titles, paths, or IDs. An unexpected failure prints only the exception class
-name. ``--validate-only`` checks the manifest and the source files without
-touching the database or the store (entity existence is checked when
-importing).
+name. ``--dry-run`` (alias ``--validate-only``) checks the manifest and the
+source files without touching the database or the store, and prints one status
+line per manifest row: required columns, entity references (a UUID or a key in
+the entity map), file present and readable, duplicate bytes by SHA-256,
+consent only on Tax Returns rows, and date format. Entity existence in the
+database is checked only when importing.
 
 Exit codes: 0 success, 1 validation problems, 2 usage or file errors
 (including a manifest that cannot be opened or decoded), 3 unexpected
@@ -31,6 +34,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -43,11 +47,13 @@ from llc_manager.db.session import AsyncSessionLocal
 from llc_manager.models.document import DocumentCategory
 from llc_manager.services.document_import import (
     ImportProblemError,
+    ManifestReport,
     ManifestRow,
     SqlDocumentRepository,
     apply_import,
     load_entity_map,
     read_manifest,
+    verify_sources,
 )
 from llc_manager.services.entity_seed import is_inside_repo
 
@@ -102,9 +108,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Store directory (default: the documents_root setting).",
     )
     parser.add_argument(
+        "--dry-run",
         "--validate-only",
+        dest="validate_only",
         action="store_true",
-        help="Check the manifest and print counts; change nothing.",
+        help="Check the manifest and source files, print a per-row report, "
+        "and change nothing (database and store are not touched).",
     )
     return parser
 
@@ -141,6 +150,60 @@ def _summarize(rows: list[ManifestRow], out: TextIO) -> None:
         if row.category is DocumentCategory.TAX_RETURNS and not row.consent_on_file
     )
     print(f"tax_returns_without_consent={missing_consent}", file=out)
+
+
+_LINE_PROBLEM = re.compile(r"^line (\d+): (.*)$")
+
+
+def _print_row_report(report: ManifestReport, out: TextIO) -> None:
+    """Print one status per manifest row, then the problems with no line.
+
+    Args:
+        report (ManifestReport): Report with every problem found.
+        out (TextIO): Output stream.
+    """
+    by_line: dict[int, list[str]] = {}
+    general: list[str] = []
+    for problem in report.problems:
+        match = _LINE_PROBLEM.match(problem)
+        if match:
+            by_line.setdefault(int(match.group(1)), []).append(match.group(2))
+        else:
+            general.append(problem)
+    for line in report.lines:
+        problems = by_line.get(line)
+        if not problems:
+            print(f"line {line}: ok", file=out)
+            continue
+        print(f"line {line}: error", file=out)
+        for problem in problems:
+            print(f"  {problem}", file=out)
+    for problem in general:
+        print(f"problem: {problem}", file=out)
+    failed = len(by_line)
+    print(
+        f"checked={len(report.lines)} ok={len(report.lines) - failed} errors={failed}",
+        file=out,
+    )
+
+
+def _dry_run(report: ManifestReport, out: TextIO) -> int:
+    """Check the source files, print the per-row report, and pick an exit code.
+
+    Args:
+        report (ManifestReport): Report from :func:`read_manifest`.
+        out (TextIO): Output stream.
+
+    Returns:
+        int: Exit code.
+    """
+    if not report.unreadable:
+        verify_sources(report)
+    _summarize(report.rows, out)
+    _print_row_report(report, out)
+    if report.unreadable:
+        return EXIT_USAGE
+    return EXIT_INVALID if report.problems else EXIT_OK
 
 
 async def _apply(
@@ -252,6 +315,8 @@ def main(
 
     source_root: Path = (args.source_root or manifest.parent).expanduser()
     report = read_manifest(manifest, source_root, entity_map)
+    if args.validate_only:
+        return _dry_run(report, stream)
     _summarize(report.rows, stream)
     for problem in report.problems:
         print(f"problem: {problem}", file=stream)
@@ -259,8 +324,6 @@ def main(
         return EXIT_USAGE
     if report.problems:
         return EXIT_INVALID
-    if args.validate_only:
-        return EXIT_OK
 
     documents_root: Path = (args.documents_root or settings.documents_root).expanduser()
     return _import(

@@ -47,17 +47,21 @@ whose name does not end in `.example.csv`.
 ## Validate, then import
 
 ```bash
-# Check the manifest and source files; change nothing.
+# Check the manifest and source files; change nothing. Prints one status
+# line per row. --validate-only is the same option.
 python -m llc_manager.cli.import_documents \
   --manifest /private/manifest.csv \
   --entity-map ~/private/entity-map.json \
-  --validate-only
+  --dry-run
 
 # Import.
 python -m llc_manager.cli.import_documents \
   --manifest /private/manifest.csv \
   --entity-map ~/private/entity-map.json
 ```
+
+See [Checking a Document Manifest](document-manifest-dry-run.md) for what the
+dry run checks and a blank template.
 
 The entity map must sit under the home directory, or under
 `$LLC_MANAGER_MAPPING_DIR` when that is set: the same directory

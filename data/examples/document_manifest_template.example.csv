@@ -1,0 +1,3 @@
+file,entity,document_type,category,title,document_date,effective_date,confidential,consent_on_file
+documents/person-a-will.pdf,person-a,will,Estate Planning,Template row one: a will,2024-06-30,,true,
+documents/person-b-2025-tax-return.pdf,person-b,tax_return,Tax Returns,Template row two: a tax return,2026-04-10,,true,true

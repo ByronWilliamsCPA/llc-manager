@@ -30,6 +30,7 @@ pytestmark = pytest.mark.unit
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE = REPO_ROOT / "data" / "examples" / "document_manifest.example.csv"
+TEMPLATE = REPO_ROOT / "data" / "examples" / "document_manifest_template.example.csv"
 SENTINEL = "Zyxwv Sentinel"
 
 
@@ -304,3 +305,126 @@ def test_committed_example_validates(tmp_path: Path) -> None:
     assert code == EXIT_OK, out
     assert "rows=4" in out
     assert "tax_returns_without_consent=0" in out
+
+
+# ---------------------------------------------------------------------------
+# --dry-run: per-row report, no writes
+# ---------------------------------------------------------------------------
+
+
+def test_dry_run_is_an_alias_of_validate_only(tmp_path: Path) -> None:
+    manifest, entity_map = _setup(tmp_path, "a.pdf,household,will,Other,T,,,,")
+    code, out = _run(
+        ["--manifest", str(manifest), "--entity-map", str(entity_map), "--dry-run"]
+    )
+    assert code == EXIT_OK
+    assert "line 2: ok" in out
+    assert "rows=1" in out
+
+
+def test_dry_run_prints_one_status_per_row_without_values(
+    tmp_path: Path, repo: InMemoryRepo
+) -> None:
+    manifest, entity_map = _setup(
+        tmp_path,
+        f"a.pdf,household,will,Estate Planning,{SENTINEL},,,,",
+        f"b.pdf,nobody,will,Nope,{SENTINEL},13/01/2025,,,true",
+        f"missing.pdf,household,will,Other,{SENTINEL},,,,",
+    )
+    code, out = _run(
+        ["--manifest", str(manifest), "--entity-map", str(entity_map), "--dry-run"]
+    )
+    assert code == EXIT_INVALID
+    assert "line 2: ok" in out
+    assert "line 3: error" in out
+    assert "line 4: error" in out
+    assert "column 'entity': not a UUID or a key in the entity map" in out
+    assert "column 'file': file not found" in out
+    assert "errors=2" in out
+    assert "ok=1" in out
+    assert SENTINEL not in out
+    assert str(tmp_path) not in out
+    assert repo.docs == {}
+
+
+def test_dry_run_rejects_a_malformed_date(tmp_path: Path) -> None:
+    manifest, entity_map = _setup(
+        tmp_path,
+        "a.pdf,household,will,Other,T,13/01/2025,,,",
+    )
+    code, out = _run(
+        ["--manifest", str(manifest), "--entity-map", str(entity_map), "--dry-run"]
+    )
+    assert code == EXIT_INVALID
+    assert "column 'document_date': expected a YYYY-MM-DD date" in out
+
+
+def test_dry_run_rejects_consent_outside_tax_returns(tmp_path: Path) -> None:
+    manifest, entity_map = _setup(tmp_path, "a.pdf,household,will,Trusts,T,,,,true")
+    code, out = _run(
+        ["--manifest", str(manifest), "--entity-map", str(entity_map), "--dry-run"]
+    )
+    assert code == EXIT_INVALID
+    assert "only valid for the Tax Returns category" in out
+
+
+def test_dry_run_flags_duplicate_files_by_hash(tmp_path: Path) -> None:
+    manifest, entity_map = _setup(
+        tmp_path,
+        "a.pdf,household,will,Other,T,,,,",
+        "b.pdf,household,will,Other,T,,,,",
+    )
+    (tmp_path / "b.pdf").write_bytes(b"A")  # same bytes as a.pdf
+    code, out = _run(
+        ["--manifest", str(manifest), "--entity-map", str(entity_map), "--dry-run"]
+    )
+    assert code == EXIT_INVALID
+    assert "line 3: error" in out
+    assert "same bytes (SHA-256) as line 2" in out
+
+
+def test_dry_run_reports_header_problems_and_exits_invalid(tmp_path: Path) -> None:
+    manifest = tmp_path / "m.csv"
+    manifest.write_text("file,entity\n", "utf-8")
+    code, out = _run(["--manifest", str(manifest), "--dry-run"])
+    assert code == EXIT_INVALID
+    assert "problem: header: missing column 'title'" in out
+
+
+def test_dry_run_never_touches_the_database_or_the_store(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest, entity_map = _setup(tmp_path, "a.pdf,household,will,Other,T,,,,")
+    store = tmp_path / "store"
+
+    def _boom() -> AsyncSession:
+        msg = "dry run must not open a database session"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(import_documents, "AsyncSessionLocal", _boom)
+    code, _out = _run(
+        [
+            "--manifest",
+            str(manifest),
+            "--entity-map",
+            str(entity_map),
+            "--documents-root",
+            str(store),
+            "--dry-run",
+        ]
+    )
+    assert code == EXIT_OK
+    assert not store.exists()
+
+
+def test_committed_template_validates(tmp_path: Path) -> None:
+    entity_map = tmp_path / "map.json"
+    keys = ("household", "person-a", "person-b", "holding-llc", "family-trust")
+    entity_map.write_text(
+        json.dumps({"entities": {k: {"id": str(uuid4())} for k in keys}}), "utf-8"
+    )
+    code, out = _run(
+        ["--manifest", str(TEMPLATE), "--entity-map", str(entity_map), "--dry-run"]
+    )
+    assert code == EXIT_OK, out
+    assert "rows=2" in out
