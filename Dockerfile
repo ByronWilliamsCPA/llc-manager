@@ -11,13 +11,10 @@ FROM ghcr.io/byronwilliamscpa/dhi-python@sha256:22c8f3efaf3b7d65603802380aefaf30
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for building Python packages
-# hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+# No system build tools: every locked dependency of the api extra installs from a
+# prebuilt wheel, so the builder needs no compiler, git, or curl. Installing them
+# pulled in Debian's perl, which conflicts with the base image's own perl-base
+# and made the image build fail.
 
 # Install UV for fast dependency management
 COPY --from=ghcr.io/astral-sh/uv:0.11.16@sha256:440fd6477af86a2f1b38080c539f1672cd22acb1b1a47e321dba5158ab08864d /uv /usr/local/bin/uv
