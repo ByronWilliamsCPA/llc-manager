@@ -238,6 +238,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `fix(docker)`: the builder stage no longer installs `build-essential`, `git`,
+  and `curl`; they pulled in a Debian `perl` that conflicts with the base
+  image's `perl-base`, which made the image build fail. Every locked runtime
+  dependency installs from a wheel.
 - `fix(docker)`: the image now installs the `api` extra, so uvicorn,
   FastAPI and the database drivers are present and the container starts
 - fix(security): resolve CVE-2026-8643 -- bump transitive `pip` 26.1.1 to
@@ -390,6 +394,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- `fix(security)`: accepted, with documented reassessment dates, the unfixed
+  `libexpat1` and `libuuid1` HIGH findings in the runtime base image. No
+  patched base image digest exists (see `docs/known-vulnerabilities.md`).
 - fix(security): the database engine sets `hide_parameters=True`, so
   SQLAlchemy errors and echo logs no longer include bound values (names,
   EINs, tenant IDs).

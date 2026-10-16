@@ -60,3 +60,31 @@ CVE-2026-11824
 # Affects: perl-base in python:3.12-slim base image. The Python/FastAPI runtime
 # never invokes Perl or IO::Compress.
 CVE-2026-48962
+
+# libexpat1 (expat) CVEs -- no Debian fix available as of 2026-10-15; the newest
+# 3.12-debian13 base image tag still reports them as affected.
+# Affects: libexpat1 in the hardened Python runtime base image. The application
+# parses no XML. See docs/known-vulnerabilities.md (reassess by 2026-12-14).
+# CVE-2026-66046: quadratic complexity in attribute processing (HIGH)
+# CVE-2026-76956: hash flooding denial of service (HIGH)
+# CVE-2026-76957: memory corruption (HIGH)
+# CVE-2026-77214: heap over-read in XML_ParseBuffer (HIGH)
+# CVE-2026-93990: XML injection via malformed UTF-16 input (HIGH)
+CVE-2026-66046
+CVE-2026-76956
+CVE-2026-76957
+CVE-2026-77214
+CVE-2026-93990
+
+# libuuid1 (util-linux source package) CVEs -- no Debian fix available as of 2026-10-15.
+# Affects: libuuid1 in the hardened Python runtime base image. The vulnerable
+# mount and nsenter programs are not in the distroless image. See
+# docs/known-vulnerabilities.md (reassess by 2026-12-14).
+# CVE-2026-76642: failed external mount helper still used (HIGH)
+# CVE-2026-78408: nsenter --join-cgroup leaks root (HIGH)
+# CVE-2026-78409: X-mount.subdir detached-tree handling (HIGH)
+# CVE-2026-78410: restricted bind mounts do not pin (HIGH)
+CVE-2026-76642
+CVE-2026-78408
+CVE-2026-78409
+CVE-2026-78410

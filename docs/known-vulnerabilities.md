@@ -558,6 +558,87 @@ Alpine Python image). Monitor the Debian security tracker and re-run
 
 ---
 
+### CVE-2026-66046 and four more - libexpat1 base image package (reassess by 2026-12-14)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-66046, CVE-2026-76956, CVE-2026-76957, CVE-2026-77214, CVE-2026-93990 |
+| **Package** | libexpat1 2.8.3-1~deb13u1+dhi5 (Debian 13 package in the hardened Python runtime base image) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-10-15 |
+| **Last reassessed** | 2026-10-15 |
+| **Reassess by** | 2026-12-14 (within 60 days of Last reassessed) |
+
+**Description**: Expat flaws reported against libexpat: quadratic complexity in
+attribute processing and hash-flooding denial of service, a memory corruption
+issue, a heap over-read in `XML_ParseBuffer`, and XML injection via malformed
+UTF-16 input. All five are triggered by parsing attacker-supplied XML.
+
+**Rationale for accepting**: No patched package exists. On 2026-10-15 the newest
+`3.12-debian13` tag (the Dockerfile's runtime base, already rebuilt at `+dhi5`)
+was scanned with Trivy 0.52.2 and still reports all five as `affected` with no
+fixed version, so moving to a newer base image digest does not clear them.
+`libexpat1` is required by the interpreter's `pyexpat` module and cannot be
+removed from the image. The application parses no XML: the source tree has no XML
+parsing, its API exchanges JSON and serves stored files read-only, and the
+runtime image installs only the `api` extra (no spreadsheet or XML libraries).
+
+**Mitigation in place**:
+
+- No application code path passes untrusted input to an XML parser.
+- The runtime image is distroless (no shell, no package manager) and runs as
+  non-root UID 65532.
+- `.trivyignore` entries keep the scheduled scan focused on new findings.
+
+**Resolution path**: take the next base image digest that carries a fixed
+expat and remove the `.trivyignore` entries in the same change. Re-run
+`trivy image` against the `3.12-debian13` tag at each reassessment.
+
+**Tracking**: Debian security tracker; no fixed version available as of
+2026-10-15.
+
+---
+
+### CVE-2026-76642 and three more - libuuid1 base image package (reassess by 2026-12-14)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-76642, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410 |
+| **Package** | libuuid1 2.41.5-0+deb13u1+dhi3 (Debian 13 package, built from `util-linux`, in the hardened Python runtime base image) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-10-15 |
+| **Last reassessed** | 2026-10-15 |
+| **Reassess by** | 2026-12-14 (within 60 days of Last reassessed) |
+
+**Description**: Flaws in `util-linux` programs: a failed external mount helper
+that is still used, `nsenter --join-cgroup` leaking root, `X-mount.subdir`
+handling with detached trees, and restricted bind mounts that are not pinned.
+Trivy attributes them to `libuuid1` because the library is built from the
+`util-linux` source package.
+
+**Rationale for accepting**: No patched package exists (no fixed version on
+2026-10-15, including in the newest `3.12-debian13` tag). The vulnerable code
+lives in `mount` and `nsenter`; the distroless runtime image ships only the
+`libuuid` shared library, and a listing of the image on 2026-10-15 found no
+`mount` or `nsenter` binary. The container has no shell or package manager, so
+no one can reach those programs from inside it.
+
+**Mitigation in place**:
+
+- The vulnerable programs are not present in the runtime image.
+- The runtime image is distroless and runs as non-root UID 65532.
+- `.trivyignore` entries keep the scheduled scan focused on new findings.
+
+**Resolution path**: take the next base image digest that carries a fixed
+`util-linux` and remove the `.trivyignore` entries in the same change.
+
+**Tracking**: Debian security tracker; no fixed version available as of
+2026-10-15.
+
+---
+
 ## Archive
 
 No resolved entries yet.
