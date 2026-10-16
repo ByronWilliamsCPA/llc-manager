@@ -126,6 +126,32 @@ def test_report_lists_every_record_line(tmp_path: Path) -> None:
     assert len(report.rows) == 1
 
 
+def test_problems_are_structured_by_line(tmp_path: Path) -> None:
+    _files(tmp_path, **{"a.pdf": b"A"})
+    report = read_manifest(
+        _manifest(
+            tmp_path,
+            "a.pdf,household,will,Nope,T,,,,",
+            "a.pdf,household,will,Other,T,,,,",
+        ),
+        tmp_path,
+        _entity_map(),
+    )
+    assert [(p.line, p.message) for p in report.found] == [
+        (2, "column 'category': unknown category"),
+    ]
+    assert report.problems == ["line 2: column 'category': unknown category"]
+
+
+def test_general_problems_have_no_line(tmp_path: Path) -> None:
+    path = tmp_path / "m.csv"
+    path.write_text("file,entity\n", "utf-8")
+    report = read_manifest(path, tmp_path)
+    assert report.found
+    assert all(p.line is None for p in report.found)
+    assert "header: missing column 'title'" in report.problems
+
+
 def test_verify_sources_accepts_distinct_files(tmp_path: Path) -> None:
     _files(tmp_path, **{"a.pdf": b"A", "b.pdf": b"B"})
     report = read_manifest(

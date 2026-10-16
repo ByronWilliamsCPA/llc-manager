@@ -34,7 +34,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
-import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -152,11 +151,11 @@ def _summarize(rows: list[ManifestRow], out: TextIO) -> None:
     print(f"tax_returns_without_consent={missing_consent}", file=out)
 
 
-_LINE_PROBLEM = re.compile(r"^line (\d+): (.*)$")
-
-
 def _print_row_report(report: ManifestReport, out: TextIO) -> None:
     """Print one status per manifest row, then the problems with no line.
+
+    ``errors`` counts rows with a problem plus problems that belong to no row
+    (header, empty manifest), so a header problem never prints ``errors=0``.
 
     Args:
         report (ManifestReport): Report with every problem found.
@@ -164,25 +163,26 @@ def _print_row_report(report: ManifestReport, out: TextIO) -> None:
     """
     by_line: dict[int, list[str]] = {}
     general: list[str] = []
-    for problem in report.problems:
-        match = _LINE_PROBLEM.match(problem)
-        if match:
-            by_line.setdefault(int(match.group(1)), []).append(match.group(2))
+    for problem in report.found:
+        if problem.line is None:
+            general.append(problem.message)
         else:
-            general.append(problem)
+            by_line.setdefault(problem.line, []).append(problem.message)
     for line in report.lines:
-        problems = by_line.get(line)
-        if not problems:
+        messages = by_line.get(line)
+        if not messages:
             print(f"line {line}: ok", file=out)
             continue
         print(f"line {line}: error", file=out)
-        for problem in problems:
-            print(f"  {problem}", file=out)
-    for problem in general:
-        print(f"problem: {problem}", file=out)
-    failed = len(by_line)
+        for message in messages:
+            print(f"  {message}", file=out)
+    for message in general:
+        print(f"problem: {message}", file=out)
+    failed_rows = len(by_line)
+    checked = len(report.lines)
     print(
-        f"checked={len(report.lines)} ok={len(report.lines) - failed} errors={failed}",
+        f"checked={checked} ok={checked - failed_rows} "
+        f"errors={failed_rows + len(general)}",
         file=out,
     )
 
@@ -203,7 +203,7 @@ def _dry_run(report: ManifestReport, out: TextIO) -> int:
     _print_row_report(report, out)
     if report.unreadable:
         return EXIT_USAGE
-    return EXIT_INVALID if report.problems else EXIT_OK
+    return EXIT_INVALID if report.found else EXIT_OK
 
 
 async def _apply(

@@ -389,6 +389,41 @@ def test_dry_run_reports_header_problems_and_exits_invalid(tmp_path: Path) -> No
     code, out = _run(["--manifest", str(manifest), "--dry-run"])
     assert code == EXIT_INVALID
     assert "problem: header: missing column 'title'" in out
+    assert "checked=0 ok=0 errors=" in out
+    assert "errors=0" not in out
+
+
+def test_dry_run_counts_general_problems_in_the_errors_total(
+    tmp_path: Path,
+) -> None:
+    manifest = tmp_path / "m.csv"
+    manifest.write_text("file,entity\n", "utf-8")
+    code, out = _run(["--manifest", str(manifest), "--dry-run"])
+    assert code == EXIT_INVALID
+    problems = [line for line in out.splitlines() if line.startswith("problem:")]
+    assert f"errors={len(problems)}" in out
+
+
+def test_dry_run_empty_manifest_counts_as_an_error(tmp_path: Path) -> None:
+    manifest = tmp_path / "m.csv"
+    manifest.write_text(HEADER, "utf-8")
+    code, out = _run(["--manifest", str(manifest), "--dry-run"])
+    assert code == EXIT_INVALID
+    assert "problem: manifest has no rows" in out
+    assert "checked=0 ok=0 errors=1" in out
+
+
+def test_dry_run_row_and_general_problems_are_both_counted(tmp_path: Path) -> None:
+    manifest, entity_map = _setup(
+        tmp_path,
+        "a.pdf,household,will,Other,T,,,,",
+        "missing.pdf,household,will,Other,T,,,,",
+    )
+    code, out = _run(
+        ["--manifest", str(manifest), "--entity-map", str(entity_map), "--dry-run"]
+    )
+    assert code == EXIT_INVALID
+    assert "checked=2 ok=1 errors=1" in out
 
 
 def test_dry_run_never_touches_the_database_or_the_store(
