@@ -165,6 +165,7 @@ nav:
       - Configuration: guides/configuration.md
       - Usage: guides/usage.md
       - Documents: guides/documents.md
+      - Manifest Dry Run: guides/document-manifest-dry-run.md
 
   - API Reference:
       - Overview: api-reference.md

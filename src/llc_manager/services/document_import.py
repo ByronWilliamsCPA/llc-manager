@@ -106,21 +106,66 @@ class ManifestRow:
     consent_on_file: bool
 
 
+@dataclass(frozen=True)
+class Problem:
+    """One value-free problem found in a manifest.
+
+    Attributes:
+        line (int | None): Manifest line of the offending record, or None for
+            a problem with the header or the manifest as a whole.
+        message (str): Description by column name or position only.
+    """
+
+    line: int | None
+    message: str
+
+    def __str__(self) -> str:
+        """Return the problem as one line of text.
+
+        Returns:
+            str: ``line N: message`` for a row problem, else the message.
+        """
+        return (
+            self.message if self.line is None else f"line {self.line}: {self.message}"
+        )
+
+
 @dataclass
 class ManifestReport:
     """Result of reading a manifest: valid rows plus value-free problems.
 
     Attributes:
         rows (list[ManifestRow]): Rows that passed validation.
-        problems (list[str]): Problems, by line and column name or position
-            only.
+        found (list[Problem]): Problems in the order found, each with its
+            manifest line (or None), by column name or position only.
         unreadable (bool): True when the manifest file itself could not be
             opened or decoded (a file error, not a validation problem).
+        lines (list[int]): Line number of every data record read, valid or
+            not, so a dry run can report on each row.
     """
 
     rows: list[ManifestRow] = field(default_factory=list)
-    problems: list[str] = field(default_factory=list)
+    found: list[Problem] = field(default_factory=list)
     unreadable: bool = False
+    lines: list[int] = field(default_factory=list)
+
+    @property
+    def problems(self) -> list[str]:
+        """Return every problem as text, in the order found.
+
+        Returns:
+            list[str]: One string per problem.
+        """
+        return [str(problem) for problem in self.found]
+
+    def add(self, message: str, line: int | None = None) -> None:
+        """Record a problem.
+
+        Args:
+            message (str): Value-free description.
+            line (int | None): Manifest line, or None for a general problem.
+        """
+        self.found.append(Problem(line, message))
 
 
 @dataclass(frozen=True)
@@ -465,25 +510,27 @@ def _read_rows(
     """
     reader = csv.DictReader(handle, restkey=_EXTRA_CELLS_KEY)
     names = [n.strip() for n in reader.fieldnames or []]
-    report.problems += _check_header(names)
-    if report.problems:
+    for message in _check_header(names):
+        report.add(message)
+    if report.found:
         return
     # Normalize so a space-padded header cell still matches its column.
     reader.fieldnames = names
     seen: dict[UUID, int] = {}
     for raw in reader:
         line = reader.line_num
+        report.lines.append(line)
         if _EXTRA_CELLS_KEY in raw:
-            report.problems.append(f"line {line}: more cells than header columns")
+            report.add("more cells than header columns", line)
             continue
         try:
             row = _parse_row(line, raw, source_root, keys)
         except _RowError as exc:
-            report.problems.append(f"line {line}: {exc}")
+            report.add(str(exc), line)
             continue
         if row.document_id in seen:
-            report.problems.append(
-                f"line {line}: column 'file': same file as line {seen[row.document_id]}"
+            report.add(
+                f"column 'file': same file as line {seen[row.document_id]}", line
             )
             continue
         seen[row.document_id] = line
@@ -515,9 +562,11 @@ def read_manifest(
     except (OSError, ValueError, csv.Error):
         # ValueError covers UnicodeDecodeError. Drop partial results: a
         # manifest that fails midway is not trustworthy.
-        return ManifestReport(problems=["manifest could not be read"], unreadable=True)
-    if not report.rows and not report.problems:
-        report.problems.append("manifest has no rows")
+        unreadable = ManifestReport(unreadable=True)
+        unreadable.add("manifest could not be read")
+        return unreadable
+    if not report.rows and not report.found:
+        report.add("manifest has no rows")
     return report
 
 
@@ -535,6 +584,31 @@ def sha256_file(path: Path) -> str:
         while chunk := handle.read(_CHUNK):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def verify_sources(report: ManifestReport) -> None:
+    """Read every valid row's file and add the problems found to ``report``.
+
+    This is the part of a dry run that needs the file bytes: each source must
+    be readable, and no two rows may point at files with identical bytes (an
+    import would silently skip the second row). Nothing is written anywhere.
+
+    Args:
+        report (ManifestReport): A report from :func:`read_manifest`; problems
+            are appended in place, by line and column name only.
+    """
+    first_line_by_sha: dict[str, int] = {}
+    for row in report.rows:
+        try:
+            digest = sha256_file(row.source)
+        except OSError:
+            report.add("column 'file': file could not be read", row.line)
+            continue
+        if digest in first_line_by_sha:
+            first = first_line_by_sha[digest]
+            report.add(f"column 'file': same bytes (SHA-256) as line {first}", row.line)
+            continue
+        first_line_by_sha[digest] = row.line
 
 
 class StagedFiles:

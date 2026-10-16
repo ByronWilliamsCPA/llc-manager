@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `feat(cli)`: `import_documents --dry-run` (alias of `--validate-only`) prints one
+  status line per manifest row and also checks that each file is readable and
+  that no two rows hold identical bytes (SHA-256); it never touches the
+  database or the store and exits non-zero on any problem. Adds a manifest
+  template, `data/examples/document_manifest_template.example.csv`, and
+  `docs/guides/document-manifest-dry-run.md`. Document IDs are unchanged.
 - `feat(entities)`: `individual` and `household` entity types so personal
   accounts and documents attach to a person or the family instead of to no
   entity (ADR-002). New nullable `entities.xero_tenant_id` and
