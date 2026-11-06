@@ -108,6 +108,7 @@ async def _flush_or_conflict(db: AsyncSession) -> None:
 )
 async def list_entities(
     db: DBSession,
+    *,
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Items per page"),
     search: str | None = Query(None, description="Search by legal name or EIN"),

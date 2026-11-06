@@ -82,6 +82,7 @@ async def _get_live_document(db: AsyncSession, document_id: UUID) -> Document:
 )
 async def list_documents(
     db: DBSession,
+    *,
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(50, ge=1, le=200, description="Items per page"),
     updated_since: datetime | None = Query(

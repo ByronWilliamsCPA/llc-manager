@@ -791,6 +791,7 @@ def _update_row(
     sha: str,
     documents_root: Path,
     staged: StagedFiles,
+    *,
     tally: _Tally,
 ) -> None:
     wanted = _metadata(row)
@@ -833,7 +834,7 @@ async def _record_rows(
         elif existing.deleted_at is not None:
             tally.skipped_deleted += 1
         else:
-            _update_row(existing, row, sha, documents_root, staged, tally)
+            _update_row(existing, row, sha, documents_root, staged, tally=tally)
     await repo.flush()
     return tally.result()
 

@@ -251,6 +251,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `fix(lint)`: make excess parameters keyword-only (`list_documents`, `list_entities`,
+  `_update_row`) and parenthesize an implicit string concatenation in a test for
+  ruff 0.17 compatibility (PLR0917, ISC004). No behavior or API change.
 - `fix(web)`: label the entity list search input for accessibility. The
   `/entities` search field now has an `id` and a visually hidden `<label for>`,
   which clears SonarCloud `Web:InputWithoutLabelCheck`.
