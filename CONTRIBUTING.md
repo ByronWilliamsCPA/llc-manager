@@ -15,7 +15,7 @@ Thank you for your interest in contributing to LLC Manager! This document provid
 
 ## Code of Conduct
 
-This project adheres to the [ByronWilliamsCPA organization Code of Conduct](https://github.com/ByronWilliamsCPA/.github/blob/main/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to byron@williamscpa.com.
+This project adheres to the [ByronWilliamsCPA organization Code of Conduct](https://github.com/ByronWilliamsCPA/.github/blob/main/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to <byron@williamscpa.com>.
 
 ## Getting Started
 
@@ -48,7 +48,7 @@ qlty check
 
 ### Project Structure
 
-```
+```text
 llc_manager/
 ├── src/llc_manager/       # Main package
 │   ├── __init__.py
@@ -315,7 +315,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/) specifica
 
 ### Commit Message Format
 
-```
+```text
 <type>(<scope>): <subject>
 
 <body>
@@ -375,6 +375,7 @@ See migration guide in docs/migration/v1.0.0.md
 ### Submitting a Pull Request
 
 1. **Push your branch**:
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -437,7 +438,7 @@ Use the feature request template and include:
 - **General Questions**: Open a [GitHub Discussion](https://github.com/ByronWilliamsCPA/llc-manager/discussions)
 - **Bug Reports**: Open a [GitHub Issue](https://github.com/ByronWilliamsCPA/llc-manager/issues)
 - **Security Issues**: See [ByronWilliamsCPA Security Policy](https://github.com/ByronWilliamsCPA/.github/blob/main/SECURITY.md)
-- **Email**: byron@williamscpa.com
+- **Email**: <byron@williamscpa.com>
 
 ## Recognition
 

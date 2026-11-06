@@ -152,12 +152,14 @@ When `.standards/README.baseline.md` is updated by cruft:
 3. **Preserve project content** - Keep your custom Overview, Features, etc.
 
 **What to merge:**
+
 - Badge URLs and formats (may add new badges)
 - Tool installation instructions (versions may change)
 - Quality standards tables (rules may be added)
 - Workflow documentation (process improvements)
 
 **What NOT to merge:**
+
 - Your project's Overview section
 - Your project's Features section
 - Project-specific configuration

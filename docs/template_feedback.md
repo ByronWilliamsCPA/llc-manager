@@ -180,6 +180,53 @@ date) so the value is populated automatically for new projects.
 
 ---
 
+### Template-shipped markdown files fail the template's own markdownlint hook
+
+- **Priority**: Medium
+- **Category**: Documentation
+- **Discovered**: 2026-11-06
+
+**Issue**: Eight markdown files that ship with the template fail the
+`markdownlint` pre-commit hook that the same template configures
+(`.markdownlint.json` with `"default": true`). 68 violations were present in
+the generated project's initial commit (`e445770`), outside `docs/` and
+`.claude/`: `.github/workflows/README.md` (30: 14 MD022, 11 MD032, 2 MD031,
+2 MD040, 1 MD003), `CONFIG_TEMPLATES_SUMMARY.md` (20: 9 MD022, 7 MD032,
+4 MD031), `CONTRIBUTING.md` (5: 2 MD034, 2 MD040, 1 MD031),
+`scripts/README.md` (3: 2 MD032, 1 MD031), and the `.standards/` files
+`CLAUDE.baseline.md`, `README.baseline.md`, `README.md` and
+`template_feedback.baseline.md` (10: 6 MD032, 2 MD031, 1 MD036, 1 MD040).
+The recurring causes are missing blank lines around headings, lists and
+fences, fenced blocks without a language (ASCII diagrams and directory trees
+need `text`), bare email addresses, and a `---` directly under a text line
+that parses as a setext heading.
+
+**Context**: Found while running `pre-commit run markdownlint --all-files`,
+which reported 494 errors on main. Provenance was checked: all eight files
+exist under `{{cookiecutter.project_slug}}/` in the template at the pinned
+commit (`53a8c49`, from `.cruft.json`), and each was committed in the initial
+"Initial commit from cookiecutter template" commit with the violations
+already present (re-linting that commit's versions gives the same rule
+classes). `CONFIG_TEMPLATES_SUMMARY.md` and `CONTRIBUTING.md` were edited
+later by compliance commits, but the violation classes predate those edits.
+The remaining ~426 errors under `docs/` and `.claude/` were not analyzed for
+template origin and are not attributed to the template here.
+
+**Suggested Fix**: Run `markdownlint --fix` over the template's markdown
+sources and fix the rest by hand (fence languages, bare emails, the setext
+heading), then add a template CI check that renders a project and runs the
+markdownlint hook on it so shipped files cannot regress. The `.standards/`
+baseline files are cruft-managed, so fixing them in the template is the only
+way to stop the violations returning on each `cruft update`.
+
+**Affected Files**: `.github/workflows/README.md`,
+`CONFIG_TEMPLATES_SUMMARY.md`, `CONTRIBUTING.md`, `scripts/README.md`,
+`.standards/CLAUDE.baseline.md`, `.standards/README.baseline.md`,
+`.standards/README.md`, `.standards/template_feedback.baseline.md` (all under
+`{{cookiecutter.project_slug}}/` in the template)
+
+---
+
 ## Submitting Feedback
 
 Once you've collected feedback, you can:

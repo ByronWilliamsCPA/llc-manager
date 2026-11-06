@@ -9,16 +9,19 @@ Utility scripts for LLC Manager.
 Updates the Claude Code standards from the upstream repository.
 
 **Usage**:
+
 ```bash
 ./scripts/update-claude-standards.sh
 ```
 
 **What it does**:
+
 - Pulls the latest Claude Code standards from [williaby/.claude](https://github.com/williaby/.claude)
 - Updates the `.claude/standard/` directory via git subtree
 - Preserves project-specific configuration in `.claude/claude.md`
 
 **When to run**:
+
 - Periodically to get latest standards and best practices
 - When new Claude Code features are announced
 - When security or quality updates are released

@@ -38,7 +38,7 @@ git diff .standards/
 
 ## Workflow
 
-```
+```text
 ┌─────────────────┐     cruft update     ┌──────────────────┐
 │   Template      │ ──────────────────► │  .standards/     │
 │   Repository    │                      │  (baselines)     │
@@ -61,4 +61,4 @@ git diff .standards/
 
 ---
 
-*Last updated: 2026-01-18*
+Last updated: 2026-01-18
