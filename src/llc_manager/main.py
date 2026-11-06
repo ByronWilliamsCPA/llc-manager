@@ -18,7 +18,10 @@ from llc_manager.middleware.security import (
     SecurityHeadersMiddleware,
     SSRFPreventionMiddleware,
 )
+from llc_manager.utils.logging import get_logger
 from llc_manager.web import router as web_router
+
+logger = get_logger(__name__)
 
 _HERE = Path(__file__).parent
 
@@ -34,6 +37,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         None: During the lifespan of the application.
     """
     # Startup
+    if settings.api_key is None:
+        logger.error(
+            "api_key_not_configured",
+            effect="every /api/v1 request is refused with 503",
+        )
     yield
     # Shutdown
 

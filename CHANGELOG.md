@@ -9,7 +9,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `feat(cli)`: `import_documents --dry-run` (alias of `--validate-only`) prints one
+  status line per manifest row and also checks that each file is readable and
+  that no two rows hold identical bytes (SHA-256); it never touches the
+  database or the store and exits non-zero on any problem. Adds a manifest
+  template, `data/examples/document_manifest_template.example.csv`, and
+  `docs/guides/document-manifest-dry-run.md`. Document IDs are unchanged.
+- `feat(entities)`: `individual` and `household` entity types so personal
+  accounts and documents attach to a person or the family instead of to no
+  entity (ADR-002). New nullable `entities.xero_tenant_id` and
+  `bank_accounts.xero_account_id`, each unique among non-deleted rows. Entity
+  responses carry `xero_tenant_id` and a `bank_accounts` summary list (id,
+  nickname, last 4 digits, `xero_account_id`, active flag); the bank account
+  schemas accept `xero_account_id`. The entity list gains `entity_type` and
+  `xero_tenant_id` filters, and a unique-constraint race on create or update
+  now returns 409 instead of 500. An `individual` or `household` cannot set
+  `ein`, `formation_state`, or `formation_date`. Migration `316e25bc258b`.
+- `feat(cli)`: `python -m llc_manager.cli.seed_entities`, an idempotent seed
+  that reads a private JSON file from outside the repository
+  (`--file` or `LLC_MANAGER_ENTITY_SEED_FILE`), derives stable UUIDv5 entity
+  IDs from a private namespace, prints counts only, and can write an
+  owner-only key-to-UUID mapping file confined to the home directory (or
+  `LLC_MANAGER_MAPPING_DIR`). A synthetic example lives in
+  `data/examples/entity_seed.example.json`; see `docs/guides/entity-seed.md`.
+- `feat(api)`: read-only document API. `GET /api/v1/documents` lists
+  metadata with `page`/`size` pagination and `updated_since`, `entity_id`,
+  and `category` filters; `GET /api/v1/documents/{id}` returns one record;
+  `GET /api/v1/documents/{id}/file` streams the stored file by ID with its
+  MIME type and `Content-Length`, guarded against path traversal.
+- `feat(security)`: every `/api/v1` route requires the `X-API-Key` header,
+  compared in constant time against `LLC_MANAGER_API_KEY` (or
+  `LLC_MANAGER_SERVICE_API_KEY`). With no key configured, or an empty one, the
+  API refuses requests (503) rather than allowing them; the condition is
+  logged once at startup.
+- `feat(documents)`: `category`, `sha256`, and `consent_on_file` columns and
+  `will`, `trust_agreement`, `power_of_attorney`, and `healthcare_directive`
+  document types. Migration `0e0121ec4817`.
+- `feat(cli)`: `python -m llc_manager.cli.import_documents`, an idempotent
+  manifest import that copies files into `LLC_MANAGER_DOCUMENTS_ROOT`,
+  records SHA-256, skips exact duplicates, and creates or updates rows;
+  `--validate-only` prints counts and problems only. The import stages files,
+  commits the database, then publishes the files, so a failure never leaves a
+  stored file without a row; re-running repairs an interrupted import. Source
+  paths are confined to the source root, and an unexpected failure prints only
+  the exception class (exit 3). Synthetic example in
+  `data/examples/document_manifest.example.csv`.
+
 <!-- TODO(OSSF-001): OpenSSF Best Practices Badge application pending submission at https://bestpractices.coreinfrastructure.org -- see docs/compliance-reports/ossf-badge-prefill-2026-05-24.md -->
+- CI: `Build Image` workflow (`.github/workflows/build-image.yml`) that
+  builds the Dockerfile, smoke-tests the container against
+  `/api/health/live`, and publishes `ghcr.io/byronwilliamscpa/llc-manager`
+  on pushes to `main` with `sha-<7>`, date and `latest` tags, an SBOM,
+  max-mode provenance and a keyless cosign signature; the build job
+  needs a `quality-gate` job (the org `python-ci.yml` reusable) to pass
+  first, so no image is published without the mandatory checks
 - CI: Claude Tier 0 baseline PR review caller
   (`.github/workflows/claude-baseline-review.yml`), a thin caller of the
   org reusable in `ByronWilliamsCPA/.github`. Part of the org-wide
@@ -47,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rejection
 - Authentik OIDC configuration placeholders (`authentik_issuer`,
   `authentik_jwks_url`, `authentik_audience`); default `None` and inert
-  until the planned `core/auth.py` dependency is wired in
+  until a per-user check in `core/auth.py` is wired in
 - `Cache-Control: no-store` and `Pragma: no-cache` response headers on
   `/api/v1/*` data endpoints to prevent caching of EINs and compliance data
 - Compliance audit remediation (2026-05-08): native pre-commit hooks for ruff,
@@ -103,6 +156,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `build(docker)`: the Dockerfile now uses the hardened
+  `ghcr.io/byronwilliamscpa/dhi-python` 3.12 images (`-dev` builder and
+  distroless runtime, both pinned by digest). The runtime runs as the
+  image's non-root UID 65532 and the `HEALTHCHECK` uses Python instead of
+  curl. Both digests were refreshed on 2026-10-05 to pick up the OpenSSL
+  `3.5.7-1~deb13u3` security update
 - `pr-validation.yml`: removed the `core-validation` job, which called
   `ByronWilliamsCPA/.github`'s `python-pr-validation.yml`. That reusable
   workflow is a retired tombstone that now hard-fails on every invocation,
@@ -185,6 +244,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `fix(docker)`: the builder stage no longer installs `build-essential`, `git`,
+  and `curl`; they pulled in a Debian `perl` that conflicts with the base
+  image's `perl-base`, which made the image build fail. Every locked runtime
+  dependency installs from a wheel.
+- `fix(docker)`: the image now installs the `api` extra, so uvicorn,
+  FastAPI and the database drivers are present and the container starts
 - fix(security): resolve CVE-2026-8643 -- bump transitive `pip` 26.1.1 to
   26.1.2 (dev-only, via `pip-api`/`pip-audit`); pip wrote `console_scripts`
   / `gui_scripts` entry points outside the installation directory without
@@ -336,6 +401,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- `fix(security)`: document unfixed libexpat1, libsqlite3-0 and zlib1g base
+  image CVEs. Nine HIGH findings (CVE-2026-113351, CVE-2026-115506,
+  CVE-2026-117610, CVE-2026-118370, CVE-2026-119373, CVE-2026-119374,
+  CVE-2026-119379, CVE-2026-76844, CVE-2026-85091) have no fixed version in
+  Debian trixie; accepted with a 2027-01-05 reassessment date (see
+  `docs/known-vulnerabilities.md`).
+- `fix(security)`: accepted, with documented reassessment dates, the unfixed
+  `libexpat1` and `libuuid1` HIGH findings in the runtime base image. No
+  patched base image digest exists (see `docs/known-vulnerabilities.md`).
+- fix(security): the database engine sets `hide_parameters=True`, so
+  SQLAlchemy errors and echo logs no longer include bound values (names,
+  EINs, tenant IDs).
 - fix(security): pass the `strict_mode` dispatch input in
   `fips-compatibility.yml` through an `env:` variable instead of interpolating
   it into the `run:` block, removing a shell template-injection pattern

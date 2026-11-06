@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Date, Enum, ForeignKey, String, Text
+from sqlalchemy import Date, Enum, ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -47,6 +47,9 @@ class BankAccount(Base, UUIDPrimaryKeyMixin, AuditMixin):
         contact_email (Mapped[str | None]): Email for the contact.
         branch_address (Mapped[str | None]): Address of the bank branch.
         online_banking_url (Mapped[str | None]): URL for online banking.
+        xero_account_id (Mapped[str | None]): Xero account ID for this bank
+            account inside the entity's Xero organisation, unique among
+            non-deleted bank accounts.
         notes (Mapped[str | None]): Additional notes about the account.
         is_primary (Mapped[bool]): Whether this is the primary account for the entity.
         is_active (Mapped[bool]): Whether the account is currently active.
@@ -54,6 +57,14 @@ class BankAccount(Base, UUIDPrimaryKeyMixin, AuditMixin):
     """
 
     __tablename__ = "bank_accounts"
+    __table_args__ = (
+        Index(
+            "ix_bank_accounts_xero_account_id_active",
+            "xero_account_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
 
     # Entity relationship
     entity_id: Mapped[UUID] = mapped_column(
@@ -87,6 +98,9 @@ class BankAccount(Base, UUIDPrimaryKeyMixin, AuditMixin):
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     branch_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     online_banking_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # External references
+    xero_account_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Additional info
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

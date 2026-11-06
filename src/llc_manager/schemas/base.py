@@ -1,9 +1,16 @@
 """Base schema classes with common configuration."""
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StringConstraints
+
+# A Xero identifier (organisation tenant ID or bank account ID). Whitespace is
+# stripped before the length check, so a blank value is rejected, not stored.
+XeroId = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)
+]
 
 
 class BaseSchema(BaseModel):

@@ -226,9 +226,12 @@ Browsers block local file system links (`file://`) for security. Documents must 
 ### Implementation
 
 - **Storage**: Mount network storage to `/data/docs` in Docker container
-- **Endpoint**: `GET /api/v1/documents/{id}/download` streams file content
-- **Access Control**: Require authenticated session; check entity access permissions
-- **Metadata Only**: Database stores `file_path` relative to mount point, not absolute paths
+- **Endpoint** (built): `GET /api/v1/documents/{id}/file` streams file content
+- **Access Control** (built, interim): every `/api/v1` route requires the
+  `X-API-Key` header; per-user entity permissions are not built
+- **File location**: files are stored as `{documents_root}/{document_id}{extension}`
+  and located by document ID only. The database `file_path` column is legacy
+  and the API never reads or returns it.
 
 ### Docker Volume Mount
 
@@ -237,12 +240,17 @@ volumes:
   - /path/to/network/share:/data/docs:ro
 ```
 
+The API only reads this volume, so the API container can mount it read-only.
+The import command writes to it and needs a writable mount, so run it in a
+separate job or container with the same path mounted read-write.
+
 ### Document Endpoint
 
 | Method | Path                               | Purpose                | Auth |
 | ------ | ---------------------------------- | ---------------------- | ---- |
-| GET    | `/api/v1/documents/{id}/download`  | Stream document file   | Yes  |
-| GET    | `/api/v1/documents/{id}/metadata`  | Get document metadata  | Yes  |
+| GET    | `/api/v1/documents/{id}/file`      | Stream document file   | Yes  |
+| GET    | `/api/v1/documents/{id}`           | Get document metadata  | Yes  |
+| GET    | `/api/v1/documents`                | List document metadata | Yes  |
 
 ## Notification Scheduler
 

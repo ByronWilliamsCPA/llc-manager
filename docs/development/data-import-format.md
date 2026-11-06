@@ -35,7 +35,7 @@ here by `legal_name`.
 | Column Name | Required | Validation Rule | Example |
 |---|---|---|---|
 | `legal_name` | Required | Non-empty string, max 255 chars. Must be unique across the workbook. | `Acme Holdings LLC` |
-| `entity_type` | Optional | One of: `llc`, `corporation`, `s_corporation`, `partnership`, `sole_proprietorship`, `trust`, `non_profit`, `other`. Defaults to `llc` if omitted. | `llc` |
+| `entity_type` | Optional | One of: `llc`, `corporation`, `s_corporation`, `partnership`, `sole_proprietorship`, `trust`, `non_profit`, `other`. Defaults to `llc` if omitted. `individual` and `household` are rejected here; create them with the entity seed command (see [Entity seed](../guides/entity-seed.md)). | `llc` |
 | `dba_names` | Optional | Free text; separate multiple DBAs with commas | `Acme Realty, Acme Dev` |
 | `ein` | Required | String matching `XX-XXXXXXX` pattern (9 digits), globally unique | `12-3456789` |
 | `formation_state` | Optional | Two-letter US state abbreviation (uppercase) | `TX` |

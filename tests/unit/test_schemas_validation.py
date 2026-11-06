@@ -10,12 +10,15 @@ the exact validator that broke.
 
 from datetime import date
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
+from llc_manager.models.document import DocumentCategory, DocumentType
 from llc_manager.models.entity import EntityType
 from llc_manager.models.owner import OwnershipType
+from llc_manager.schemas.document import DocumentCreate
 from llc_manager.schemas.entity import (
     EntityCreate,
     EntityListResponse,
@@ -266,3 +269,31 @@ class TestOwnerUpdateValidation:
     def test_update_percentage_none_passes_through(self) -> None:
         upd = OwnerUpdate(ownership_percentage=None)
         assert upd.ownership_percentage is None
+
+
+class TestDocumentConsentRule:
+    """consent_on_file is only valid for Tax Returns documents."""
+
+    @staticmethod
+    def _payload(category: object, *, consent: bool) -> dict[str, object]:
+        return {
+            "title": "t",
+            "category": category,
+            "document_type": DocumentType.OTHER,
+            "entity_id": uuid4(),
+            "consent_on_file": consent,
+        }
+
+    def test_consent_rejected_outside_tax_returns(self) -> None:
+        with pytest.raises(ValueError, match="Tax Returns"):
+            DocumentCreate(**self._payload(DocumentCategory.OTHER, consent=True))
+
+    def test_consent_allowed_for_tax_returns(self) -> None:
+        doc = DocumentCreate(
+            **self._payload(DocumentCategory.TAX_RETURNS, consent=True)
+        )
+        assert doc.consent_on_file is True
+
+    def test_no_consent_allowed_anywhere(self) -> None:
+        doc = DocumentCreate(**self._payload(DocumentCategory.OTHER, consent=False))
+        assert doc.consent_on_file is False

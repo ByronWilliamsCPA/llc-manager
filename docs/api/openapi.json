@@ -1,6 +1,262 @@
 {
   "components": {
     "schemas": {
+      "DocumentCategory": {
+        "description": "Top-level document folders shared with the document consumers.\n\nA consumer that has to guess a category uses ``OTHER``, never a specific\nfolder.",
+        "enum": [
+          "Estate Planning",
+          "LLCs",
+          "Trusts",
+          "Tax Returns",
+          "Insurance",
+          "Personal records",
+          "Other"
+        ],
+        "title": "DocumentCategory",
+        "type": "string"
+      },
+      "DocumentListResponse": {
+        "description": "Paginated document list, oldest ``updated_at`` first.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "DocumentListResponse",
+        "type": "object"
+      },
+      "DocumentRead": {
+        "description": "Document metadata served to other services by ``/api/v1/documents``.\n\nThis is the cross-service document contract. It never includes a file\npath; the file is fetched by ID from ``/api/v1/documents/{id}/file``.",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/DocumentCategory"
+          },
+          "consent_on_file": {
+            "title": "Consent On File",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Date"
+          },
+          "document_type": {
+            "$ref": "#/components/schemas/DocumentType"
+          },
+          "effective_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Date"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "file_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_confidential": {
+            "title": "Is Confidential",
+            "type": "boolean"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "category",
+          "document_type",
+          "entity_id",
+          "is_confidential",
+          "consent_on_file",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DocumentRead",
+        "type": "object"
+      },
+      "DocumentType": {
+        "description": "Types of entity documents.",
+        "enum": [
+          "articles_of_organization",
+          "articles_of_incorporation",
+          "certificate_of_formation",
+          "operating_agreement",
+          "bylaws",
+          "partnership_agreement",
+          "meeting_minutes",
+          "annual_meeting",
+          "special_meeting",
+          "written_consent",
+          "annual_report",
+          "amendment",
+          "statement_of_information",
+          "certificate_of_good_standing",
+          "foreign_qualification",
+          "will",
+          "trust_agreement",
+          "power_of_attorney",
+          "healthcare_directive",
+          "ein_letter",
+          "tax_return",
+          "tax_election",
+          "bank_resolution",
+          "signature_card",
+          "contract",
+          "lease",
+          "insurance_policy",
+          "membership_certificate",
+          "stock_certificate",
+          "transfer_agreement",
+          "correspondence",
+          "other"
+        ],
+        "title": "DocumentType",
+        "type": "string"
+      },
+      "EntityBankAccountRef": {
+        "description": "Bank account summary embedded in entity responses.\n\nCarries only what an external system needs to map its own account to this\nentity: the account UUID, its Xero account ID, and display hints. Contact\ndetails and routing numbers stay out of the entity response.",
+        "properties": {
+          "account_nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Nickname"
+          },
+          "account_number_last4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number Last4"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "xero_account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xero Account Id"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "EntityBankAccountRef",
+        "type": "object"
+      },
       "EntityCreate": {
         "description": "Schema for creating a new entity.",
         "properties": {
@@ -211,6 +467,19 @@
               }
             ],
             "title": "Purpose"
+          },
+          "xero_tenant_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xero Tenant Id"
           }
         },
         "required": [
@@ -270,6 +539,13 @@
               }
             ],
             "title": "Accounting Record Id"
+          },
+          "bank_accounts": {
+            "items": {
+              "$ref": "#/components/schemas/EntityBankAccountRef"
+            },
+            "title": "Bank Accounts",
+            "type": "array"
           },
           "business_address": {
             "anyOf": [
@@ -526,6 +802,19 @@
               }
             ],
             "title": "Updated By"
+          },
+          "xero_tenant_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xero Tenant Id"
           }
         },
         "required": [
@@ -538,7 +827,7 @@
         "type": "object"
       },
       "EntityType": {
-        "description": "Types of business entities.",
+        "description": "Types of entities.\n\n``INDIVIDUAL`` (one per person) and ``HOUSEHOLD`` (one per family) are not\nlegal entities. They exist so personal accounts and personal documents\n(wills, powers of attorney, health directives) attach to an entity like\neverything else. See ADR-002.",
         "enum": [
           "llc",
           "corporation",
@@ -547,6 +836,8 @@
           "sole_proprietorship",
           "trust",
           "non_profit",
+          "individual",
+          "household",
           "other"
         ],
         "title": "EntityType",
@@ -781,6 +1072,19 @@
               }
             ],
             "title": "Purpose"
+          },
+          "xero_tenant_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xero Tenant Id"
           }
         },
         "title": "EntityUpdate",
@@ -964,6 +1268,14 @@
         "title": "ValidationError",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "description": "Shared service key for /api/v1.",
+        "in": "header",
+        "name": "X-API-Key",
+        "type": "apiKey"
+      }
     }
   },
   "info": {
@@ -1051,9 +1363,249 @@
         ]
       }
     },
+    "/api/v1/documents": {
+      "get": {
+        "description": "Return document metadata, oldest `updated_at` first, so a consumer can page through changes. `updated_since` returns documents whose `updated_at` is at or after the given time (a timestamp without a zone is read as UTC); any create, file replacement, or metadata edit moves `updated_at`. Paging is by offset, so a document edited while a consumer pages can shift later rows: re-poll with a watermark a few minutes behind the newest `updated_at` seen and de-duplicate by `id`. Soft-deleted documents are excluded, so deletions do not appear in this feed.",
+        "operationId": "list_documents_api_v1_documents_get",
+        "parameters": [
+          {
+            "description": "Page number",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Page number",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items per page",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Items per page",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only documents updated at or after this time",
+            "in": "query",
+            "name": "updated_since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only documents updated at or after this time",
+              "title": "Updated Since"
+            }
+          },
+          {
+            "description": "Filter by entity",
+            "in": "query",
+            "name": "entity_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by entity",
+              "title": "Entity Id"
+            }
+          },
+          {
+            "description": "Filter by category",
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/DocumentCategory"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by category",
+              "title": "Category"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentListResponse"
+                }
+              }
+            },
+            "description": "Paginated list of documents"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "API key not configured on the server"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "List documents",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}": {
+      "get": {
+        "description": "Return one non-deleted document's metadata. No file path is returned.",
+        "operationId": "get_document_api_v1_documents__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRead"
+                }
+              }
+            },
+            "description": "Document metadata"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "description": "Document not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "API key not configured on the server"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Get document metadata",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}/file": {
+      "get": {
+        "description": "Stream the stored file with its MIME type and `Content-Length`. The file is located by document ID under the server's documents root; no path is accepted from the caller.",
+        "operationId": "get_document_file_api_v1_documents__document_id__file_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/pdf": {}
+            },
+            "description": "File bytes"
+          },
+          "401": {
+            "description": "Missing or invalid API key"
+          },
+          "404": {
+            "description": "Document or file not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "API key not configured on the server"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Download document file",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
     "/api/v1/entities": {
       "get": {
-        "description": "Return a paginated, optionally filtered list of LLC entities. Supports full-text search across `legal_name`, `ein`, and `dba_names`, plus an `is_active` filter. Soft-deleted entities are excluded.",
+        "description": "Return a paginated, optionally filtered list of entities (legal entities, individuals, and households). Supports full-text search across `legal_name`, `ein`, and `dba_names`, plus `is_active`, `entity_type`, and exact `xero_tenant_id` filters. Soft-deleted entities are excluded.",
         "operationId": "list_entities_api_v1_entities_get",
         "parameters": [
           {
@@ -1118,6 +1670,43 @@
               "description": "Filter by active status",
               "title": "Is Active"
             }
+          },
+          {
+            "description": "Filter by entity type",
+            "in": "query",
+            "name": "entity_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EntityType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by entity type",
+              "title": "Entity Type"
+            }
+          },
+          {
+            "description": "Exact match on the Xero tenant ID",
+            "in": "query",
+            "name": "xero_tenant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact match on the Xero tenant ID",
+              "title": "Xero Tenant Id"
+            }
           }
         ],
         "responses": {
@@ -1142,13 +1731,18 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "List entities",
         "tags": [
           "Entities"
         ]
       },
       "post": {
-        "description": "Create a new LLC entity. The optional `ein` field must be unique across non-deleted entities; a duplicate value returns 409.",
+        "description": "Create a new entity. The optional `ein` and `xero_tenant_id` fields must be unique across non-deleted entities; a duplicate value returns 409. An `individual` or `household` entity must not set `ein`, `formation_state`, or `formation_date` (422).",
         "operationId": "create_entity_api_v1_entities_post",
         "requestBody": {
           "content": {
@@ -1172,12 +1766,17 @@
             "description": "Entity created successfully"
           },
           "409": {
-            "description": "Entity with the supplied EIN already exists"
+            "description": "Entity with the supplied EIN or Xero tenant ID exists"
           },
           "422": {
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "Create entity",
         "tags": [
           "Entities"
@@ -1218,6 +1817,11 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "Soft delete entity",
         "tags": [
           "Entities"
@@ -1263,13 +1867,18 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "Get entity by ID",
         "tags": [
           "Entities"
         ]
       },
       "patch": {
-        "description": "Partially update an entity. Only fields included in the request body are modified. Updating `ein` to a value already held by another entity returns 409.",
+        "description": "Partially update an entity. Only fields included in the request body are modified. Updating `ein` or `xero_tenant_id` to a value already held by another entity returns 409. Sending `xero_tenant_id: null` clears the mapping.",
         "operationId": "update_entity_api_v1_entities__entity_id__patch",
         "parameters": [
           {
@@ -1308,12 +1917,17 @@
             "description": "Entity not found"
           },
           "409": {
-            "description": "Entity with the supplied EIN already exists"
+            "description": "Entity with the supplied EIN or Xero tenant ID exists"
           },
           "422": {
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "summary": "Update entity",
         "tags": [
           "Entities"

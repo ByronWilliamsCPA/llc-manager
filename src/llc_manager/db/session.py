@@ -22,9 +22,15 @@ logger = get_logger(__name__)
 # is live before handing it to a request, at the cost of one round-trip per checkout.
 # #VERIFY: If p95 latency regresses, profile with `pool_pre_ping=False` to confirm
 # this is not the bottleneck.
+# #CRITICAL: Security - hide_parameters keeps bound values (names, EINs, Xero
+# tenant IDs) out of SQLAlchemy exception messages and echo logs, so a failed
+# statement logged by get_async_session or a CLI never prints row data.
+# #VERIFY: tests/unit/test_seed_entities_cli.py asserts a database error
+# prints no seed values; keep hide_parameters=True when changing this call.
 async_engine = create_async_engine(
     settings.database_url,
     echo=settings.database_echo,
+    hide_parameters=True,
     pool_pre_ping=True,
     pool_size=settings.database_pool_size,
     max_overflow=settings.database_max_overflow,
