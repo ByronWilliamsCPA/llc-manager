@@ -1,6 +1,6 @@
 # PR Validation for LLC Manager
-# Supplementary pull request checks: dead code detection, changelog
-# enforcement, and documentation links.
+# Supplementary pull request checks: dead code detection and documentation
+# links.
 #
 # The org-level python-pr-validation.yml reusable workflow this file used to
 # call has been retired (tombstoned) upstream in ByronWilliamsCPA/.github; it
@@ -16,16 +16,16 @@
 # org-wide by design when python-pr-validation.yml was deprecated (see that
 # file's migration header: "PR title and description validation: removed,
 # use semantic-release"), so it is intentionally not reintroduced here.
+#
+# There is deliberately no per-PR changelog gate: it conflicts with the merge
+# queue. The changelog is generated at release time from Conventional Commits
+# by python-semantic-release.
 name: PR Validation
 
 on:
   merge_group:
   pull_request:
-    # `labeled` / `unlabeled` are required for the changelog-enforcer skip
-    # labels (skip-changelog, dependencies, documentation) to take effect
-    # after PR creation. Without them, the workflow's frozen event payload
-    # never sees label additions, and `gh run rerun` cannot refresh it.
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened]
     branches:
       - main
       - master
@@ -98,33 +98,6 @@ jobs:
           else
             echo "No dead code detected with 90% confidence." >> $GITHUB_STEP_SUMMARY
           fi
-
-  # Changelog Enforcement
-  changelog:
-    name: Changelog Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Harden the runner
-        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
-        with:
-          egress-policy: audit
-
-      - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          fetch-depth: 0
-          persist-credentials: false  # Token must not persist into changelog-enforcer
-
-      - name: Check for CHANGELOG update
-        uses: dangoslen/changelog-enforcer@8b5e9dc3121363bb7c0115f8533404d92af382de # v3.7.0
-        with:
-          changeLogPath: 'CHANGELOG.md'
-          skipLabels: 'skip-changelog,dependencies,documentation'
-          missingUpdateErrorMessage: |
-            Please update CHANGELOG.md with a description of your changes.
-            Add the label 'skip-changelog' if this PR doesn't require a changelog entry.
-
 
   # Documentation Link Check
   link-check:
@@ -205,7 +178,7 @@ jobs:
     name: Validation Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [dead-code, changelog, link-check]
+    needs: [dead-code, link-check]
     if: always()
     permissions:
       contents: read
@@ -218,7 +191,6 @@ jobs:
       - name: Check validation results
         env:
           DEAD_CODE_RESULT: ${{ needs.dead-code.result }}
-          CHANGELOG_RESULT: ${{ needs.changelog.result }}
           LINK_CHECK_RESULT: ${{ needs.link-check.result }}
         run: |
           echo "## PR Validation Summary" >> $GITHUB_STEP_SUMMARY
@@ -228,14 +200,6 @@ jobs:
             echo "Dead Code Check: Passed" >> $GITHUB_STEP_SUMMARY
           else
             echo "Dead Code Check: $DEAD_CODE_RESULT" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ "$CHANGELOG_RESULT" == "success" ]; then
-            echo "Changelog: Updated" >> $GITHUB_STEP_SUMMARY
-          elif [ "$CHANGELOG_RESULT" == "skipped" ]; then
-            echo "Changelog: Skipped" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Changelog: $CHANGELOG_RESULT" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ "$LINK_CHECK_RESULT" == "success" ]; then
@@ -250,11 +214,6 @@ jobs:
           # `link-check` is also advisory (lychee runs with fail: false in
           # the job above).
           BLOCK=0
-          # Changelog: success and skipped (skip-changelog label) both pass.
-          case "$CHANGELOG_RESULT" in
-            success|skipped) ;;
-            *) BLOCK=1 ;;
-          esac
 
           if [ "$BLOCK" = "1" ]; then
             echo ""

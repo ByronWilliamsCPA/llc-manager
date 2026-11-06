@@ -339,7 +339,9 @@ LLC_MANAGER_LOG_LEVEL=INFO
 9. **Container Security** (`.github/workflows/container-security.yml`): Trivy and Hadolint scanning
 10. **FIPS Compatibility** (`.github/workflows/fips-compatibility.yml`): crypto algorithm audit
 11. **Mutation Testing** (`.github/workflows/mutation-testing.yml`): test effectiveness validation
-12. **PR Validation** (`.github/workflows/pr-validation.yml`): conventional commits, changelog, dead code, link checks
+12. **PR Validation** (`.github/workflows/pr-validation.yml`): dead code, link checks, dependency and standards aggregator.
+    Conventional-commit PR titles are validated by `pr-title.yml`; there is no per-PR changelog gate
+    (the changelog is generated at release by python-semantic-release).
 13. **Python Compatibility** (`.github/workflows/python-compatibility.yml`): multi-version and multi-OS matrix
 14. **REUSE Compliance** (`.github/workflows/reuse.yml`): SPDX license header validation
 15. **SBOM** (`.github/workflows/sbom.yml`): CycloneDX SBOM generation and Trivy scan
