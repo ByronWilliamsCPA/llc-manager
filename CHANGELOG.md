@@ -244,6 +244,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `fix(web)`: label the entity list search input for accessibility. The
+  `/entities` search field now has an `id` and a visually hidden `<label for>`,
+  which clears SonarCloud `Web:InputWithoutLabelCheck`.
 - `fix(docker)`: the builder stage no longer installs `build-essential`, `git`,
   and `curl`; they pulled in a Debian `perl` that conflicts with the base
   image's `perl-base`, which made the image build fail. Every locked runtime

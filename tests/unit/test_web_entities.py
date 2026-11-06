@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime
+from html.parser import HTMLParser
 from types import SimpleNamespace
 from uuid import UUID
 
@@ -135,6 +136,48 @@ def test_entities_list_page_returns_200_with_table(
     assert "Acme Holdings LLC" in body
     # The search input wired up for HTMX should be present.
     assert 'hx-get="/entities"' in body
+
+
+class _FormControlCollector(HTMLParser):
+    """Collect <input> attributes and <label for> targets/classes from HTML."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.inputs: list[dict[str, str | None]] = []
+        self.labels: list[dict[str, str | None]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "input":
+            self.inputs.append(dict(attrs))
+        elif tag == "label":
+            self.labels.append(dict(attrs))
+
+
+@pytest.mark.unit
+def test_entities_list_search_input_has_associated_label(
+    client_with_entities: TestClient,
+) -> None:
+    """The search input has an id and a visually hidden <label for> naming it.
+
+    Guards SonarCloud rule Web:InputWithoutLabelCheck (WCAG 1.3.1 / 4.1.2).
+    """
+    response = client_with_entities.get("/entities")
+
+    assert response.status_code == 200
+    collector = _FormControlCollector()
+    collector.feed(response.text)
+    search_inputs = [i for i in collector.inputs if i.get("name") == "q"]
+    assert len(search_inputs) == 1
+    search_input = search_inputs[0]
+    input_id = search_input.get("id")
+    assert input_id, "search input must have an id"
+    labels = [lb for lb in collector.labels if lb.get("for") == input_id]
+    assert len(labels) == 1, f'expected one <label for="{input_id}">'
+    # The label is visually hidden so the layout is unchanged.
+    assert "sr-only" in (labels[0].get("class") or "").split()
+    # HTMX wiring is preserved.
+    assert search_input.get("hx-get") == "/entities"
+    assert search_input.get("placeholder")
 
 
 @pytest.mark.unit
