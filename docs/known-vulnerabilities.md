@@ -605,6 +605,141 @@ no one can reach those programs from inside it.
 
 ---
 
+### CVE-2026-113351 and three more - libexpat1 base image package, second batch (reassess by 2027-01-05)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-113351, CVE-2026-115506, CVE-2026-117610, CVE-2026-118370 |
+| **Package** | libexpat1 2.8.3-1~deb13u1+dhi4 (Debian 13 package in the pinned hardened Python runtime base image) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-11-04 |
+| **Last reassessed** | 2026-11-06 |
+| **Reassess by** | 2027-01-05 (within 60 days of Last reassessed) |
+
+**Description**: Four more Expat denial-of-service flaws: improper memory
+tracking in `XML_ParserReset`, delayed entity amplification detection, a NULL
+pointer dereference in external entity parsing, and an integer overflow during
+XML attribute parsing. All four are triggered by parsing attacker-supplied XML.
+This entry is separate from the earlier libexpat1 entry (five CVEs, reassess by
+2026-12-14).
+
+**Rationale for accepting**: Trivy 0.52.2 reports all four as `affected` with no
+fixed version in Debian trixie; the fixes exist only in sid and forky. The
+runtime base digest is pinned in the Dockerfile and is not changed by this
+entry. `libexpat1` is required by the interpreter's `pyexpat` module and cannot
+be removed from the image. The application parses no XML: `src/` contains no XML
+parsing code, the API exchanges JSON and HTML fragments over HTTP, and the
+runtime image installs only the `api` extra (no spreadsheet or XML libraries).
+
+**Mitigation in place**:
+
+- No application code path passes untrusted input to an XML parser.
+- The runtime image is distroless (no shell, no package manager) and runs as
+  non-root UID 65532.
+- `.trivyignore` entries keep the scheduled scan focused on new findings.
+
+**Resolution path**: take the next base image digest that carries a fixed
+expat (or a Debian trixie security update reaching it) and remove the
+`.trivyignore` entries in the same change. Reassess when a new `dhi-python`
+base digest lands.
+
+**Tracking**: Debian security tracker; no fixed version in trixie as of
+2026-11-06.
+
+---
+
+### CVE-2026-119373 and two more - libsqlite3-0 base image package, second batch (reassess by 2027-01-05)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-119373, CVE-2026-119374, CVE-2026-119379 |
+| **Package** | libsqlite3-0 3.46.1-7+deb13u2+dhi1 (Debian 13 package in the pinned hardened Python runtime base image) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-11-04 |
+| **Last reassessed** | 2026-11-06 |
+| **Reassess by** | 2027-01-05 (within 60 days of Last reassessed) |
+
+**Description**: SQLite flaws: a heap-based buffer overflow in FTS5 (denial of
+service), arbitrary code execution via a corrupted FTS5 index, and arbitrary
+code execution via crafted session changesets. Each requires SQLite to open or
+process attacker-controlled database content. This entry is separate from the
+earlier libsqlite3-0 entry (CVE-2026-11822 and CVE-2026-11824).
+
+**Rationale for accepting**: Trivy 0.52.2 reports all three as `affected` with
+no fixed version in Debian trixie; the fixes exist only in sid and forky. The
+runtime base digest is pinned in the Dockerfile and is not changed by this
+entry. `libsqlite3-0` is a shared library shipped with the interpreter (for its
+`sqlite3` module). LLC Manager persists all data in PostgreSQL: the database
+URLs in `src/llc_manager/core/config.py` use `postgresql+asyncpg` and
+`postgresql+psycopg`, and `src/` never imports `sqlite3`. No code path opens a
+SQLite database, FTS5 index, or session changeset.
+
+**Mitigation in place**:
+
+- The application does not open or process SQLite data.
+- The runtime image is distroless (no shell, no package manager) and runs as
+  non-root UID 65532.
+- `.trivyignore` entries keep the scheduled scan focused on new findings.
+
+**Resolution path**: take the next base image digest that carries a fixed
+SQLite (or a Debian trixie security update reaching it) and remove the
+`.trivyignore` entries in the same change. Reassess when a new `dhi-python`
+base digest lands.
+
+**Tracking**: Debian security tracker; no fixed version in trixie as of
+2026-11-06.
+
+---
+
+### CVE-2026-85091 and one more - zlib1g base image package (reassess by 2027-01-05)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-85091, CVE-2026-76844 |
+| **Package** | zlib1g 1:1.3.dfsg+really1.3.1-1+dhi4 (Debian 13 package in the pinned hardened Python runtime base image) |
+| **Severity** | High |
+| **Status** | Accepted risk |
+| **Introduced** | 2026-11-04 |
+| **Last reassessed** | 2026-11-06 |
+| **Reassess by** | 2027-01-05 (within 60 days of Last reassessed) |
+
+**Description**: CVE-2026-85091 is a heap buffer overflow in `gz_vacate()` in
+zlib's `gz*` file API that allows arbitrary code execution. CVE-2026-76844 is
+titled by Trivy as a `webpack-dev-middleware` path traversal information
+disclosure; Trivy attributes it to `zlib1g`, but that advisory concerns a Node.js
+package, not zlib.
+
+**Rationale for accepting**: Trivy 0.52.2 reports both as `affected` with no
+fixed version in Debian trixie; the fix for CVE-2026-85091 exists only in sid
+and forky. The runtime base digest is pinned in the Dockerfile and is not
+changed by this entry. `zlib1g` is required by the interpreter and cannot be
+removed from the image. `src/` imports neither `gzip` nor `zlib` and does not
+call the `gz*` file API, and the application registers no response compression
+middleware. For CVE-2026-76844, the Trivy scan of the image found no Node.js
+packages (only Python packages), and the project uses no Node.js or webpack at
+runtime (Tailwind CSS is built with a standalone binary), so the
+`webpack-dev-middleware` flaw has no component to act on.
+
+**Mitigation in place**:
+
+- No application code path calls the zlib `gz*` file API.
+- The runtime image is distroless (no shell, no package manager) and runs as
+  non-root UID 65532.
+- `.trivyignore` entries keep the scheduled scan focused on new findings.
+
+**Resolution path**: take the next base image digest that carries a fixed
+zlib (or a Debian trixie security update reaching it) and remove the
+`.trivyignore` entries in the same change. Reassess when a new `dhi-python`
+base digest lands. Re-check whether the Trivy database still attributes
+CVE-2026-76844 to `zlib1g`; if the mapping is corrected, drop that ignore entry.
+
+**Tracking**: Debian security tracker; no fixed version in trixie as of
+2026-11-06.
+
+---
+
 ## Archive
 
 ### PYSEC-2022-42969 - py (resolved 2026-11-06)
