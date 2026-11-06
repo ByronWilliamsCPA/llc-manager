@@ -47,40 +47,6 @@ older than 60 days (see global `~/.claude/CLAUDE.md` section on unfixed CVEs).
 
 ## Active Entries
 
-### PYSEC-2022-42969 - py (reassess by 2026-06-19)
-
-| Field | Value |
-|-------|-------|
-| **ID** | PYSEC-2022-42969 |
-| **Package** | py==1.11.0 (unmaintained; transitive dep of pytest plugins) |
-| **Severity** | Medium |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-01-18 |
-| **Last reassessed** | 2026-04-20 |
-| **Reassess by** | 2026-06-19 |
-
-**Description**: ReDoS in `py.path.svnwc.SvnWCCommandPath` when processing
-malicious SVN output. See <https://github.com/pytest-dev/py/issues/287>.
-
-**Rationale for accepting**: We do not use Subversion anywhere in the codebase
-or CI. The vulnerable code path is `py.path.svnwc.SvnWCCommandPath`, which
-only executes when `py.path` is used to inspect an SVN working copy. Our
-project uses git exclusively.
-
-**Mitigation in place**:
-
-- No SVN tooling in the project; `py.path.svnwc` is never imported.
-- `py` is only retained transitively by pytest-era plugins; removing it
-  is blocked on upstream maintainers migrating off `py`.
-
-**Resolution path**: monitor pytest and its plugin ecosystem for migration
-off `py`. Re-run `pip-audit` monthly; the entry is cleared automatically when
-the dep is dropped.
-
-**Tracking**: upstream issue <https://github.com/pytest-dev/py/issues/287>.
-
----
-
 ### CVE-2025-53000 - nbconvert (reassess by 2026-06-19)
 
 | Field | Value |
@@ -641,4 +607,38 @@ no one can reach those programs from inside it.
 
 ## Archive
 
-No resolved entries yet.
+### PYSEC-2022-42969 - py (resolved 2026-11-06)
+
+| Field | Value |
+|-------|-------|
+| **ID** | PYSEC-2022-42969 |
+| **CVE** | CVE-2022-42969 |
+| **GHSA** | GHSA-w596-4wvx-j9j6 |
+| **Package** | py==1.11.0 (unmaintained; transitive dep of interrogate) |
+| **Severity** | Medium |
+| **Status** | Resolved (advisory withdrawn upstream) |
+| **Introduced** | 2026-01-18 |
+| **Last reassessed** | 2026-04-20 |
+| **Resolved** | 2026-11-06 |
+
+**Description**: ReDoS in `py.path.svnwc.SvnWCCommandPath` when processing
+malicious SVN output. See <https://github.com/pytest-dev/py/issues/287>.
+
+**Rationale for accepting (historical)**: We do not use Subversion anywhere in
+the codebase or CI. The vulnerable code path is `py.path.svnwc.SvnWCCommandPath`,
+which only executes when `py.path` is used to inspect an SVN working copy. Our
+project uses git exclusively.
+
+**Resolution**: Resolved 2026-11-06 because the advisories were withdrawn, not
+because the package changed (`py==1.11.0` is still locked). OSV withdrew
+PYSEC-2022-42969 on 2026-06-09 and GHSA-w596-4wvx-j9j6 on 2025-08-01. With the
+advisories withdrawn, OSV-Scanner no longer matches this finding, so the
+`CVE-2022-42969` ignore in `osv-scanner.toml` became an unused ignore, which
+OSV-Scanner reports as an error (exit code 1). The ignore was removed and this
+entry retired. The reassess-by date of 2026-06-19 had passed without
+reassessment, which this retirement also closes out.
+
+**Evidence**:
+
+- <https://api.osv.dev/v1/vulns/PYSEC-2022-42969> (`withdrawn`: 2026-06-09)
+- <https://api.osv.dev/v1/vulns/GHSA-w596-4wvx-j9j6> (`withdrawn`: 2025-08-01)
