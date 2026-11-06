@@ -225,6 +225,36 @@ way to stop the violations returning on each `cruft update`.
 `.standards/README.md`, `.standards/template_feedback.baseline.md` (all under
 `{{cookiecutter.project_slug}}/` in the template)
 
+### Template ships a plain-text `.trivyignore` that the org container-security workflow rejects
+
+- **Priority**: Medium
+- **Category**: CI/CD
+- **Discovered**: 2026-11-06
+
+**Issue**: The template ships suppressions as a plain-text `.trivyignore` (and
+lists it in `REUSE.toml` and the `container-security.yml` path filters). Newer
+`python-container-security.yml` in `ByronWilliamsCPA/.github` defaults
+`enforce-ignore-expiry: true` and `allow-legacy-trivyignore: false`. Its
+"Suppression Revisit Dates" job fails when a plain-text `.trivyignore` exists,
+because that format cannot carry an expiry. The checker also requires each entry
+to have a `statement` and an `expired_at` that is in the future and within 90
+days. Trivy itself does not auto-detect the YAML variant, so the workflow passes
+`.trivyignore.yaml` explicitly.
+
+**Context**: Renovate PR #99 (org reusable-workflow SHA bump to `b7c661e`)
+failed the "Suppression Revisit Dates" job. Resolved by converting to
+`.trivyignore.yaml` with `expired_at` dates instead of opting out.
+
+**Suggested Fix**: Ship `.trivyignore.yaml` (a `vulnerabilities:` list with `id`,
+`statement`, `expired_at` as YYYY-MM-DD) instead of `.trivyignore`. Update the
+`REUSE.toml` annotation and the `container-security.yml` `paths:` filters to the
+new name, and note in `docs/known-vulnerabilities.md` that `expired_at` must
+equal each entry's "Reassess by" date and stay within 90 days.
+
+**Affected Files**: `.trivyignore` (replace with `.trivyignore.yaml`),
+`REUSE.toml`, `.github/workflows/container-security.yml`,
+`docs/known-vulnerabilities.md` (all under `{{cookiecutter.project_slug}}/`)
+
 ---
 
 ### pr-validation.yml Concurrency Group Breaks the Merge Queue

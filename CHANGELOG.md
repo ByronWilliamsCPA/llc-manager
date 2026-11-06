@@ -156,6 +156,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `chore(ci)`: converted the Trivy suppressions from the plain-text `.trivyignore`
+  to `.trivyignore.yaml`, with a `statement` and an `expired_at` revisit date on
+  every entry. The org `python-container-security.yml` (bumped to `b7c661e`)
+  rejects a plain-text `.trivyignore` and requires revisit dates no more than 90
+  days out. The ncurses entry was reassessed (still unfixed in Debian trixie)
+  and 14 expired entries for CVEs no longer reported against the hardened base
+  image were retired to the archive in `docs/known-vulnerabilities.md`
 - `build(docker)`: the Dockerfile now uses the hardened
   `ghcr.io/byronwilliamscpa/dhi-python` 3.12 images (`-dev` builder and
   distroless runtime, both pinned by digest). The runtime runs as the
