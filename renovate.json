@@ -184,6 +184,7 @@
     "schedule": [
       "before 5am on monday"
     ],
+    "commitMessageAction": "update",
     "commitMessageTopic": "lock file",
     "automerge": false,
     "labels": [
