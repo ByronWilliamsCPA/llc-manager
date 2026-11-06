@@ -1,0 +1,70 @@
+---
+# Trivy ignore file (YAML format).
+#
+# The org container-security workflow (python-container-security.yml) requires
+# this format: every entry needs a statement and an expired_at revisit date that
+# is in the future and no more than 90 days out. Trivy stops honoring an entry
+# once its expired_at has passed, so a lapsed entry fails the scan until it is
+# reassessed. Each entry is documented in docs/known-vulnerabilities.md; keep
+# the expired_at here equal to that entry's "Reassess by" date.
+#
+# Passed explicitly to Trivy as --ignorefile .trivyignore.yaml (Trivy does not
+# auto-detect the YAML variant).
+vulnerabilities:
+  - id: CVE-2025-69720
+    statement: "ncurses (libncursesw6, libtinfo6, ncurses-base, ncurses-bin): no fix in Debian trixie (fixed only in forky/sid). Accepted risk: runtime has no terminal/ncurses code path."
+    expired_at: 2027-01-05
+  - id: CVE-2026-66046
+    statement: "libexpat1: application parses no XML. Debian trixie-security fix 2.9.0-1~deb13u1 (DSA-6566-1) awaits a rebuilt hardened base image. Accepted risk."
+    expired_at: 2026-12-14
+  - id: CVE-2026-76956
+    statement: "libexpat1: application parses no XML. Debian trixie-security fix 2.9.0-1~deb13u1 (DSA-6566-1) awaits a rebuilt hardened base image. Accepted risk."
+    expired_at: 2026-12-14
+  - id: CVE-2026-76957
+    statement: "libexpat1: application parses no XML. Debian trixie-security fix 2.9.0-1~deb13u1 (DSA-6566-1) awaits a rebuilt hardened base image. Accepted risk."
+    expired_at: 2026-12-14
+  - id: CVE-2026-77214
+    statement: "libexpat1: application parses no XML. Debian trixie-security fix 2.9.0-1~deb13u1 (DSA-6566-1) awaits a rebuilt hardened base image. Accepted risk."
+    expired_at: 2026-12-14
+  - id: CVE-2026-93990
+    statement: "libexpat1: application parses no XML. Debian trixie-security fix 2.9.0-1~deb13u1 (DSA-6566-1) awaits a rebuilt hardened base image. Accepted risk."
+    expired_at: 2026-12-14
+  - id: CVE-2026-76642
+    statement: "libuuid1 (util-linux): vulnerable mount and nsenter programs are not in the distroless image; no Debian fix available. Accepted risk."
+    expired_at: 2026-12-14
+  - id: CVE-2026-78408
+    statement: "libuuid1 (util-linux): vulnerable mount and nsenter programs are not in the distroless image; no Debian fix available. Accepted risk."
+    expired_at: 2026-12-14
+  - id: CVE-2026-78409
+    statement: "libuuid1 (util-linux): vulnerable mount and nsenter programs are not in the distroless image; no Debian fix available. Accepted risk."
+    expired_at: 2026-12-14
+  - id: CVE-2026-78410
+    statement: "libuuid1 (util-linux): vulnerable mount and nsenter programs are not in the distroless image; no Debian fix available. Accepted risk."
+    expired_at: 2026-12-14
+  - id: CVE-2026-113351
+    statement: "libexpat1: application parses no XML; no fixed version in Debian trixie (fixed only in sid/forky). Accepted risk."
+    expired_at: 2027-01-05
+  - id: CVE-2026-115506
+    statement: "libexpat1: application parses no XML; no fixed version in Debian trixie (fixed only in sid/forky). Accepted risk."
+    expired_at: 2027-01-05
+  - id: CVE-2026-117610
+    statement: "libexpat1: application parses no XML; no fixed version in Debian trixie (fixed only in sid/forky). Accepted risk."
+    expired_at: 2027-01-05
+  - id: CVE-2026-118370
+    statement: "libexpat1: application parses no XML; no fixed version in Debian trixie (fixed only in sid/forky). Accepted risk."
+    expired_at: 2027-01-05
+  - id: CVE-2026-119373
+    statement: "libsqlite3-0: application uses PostgreSQL and never opens a SQLite database; no fixed version in Debian trixie. Accepted risk."
+    expired_at: 2027-01-05
+  - id: CVE-2026-119374
+    statement: "libsqlite3-0: application uses PostgreSQL and never opens a SQLite database; no fixed version in Debian trixie. Accepted risk."
+    expired_at: 2027-01-05
+  - id: CVE-2026-119379
+    statement: "libsqlite3-0: application uses PostgreSQL and never opens a SQLite database; no fixed version in Debian trixie. Accepted risk."
+    expired_at: 2027-01-05
+  - id: CVE-2026-85091
+    statement: "zlib1g: application calls no zlib gz* file API; no fixed version in Debian trixie (fixed only in sid/forky). Accepted risk."
+    expired_at: 2027-01-05
+  - id: CVE-2026-76844
+    statement: "Trivy attributes this webpack-dev-middleware path traversal advisory to zlib1g; the image has no Node.js or webpack. Accepted risk."
+    expired_at: 2027-01-05

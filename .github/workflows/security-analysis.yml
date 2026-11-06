@@ -39,9 +39,20 @@ jobs:
   # the ByronWilliamsCPA-default-branch-baseline ruleset. The thin
   # `security-gate` job below publishes the required bare name (same pattern
   # as `ci-gate` in ci.yml).
+  #
+  # #CRITICAL: `if: always()` plus the explicit result check is what lets
+  # `security-gate` FAIL. A plain `needs:` job is SKIPPED when `security`
+  # fails or is cancelled, and a skipped required check is treated as
+  # satisfied by the ruleset and the merge queue, so a failed security scan
+  # would still look green. The gate must always run and exit non-zero unless
+  # `security` is exactly `success`. `skipped` is also a failure on every
+  # trigger: `security` has no `if:` condition, so it runs on pull_request,
+  # merge_group, push, schedule and workflow_dispatch, and a skip can only
+  # mean a misconfigured condition, which must not pass vacuously.
+  # #VERIFY: keep `if: always()` and the `!= success` comparison together.
   security:
     name: Security Analysis
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-security-analysis.yml@7d12f5486ab5c856397ebaa4acd3c99ca385227c # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-security-analysis.yml@b7c661ec3bfeb04370ce3a9c748bd8c4e93bfe89 # main
     permissions:
       contents: read
       security-events: write
@@ -66,8 +77,16 @@ jobs:
   security-gate:
     name: Security Gate Validation
     needs: security
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
-      - name: Confirm Security Analysis reusable workflow succeeded
-        run: echo "Security Analysis succeeded; bare Security Gate Validation context satisfied for ruleset."
+      - name: Check Security Analysis result
+        env:
+          SECURITY_RESULT: ${{ needs.security.result }}
+        run: |
+          if [ "$SECURITY_RESULT" != "success" ]; then
+            echo "::error::Security Gate Validation failed: Security Analysis (job security) result is $SECURITY_RESULT"
+            exit 1
+          fi
+          echo "Security Analysis succeeded; bare Security Gate Validation context satisfied."

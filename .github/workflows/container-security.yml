@@ -15,7 +15,7 @@ on:
       - '.dockerignore'
       - 'pyproject.toml'
       - 'uv.lock'
-      - '.trivyignore'
+      - '.trivyignore.yaml'
       - '.github/workflows/container-security.yml'
   pull_request:
     branches: [main, master, develop]
@@ -25,7 +25,7 @@ on:
       - '.dockerignore'
       - 'pyproject.toml'
       - 'uv.lock'
-      - '.trivyignore'
+      - '.trivyignore.yaml'
       - '.github/workflows/container-security.yml'
   schedule:
     # Weekly scan on Wednesdays at 7 AM UTC
@@ -45,7 +45,7 @@ permissions:
 jobs:
   container-security:
     name: Container Security Scan
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-container-security.yml@7d12f5486ab5c856397ebaa4acd3c99ca385227c # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-container-security.yml@b7c661ec3bfeb04370ce3a9c748bd8c4e93bfe89 # main
     permissions:
       contents: read
       security-events: write

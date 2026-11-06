@@ -156,6 +156,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `chore(ci)`: converted the Trivy suppressions from the plain-text `.trivyignore`
+  to `.trivyignore.yaml`, with a `statement` and an `expired_at` revisit date on
+  every entry. The org `python-container-security.yml` (bumped to `b7c661e`)
+  rejects a plain-text `.trivyignore` and requires revisit dates no more than 90
+  days out. The ncurses entry was reassessed (still unfixed in Debian trixie)
+  and 14 expired entries for CVEs no longer reported against the hardened base
+  image were retired to the archive in `docs/known-vulnerabilities.md`
 - `build(docker)`: the Dockerfile now uses the hardened
   `ghcr.io/byronwilliamscpa/dhi-python` 3.12 images (`-dev` builder and
   distroless runtime, both pinned by digest). The runtime runs as the
@@ -247,6 +254,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fix(web)`: label the entity list search input for accessibility. The
   `/entities` search field now has an `id` and a visually hidden `<label for>`,
   which clears SonarCloud `Web:InputWithoutLabelCheck`.
+- `fix(ci)`: the bare required gates `CI Gate` (`ci.yml`), `Security Gate
+  Validation` (`security-analysis.yml`) and `Dependency & Standards
+  Validation` (`pr-validation.yml`) now run with `if: always()` and fail unless
+  their upstream job result is `success`. They were plain `echo` jobs that
+  reported SKIPPED when the upstream job failed, and a skipped required check
+  satisfies the ruleset and merge queue. Replaces #96.
+- `fix(ci)`: `pr-validation.yml` concurrency group now falls back to
+  `github.ref` when there is no pull request number. Every merge queue run
+  previously shared the group `pr-validation-`, so a second queued pull request
+  cancelled the first one's PR Validation run and the queue ejected it with
+  `failed_checks`.
 - `fix(docker)`: the builder stage no longer installs `build-essential`, `git`,
   and `curl`; they pulled in a Debian `perl` that conflicts with the base
   image's `perl-base`, which made the image build fail. Every locked runtime
@@ -400,6 +418,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CVE-2026-27135, CVE-2026-29111) have no Debian patch available; added
   `.trivyignore` to prevent CI gate failure and documented all three in
   `docs/known-vulnerabilities.md` per project policy
+- Renovate: lock file maintenance PRs are exempt from the minimum release age gate, so they no longer stall on stability-days.
 
 ### Security
 

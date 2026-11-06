@@ -31,9 +31,14 @@ on:
       - master
       - develop
 
-# Cancel in-progress runs for same PR
+# Cancel in-progress runs for same PR. #CRITICAL: merge_group events carry no
+# pull_request number, so a number-only key collapses every merge queue run
+# into one shared group and a newer queue entry cancels the older entry's
+# required checks (the queue then ejects it with failed_checks). Falling back
+# to github.ref keys each queue run on its own gh-readonly-queue branch.
+# #VERIFY: keep the `|| github.ref` fallback.
 concurrency:
-  group: pr-validation-${{ github.event.pull_request.number }}
+  group: pr-validation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -162,14 +167,33 @@ jobs:
   # security-analysis.yml's Security Gate Validation. #VERIFY that dead-code's
   # `uv sync` step still fails loudly on a broken lockfile if this job's
   # scope changes again.
+  #
+  # #CRITICAL: `if: always()` plus the explicit result check is what lets this
+  # gate FAIL. A plain `needs:` job is SKIPPED when `dead-code` fails (for
+  # example a broken lockfile in `uv sync`) or is cancelled, and a skipped
+  # required check is treated as satisfied by the ruleset and the merge queue.
+  # The gate must always run and exit non-zero unless `dead-code` is exactly
+  # `success`. Vulture findings never fail `dead-code`, so requiring success
+  # only blocks on real job or environment failures. `skipped` is also a
+  # failure: `dead-code` has no `if:` condition and runs on pull_request and
+  # merge_group, so a skip can only mean a misconfigured condition.
+  # #VERIFY: keep `if: always()` and the `!= success` comparison together.
   dep-std-validation:
     name: Dependency & Standards Validation
     needs: [dead-code]
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
-      - name: Confirm dependency and standards gates passed
-        run: echo "Dead-code job (dependency install plus standards check) succeeded; bare Dependency & Standards Validation context satisfied for ruleset."
+      - name: Check dead-code job result
+        env:
+          DEAD_CODE_RESULT: ${{ needs.dead-code.result }}
+        run: |
+          if [ "$DEAD_CODE_RESULT" != "success" ]; then
+            echo "::error::Dependency & Standards Validation failed: Dead Code Check (job dead-code) result is $DEAD_CODE_RESULT"
+            exit 1
+          fi
+          echo "Dead-code job (dependency install plus standards check) succeeded; bare Dependency & Standards Validation context satisfied."
 
   # ==========================================================================
   # Validation Summary

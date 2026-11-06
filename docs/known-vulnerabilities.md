@@ -120,17 +120,17 @@ Dependabot alert #31.
 
 ---
 
-### CVE-2025-69720 - ncurses base image packages (reassess by 2026-06-28)
+### CVE-2025-69720 - ncurses base image packages (reassess by 2027-01-05)
 
 | Field | Value |
 |-------|-------|
 | **CVE** | CVE-2025-69720 |
-| **Package** | libncursesw6, libtinfo6, ncurses-base (Debian 13 packages in `python:3.12-slim`) |
+| **Package** | libncursesw6, libtinfo6, ncurses-base, ncurses-bin 6.5+20250216-2+dhi4 (Debian 13 packages in the hardened Python base image) |
 | **Severity** | High |
 | **Status** | Accepted risk |
 | **Introduced** | 2026-04-29 |
-| **Last reassessed** | 2026-04-29 |
-| **Reassess by** | 2026-06-28 |
+| **Last reassessed** | 2026-11-06 |
+| **Reassess by** | 2027-01-05 (within 60 days of Last reassessed) |
 
 **Description**: Buffer overflow vulnerability in ncurses that may lead to arbitrary code
 execution or denial of service.
@@ -145,382 +145,19 @@ uses ncurses terminal APIs, neither of which is present in the runtime container
 
 - Container runs as non-root user (`appuser`, UID 1000).
 - No terminal emulation in the runtime code path.
-- `.trivyignore` entry prevents CI failure until Debian releases a patch.
+- `.trivyignore.yaml` entry prevents CI failure until Debian releases a patch.
 
 **Resolution path**: upgrade the base image when Debian 13 releases a patched ncurses
 package. Monitor the Debian security tracker and re-run `trivy image` monthly.
 
-**Tracking**: Debian security tracker; no upstream patch available as of 2026-04-29.
-
----
-
-### CVE-2026-27135 - libnghttp2-14 base image package (reassess by 2026-06-28)
-
-| Field | Value |
-|-------|-------|
-| **CVE** | CVE-2026-27135 |
-| **Package** | libnghttp2-14 1.64.0-1.1 (Debian 13 package in `python:3.12-slim`) |
-| **Severity** | High |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-04-29 |
-| **Last reassessed** | 2026-04-29 |
-| **Reassess by** | 2026-06-28 |
-
-**Description**: Denial of service in nghttp2 via malformed HTTP/2 frames.
-
-**Rationale for accepting**: No Debian patch is available as of 2026-04-29. Our application
-uses HTTP/1.1 between clients and the FastAPI server (via uvicorn); `libnghttp2-14` is a
-transitive dependency of `curl` installed in the runtime image for the health check probe.
-HTTP/2 frame processing is not invoked by our application.
-
-**Mitigation in place**:
-
-- uvicorn serves HTTP/1.1 by default; no HTTP/2 listener is configured.
-- Container runs as non-root user.
-- `.trivyignore` entry prevents CI failure until Debian releases a patch.
-
-**Resolution path**: upgrade the base image when Debian 13 releases a patched nghttp2
-package, or replace the health check `curl` with a minimal alternative that does not
-pull in nghttp2.
-
-**Tracking**: Debian security tracker; no upstream patch available as of 2026-04-29.
-
----
-
-### CVE-2026-4878 - libcap2 base image package (reassess by 2026-07-06)
-
-| Field | Value |
-|-------|-------|
-| **CVE** | CVE-2026-4878 |
-| **Package** | libcap2 1:2.75-10+b8 (Debian 13 package in `python:3.12-slim`) |
-| **Severity** | High |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-05-07 |
-| **Last reassessed** | 2026-05-07 |
-| **Reassess by** | 2026-07-06 |
-
-**Description**: Privilege escalation via TOCTOU race condition in `cap_set_file()` in
-libcap. An attacker who can race file operations may escalate privileges.
-
-**Rationale for accepting**: No Debian patch is available as of 2026-05-07. The
-vulnerability requires local access to race `cap_set_file()` calls. Our application never
-invokes capability-setting functions and runs as non-root user (`appuser`, UID 1000). There
-is no code path in the FastAPI application that calls into libcap's file capability APIs.
-
-**Mitigation in place**:
-
-- Container runs as non-root user (`appuser`, UID 1000), limiting exploitability.
-- No capability-setting calls in the application code path.
-- `.trivyignore` entry prevents CI failure until Debian releases a patch.
-
-**Resolution path**: upgrade the base image when Debian 13 releases a patched libcap2
-package. Monitor the Debian security tracker and re-run `trivy image` monthly.
-
-**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-07.
-
----
-
-### CVE-2026-29111 - systemd base image packages (reassess by 2026-06-28)
-
-| Field | Value |
-|-------|-------|
-| **CVE** | CVE-2026-29111 |
-| **Package** | libsystemd0, libudev1 257.9-1~deb13u1 (Debian 13 packages in `python:3.12-slim`) |
-| **Severity** | High |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-04-29 |
-| **Last reassessed** | 2026-04-29 |
-| **Reassess by** | 2026-06-28 |
-
-**Description**: Arbitrary code execution or denial of service in systemd.
-
-**Rationale for accepting**: No Debian patch is available as of 2026-04-29. These are
-shared library packages (`libsystemd0`, `libudev1`) included in the base image; the
-container does not run systemd as PID 1 (it runs uvicorn). The vulnerabilities require
-interaction with systemd's IPC mechanisms, which are not accessible inside the container.
-
-**Mitigation in place**:
-
-- Container uses uvicorn as PID 1, not systemd.
-- Systemd socket and D-Bus interfaces are not mounted into the container.
-- Container runs as non-root user.
-- `.trivyignore` entry prevents CI failure until Debian releases a patch.
-
-**Resolution path**: upgrade the base image when Debian 13 releases a patched systemd
-package. Monitor the Debian security tracker and re-run `trivy image` monthly.
-
-**Tracking**: Debian security tracker; no upstream patch available as of 2026-04-29.
-
----
-
-### CVE-2026-5773 - libcurl SMB transfer (reassess by 2026-07-24)
-
-| Field | Value |
-|-------|-------|
-| **CVE** | CVE-2026-5773 |
-| **Package** | curl, libcurl4t64 8.14.1-2+deb13u3 (Debian 13 packages installed in runtime stage of `Dockerfile`) |
-| **Severity** | High |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-05-25 |
-| **Last reassessed** | 2026-05-25 |
-| **Reassess by** | 2026-07-24 |
-
-**Description**: Wrong file transfer in libcurl when processing SMB URLs, which may
-cause unintended file content to be transferred.
-
-**Rationale for accepting**: `curl` is installed in the runtime stage of the
-`Dockerfile` solely for the container `HEALTHCHECK` probe against
-`http://localhost:8000/...`. SMB URLs are never used; only loopback HTTP. Curl
-is not exposed to untrusted input or external URLs from inside the container.
-No Debian patch is available as of 2026-05-25.
-
-**Mitigation in place**:
-
-- Curl invocations are limited to `http://localhost:...` for the HEALTHCHECK probe;
-  no SMB protocol code path is reached.
-- Container runs as non-root user (`appuser`, UID 1000).
-- `.trivyignore` entry prevents CI failure until Debian releases a patch.
-- `apt-get upgrade -y` runs in the runtime stage so any future Debian backport
-  is picked up automatically on the next image rebuild.
-
-**Resolution path**: upgrade the base image or replace `curl` with a smaller
-healthcheck client (`wget --spider`, busybox-equivalent) when Debian 13 ships a
-patched libcurl. Monitor the Debian security tracker and re-run `trivy image`
-monthly.
-
-**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-25.
-
----
-
-### CVE-2026-6276 - libcurl cookie leak (reassess by 2026-07-24)
-
-| Field | Value |
-|-------|-------|
-| **CVE** | CVE-2026-6276 |
-| **Package** | curl, libcurl4t64 8.14.1-2+deb13u3 (Debian 13 packages installed in runtime stage of `Dockerfile`) |
-| **Severity** | High |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-05-25 |
-| **Last reassessed** | 2026-05-25 |
-| **Reassess by** | 2026-07-24 |
-
-**Description**: Information disclosure in libcurl due to cookies leaking across
-unrelated request scopes.
-
-**Rationale for accepting**: As above for CVE-2026-5773, `curl` is invoked only
-for the HEALTHCHECK probe against `http://localhost:8000/...`. No cookies are
-set, no cross-origin requests are made, and no authentication state passes
-through the affected code path. No Debian patch is available as of 2026-05-25.
-
-**Mitigation in place**:
-
-- Curl invocations are limited to a single loopback URL with no cookies.
-- Container runs as non-root user (`appuser`, UID 1000).
-- `.trivyignore` entry prevents CI failure until Debian releases a patch.
-- `apt-get upgrade -y` runs in the runtime stage so any future Debian backport
-  is picked up automatically on the next image rebuild.
-
-**Resolution path**: upgrade the base image or replace `curl` with a smaller
-healthcheck client when Debian 13 ships a patched libcurl. Monitor the Debian
-security tracker and re-run `trivy image` monthly.
-
-**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-25.
-
----
-
-### CVE-2026-40356 - krb5 integer overflow DoS (reassess by 2026-07-24)
-
-| Field | Value |
-|-------|-------|
-| **CVE** | CVE-2026-40356 |
-| **Package** | libgssapi-krb5-2 1.21.3-5+deb13u1 (Debian 13 package in `python:3.12-slim`) |
-| **Severity** | High |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-05-25 |
-| **Last reassessed** | 2026-05-25 |
-| **Reassess by** | 2026-07-24 |
-
-**Description**: MIT Kerberos 5 (krb5) denial of service via integer overflow
-in the GSSAPI layer.
-
-**Rationale for accepting**: `libgssapi-krb5-2` is a transitive shared library
-present in the `python:3.12-slim` base image. The LLC Manager runtime does not
-use Kerberos for authentication or any GSSAPI-secured RPC; no application code
-path invokes the affected krb5 entry points. No Debian patch is available as
-of 2026-05-25.
-
-**Mitigation in place**:
-
-- No Kerberos authentication is configured in the FastAPI app or its
-  dependencies.
-- Container runs as non-root user; no privileged process can call into krb5.
-- `.trivyignore` entry prevents CI failure until Debian releases a patch.
-
-**Resolution path**: upgrade the base image when Debian 13 ships a patched
-krb5. Monitor the Debian security tracker and re-run `trivy image` monthly.
-
-**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-25.
-
----
-
-### CVE-2026-7598 - libssh2 integer overflow (reassess by 2026-07-24)
-
-| Field | Value |
-|-------|-------|
-| **CVE** | CVE-2026-7598 |
-| **Package** | libssh2-1t64 1.11.1-1 (Debian 13 package in `python:3.12-slim`) |
-| **Severity** | High |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-05-25 |
-| **Last reassessed** | 2026-05-25 |
-| **Reassess by** | 2026-07-24 |
-
-**Description**: Integer overflow in libssh2 when processing a username or
-password whose length exceeds the expected bounds.
-
-**Rationale for accepting**: `libssh2-1t64` is a transitive shared library in
-the `python:3.12-slim` base image. The LLC Manager runtime does not invoke SSH
-or SFTP from the container; no application code path uses libssh2. The library
-is unreachable from the FastAPI request path. No Debian patch is available as
-of 2026-05-25.
-
-**Mitigation in place**:
-
-- No SSH or SFTP client code in the application or its dependencies.
-- Container runs as non-root user; outbound SSH would also be blocked by
-  default network policy in production.
-- `.trivyignore` entry prevents CI failure until Debian releases a patch.
-
-**Resolution path**: upgrade the base image when Debian 13 ships a patched
-libssh2. Monitor the Debian security tracker and re-run `trivy image` monthly.
-
-**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-25.
-
----
-
-### perl-base bundled Perl and Archive::Tar CVEs (reassess by 2026-07-27)
-
-| Field | Value |
-|-------|-------|
-| **CVE** | CVE-2026-42496, CVE-2026-8376, CVE-2026-42497, CVE-2026-9538 |
-| **Package** | perl-base 5.40.1-6 (Debian 13 package in `python:3.12-slim`) |
-| **Severity** | Critical (CVE-2026-42496, CVE-2026-8376), High (CVE-2026-42497, CVE-2026-9538) |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-05-28 |
-| **Last reassessed** | 2026-05-28 |
-| **Reassess by** | 2026-07-27 |
-
-**Description**: Four vulnerabilities in the Perl interpreter and its bundled
-`Archive::Tar` module shipped in Debian 13's `perl-base`:
-
-- CVE-2026-42496 (Critical): `Archive::Tar` before 3.08 extracts symbolic links
-  outside the intended target directory.
-- CVE-2026-8376 (Critical): a heap buffer overflow in Perl through 5.43.10.
-- CVE-2026-42497 (High): `Archive::Tar` before 3.08 extracts hard links outside
-  the intended target directory.
-- CVE-2026-9538 (High): a memory-handling issue in `Archive::Tar` before 3.10.
-
-**Rationale for accepting**: `perl-base` is an `Essential` Debian package present
-transitively in the `python:3.12-slim` base image; it cannot be removed without
-breaking `dpkg`. The LLC Manager runtime is a Python/FastAPI application that
-never invokes the Perl interpreter and never calls `Archive::Tar`. No application
-code path, dependency, or container entrypoint executes Perl, and the service
-processes no untrusted tar archives through Perl. The vulnerable code is
-unreachable from the request path. No Debian patch is available as of 2026-05-28
-(the Trivy `Fixed Version` column is empty for all four), and CVE-2026-8376
-affects every Perl release through 5.43.10, so no base-image version bump
-resolves it.
-
-**Mitigation in place**:
-
-- No Perl is invoked by the application, its dependencies, or the container
-  `CMD`/`HEALTHCHECK` (both use Python and `curl`, not Perl).
-- Container runs as a non-root user (`appuser`); no privileged Perl process runs.
-- `.trivyignore` entries prevent CI failure until Debian ships patched packages.
-
-**Resolution path**: upgrade the base image when Debian 13 ships a patched
-`perl-base`, or migrate to a Perl-free base image (for example a distroless or
-Alpine Python image). Monitor the Debian security tracker and re-run
-`trivy image` monthly.
-
-**Tracking**: Debian security tracker; no upstream patch available as of 2026-05-28.
-
----
-
-### CVE-2026-11822, CVE-2026-11824 - libsqlite3-0 base image package (reassess by 2026-08-17)
-
-| Field | Value |
-|-------|-------|
-| **CVE** | CVE-2026-11822, CVE-2026-11824 |
-| **Package** | libsqlite3-0 3.46.1-7+deb13u1 (Debian 13 package in `python:3.12-slim`) |
-| **Severity** | High |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-06-18 |
-| **Last reassessed** | 2026-06-18 |
-| **Reassess by** | 2026-08-17 |
-
-**Description**: Memory-safety vulnerabilities in SQLite before 3.53.2:
-
-- CVE-2026-11822 (High): memory corruption.
-- CVE-2026-11824 (High): heap-based buffer overflow.
-
-**Rationale for accepting**: `libsqlite3-0` is a transitive shared library in
-the `python:3.12-slim` base image. LLC Manager persists all data in PostgreSQL
-via `asyncpg`; no runtime code path opens a SQLite database or parses untrusted
-SQLite input, so the affected SQLite parser is never reached. No Debian patch is
-available as of 2026-06-18 (the Trivy `Fixed Version` column is empty for both).
-
-**Mitigation in place**:
-
-- No SQLite database is opened by the application or its runtime dependencies.
-- Container runs as a non-root user (`appuser`, UID 1000).
-- `.trivyignore` entries prevent CI failure until Debian releases a patch.
-- `apt-get upgrade -y` runs in the runtime stage so a future Debian backport is
-  picked up automatically on the next image rebuild.
-
-**Resolution path**: upgrade the base image when Debian 13 ships a patched
-`libsqlite3-0` (SQLite >= 3.53.2). Monitor the Debian security tracker and
-re-run `trivy image` monthly.
-
-**Tracking**: Debian security tracker; no upstream patch available as of 2026-06-18.
-
----
-
-### CVE-2026-48962 - perl-base IO::Compress (reassess by 2026-08-17)
-
-| Field | Value |
-|-------|-------|
-| **CVE** | CVE-2026-48962 |
-| **Package** | perl-base 5.40.1-6 (Debian 13 package in `python:3.12-slim`) |
-| **Severity** | High |
-| **Status** | Accepted risk |
-| **Introduced** | 2026-06-18 |
-| **Last reassessed** | 2026-06-18 |
-| **Reassess by** | 2026-08-17 |
-
-**Description**: Arbitrary code execution in Perl's `IO::Compress` modules via
-an attacker-controlled output glob.
-
-**Rationale for accepting**: `perl-base` is an `Essential` Debian package present
-transitively in the `python:3.12-slim` base image; it cannot be removed without
-breaking `dpkg`. The LLC Manager runtime is a Python/FastAPI application that
-never invokes the Perl interpreter or `IO::Compress`. No application code path,
-dependency, or container entrypoint executes Perl, so the vulnerable code is
-unreachable from the request path. No Debian patch is available as of 2026-06-18.
-
-**Mitigation in place**:
-
-- No Perl is invoked by the application, its dependencies, or the container
-  `CMD`/`HEALTHCHECK` (both use Python and `curl`, not Perl).
-- Container runs as a non-root user (`appuser`); no privileged Perl process runs.
-- `.trivyignore` entry prevents CI failure until Debian ships a patched package.
-
-**Resolution path**: upgrade the base image when Debian 13 ships a patched
-`perl-base`, or migrate to a Perl-free base image (for example a distroless or
-Alpine Python image). Monitor the Debian security tracker and re-run
-`trivy image` monthly.
-
-**Tracking**: Debian security tracker; no upstream patch available as of 2026-06-18.
+**Reassessment 2026-11-06**: The earlier reassess-by date (2026-06-28) had passed.
+The image built from `main` was scanned with Trivy 0.52.2 (vulnerability DB
+updated 2026-11-06) with no ignore file and still reports CVE-2025-69720 against
+the four packages above with a blank Fixed Version. The Debian security tracker
+lists ncurses as `vulnerable` in trixie (6.5+20250216-2) and fixed only in
+forky and sid (6.6+20260608-2), so the acceptance stands.
+
+**Tracking**: Debian security tracker; no trixie patch available as of 2026-11-06.
 
 ---
 
@@ -555,14 +192,22 @@ runtime image installs only the `api` extra (no spreadsheet or XML libraries).
 - No application code path passes untrusted input to an XML parser.
 - The runtime image is distroless (no shell, no package manager) and runs as
   non-root UID 65532.
-- `.trivyignore` entries keep the scheduled scan focused on new findings.
+- `.trivyignore.yaml` entries keep the scheduled scan focused on new findings.
 
 **Resolution path**: take the next base image digest that carries a fixed
-expat and remove the `.trivyignore` entries in the same change. Re-run
+expat and remove the `.trivyignore.yaml` entries in the same change. Re-run
 `trivy image` against the `3.12-debian13` tag at each reassessment.
 
-**Tracking**: Debian security tracker; no fixed version available as of
-2026-10-15.
+**Update 2026-11-06 (not a reassessment)**: A scan with the current Trivy
+database now lists a fixed version, `2.9.0-1~deb13u1`, for all five of these CVEs,
+and the Debian security tracker shows it in trixie-security (DSA-6566-1). The fix
+is not yet in the pinned hardened base image (libexpat1 2.8.3-1~deb13u1+dhi4), so
+the ignore is still needed to keep the scan green. Take the next base image
+digest that carries 2.9.0-1~deb13u1 or later and remove these entries; do not
+extend them past the 2026-12-14 reassess-by date.
+
+**Tracking**: Debian security tracker; no fixed version available in the base
+image as of 2026-10-15.
 
 ---
 
@@ -595,10 +240,10 @@ no one can reach those programs from inside it.
 
 - The vulnerable programs are not present in the runtime image.
 - The runtime image is distroless and runs as non-root UID 65532.
-- `.trivyignore` entries keep the scheduled scan focused on new findings.
+- `.trivyignore.yaml` entries keep the scheduled scan focused on new findings.
 
 **Resolution path**: take the next base image digest that carries a fixed
-`util-linux` and remove the `.trivyignore` entries in the same change.
+`util-linux` and remove the `.trivyignore.yaml` entries in the same change.
 
 **Tracking**: Debian security tracker; no fixed version available as of
 2026-10-15.
@@ -637,11 +282,11 @@ runtime image installs only the `api` extra (no spreadsheet or XML libraries).
 - No application code path passes untrusted input to an XML parser.
 - The runtime image is distroless (no shell, no package manager) and runs as
   non-root UID 65532.
-- `.trivyignore` entries keep the scheduled scan focused on new findings.
+- `.trivyignore.yaml` entries keep the scheduled scan focused on new findings.
 
 **Resolution path**: take the next base image digest that carries a fixed
 expat (or a Debian trixie security update reaching it) and remove the
-`.trivyignore` entries in the same change. Reassess when a new `dhi-python`
+`.trivyignore.yaml` entries in the same change. Reassess when a new `dhi-python`
 base digest lands.
 
 **Tracking**: Debian security tracker; no fixed version in trixie as of
@@ -681,11 +326,11 @@ SQLite database, FTS5 index, or session changeset.
 - The application does not open or process SQLite data.
 - The runtime image is distroless (no shell, no package manager) and runs as
   non-root UID 65532.
-- `.trivyignore` entries keep the scheduled scan focused on new findings.
+- `.trivyignore.yaml` entries keep the scheduled scan focused on new findings.
 
 **Resolution path**: take the next base image digest that carries a fixed
 SQLite (or a Debian trixie security update reaching it) and remove the
-`.trivyignore` entries in the same change. Reassess when a new `dhi-python`
+`.trivyignore.yaml` entries in the same change. Reassess when a new `dhi-python`
 base digest lands.
 
 **Tracking**: Debian security tracker; no fixed version in trixie as of
@@ -727,11 +372,11 @@ runtime (Tailwind CSS is built with a standalone binary), so the
 - No application code path calls the zlib `gz*` file API.
 - The runtime image is distroless (no shell, no package manager) and runs as
   non-root UID 65532.
-- `.trivyignore` entries keep the scheduled scan focused on new findings.
+- `.trivyignore.yaml` entries keep the scheduled scan focused on new findings.
 
 **Resolution path**: take the next base image digest that carries a fixed
 zlib (or a Debian trixie security update reaching it) and remove the
-`.trivyignore` entries in the same change. Reassess when a new `dhi-python`
+`.trivyignore.yaml` entries in the same change. Reassess when a new `dhi-python`
 base digest lands. Re-check whether the Trivy database still attributes
 CVE-2026-76844 to `zlib1g`; if the mapping is corrected, drop that ignore entry.
 
@@ -777,3 +422,206 @@ reassessment, which this retirement also closes out.
 
 - <https://api.osv.dev/v1/vulns/PYSEC-2022-42969> (`withdrawn`: 2026-06-09)
 - <https://api.osv.dev/v1/vulns/GHSA-w596-4wvx-j9j6> (`withdrawn`: 2025-08-01)
+
+---
+
+### CVE-2026-27135 - libnghttp2-14 base image package (resolved 2026-11-06)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-27135 |
+| **Package** | libnghttp2-14 |
+| **Severity** | High |
+| **Status** | Resolved (no longer reported by Trivy) |
+| **Introduced** | 2026-04-29 |
+| **Last reassessed** | 2026-04-29 |
+| **Resolved** | 2026-11-06 |
+
+**Resolution**: The entry's reassess-by date had passed. On 2026-11-06 the image
+built from `main` was scanned with Trivy 0.52.2 (vulnerability DB updated
+2026-11-06) with no ignore file, and none of CVE-2026-27135 is reported: Debian trixie lists nghttp2 fixed in 1.64.0-1.1+deb13u1 (DSA-6266-1). The
+`.trivyignore.yaml` entry was removed when the ignore file was converted to the
+YAML format with expiry dates.
+
+---
+
+### CVE-2026-4878 - libcap2 base image package (resolved 2026-11-06)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-4878 |
+| **Package** | libcap2 |
+| **Severity** | High |
+| **Status** | Resolved (no longer reported by Trivy) |
+| **Introduced** | 2026-05-07 |
+| **Last reassessed** | 2026-05-07 |
+| **Resolved** | 2026-11-06 |
+
+**Resolution**: The entry's reassess-by date had passed. On 2026-11-06 the image
+built from `main` was scanned with Trivy 0.52.2 (vulnerability DB updated
+2026-11-06) with no ignore file, and none of CVE-2026-4878 is reported: Debian trixie lists libcap2 fixed in 1:2.75-10+deb13u1. The
+`.trivyignore.yaml` entry was removed when the ignore file was converted to the
+YAML format with expiry dates.
+
+---
+
+### CVE-2026-29111 - systemd base image packages (resolved 2026-11-06)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-29111 |
+| **Package** | systemd (libsystemd0, libudev1) |
+| **Severity** | High |
+| **Status** | Resolved (no longer reported by Trivy) |
+| **Introduced** | 2026-04-29 |
+| **Last reassessed** | 2026-04-29 |
+| **Resolved** | 2026-11-06 |
+
+**Resolution**: The entry's reassess-by date had passed. On 2026-11-06 the image
+built from `main` was scanned with Trivy 0.52.2 (vulnerability DB updated
+2026-11-06) with no ignore file, and none of CVE-2026-29111 is reported: Debian trixie lists systemd fixed in 257.13-1~deb13u1. The
+`.trivyignore.yaml` entry was removed when the ignore file was converted to the
+YAML format with expiry dates.
+
+---
+
+### CVE-2026-5773 - libcurl SMB transfer (resolved 2026-11-06)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-5773 |
+| **Package** | curl, libcurl4t64 |
+| **Severity** | High |
+| **Status** | Resolved (no longer reported by Trivy) |
+| **Introduced** | 2026-05-25 |
+| **Last reassessed** | 2026-05-25 |
+| **Resolved** | 2026-11-06 |
+
+**Resolution**: The entry's reassess-by date had passed. On 2026-11-06 the image
+built from `main` was scanned with Trivy 0.52.2 (vulnerability DB updated
+2026-11-06) with no ignore file, and none of CVE-2026-5773 is reported: Debian trixie lists curl fixed in 8.14.1-2+deb13u5; the hardened runtime image has no curl. The
+`.trivyignore.yaml` entry was removed when the ignore file was converted to the
+YAML format with expiry dates.
+
+---
+
+### CVE-2026-6276 - libcurl cookie leak (resolved 2026-11-06)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-6276 |
+| **Package** | curl, libcurl4t64 |
+| **Severity** | High |
+| **Status** | Resolved (no longer reported by Trivy) |
+| **Introduced** | 2026-05-25 |
+| **Last reassessed** | 2026-05-25 |
+| **Resolved** | 2026-11-06 |
+
+**Resolution**: The entry's reassess-by date had passed. On 2026-11-06 the image
+built from `main` was scanned with Trivy 0.52.2 (vulnerability DB updated
+2026-11-06) with no ignore file, and none of CVE-2026-6276 is reported: Debian trixie lists curl fixed in 8.14.1-2+deb13u5; the hardened runtime image has no curl. The
+`.trivyignore.yaml` entry was removed when the ignore file was converted to the
+YAML format with expiry dates.
+
+---
+
+### CVE-2026-40356 - krb5 integer overflow DoS (resolved 2026-11-06)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-40356 |
+| **Package** | libgssapi-krb5-2 |
+| **Severity** | High |
+| **Status** | Resolved (no longer reported by Trivy) |
+| **Introduced** | 2026-05-25 |
+| **Last reassessed** | 2026-05-25 |
+| **Resolved** | 2026-11-06 |
+
+**Resolution**: The entry's reassess-by date had passed. On 2026-11-06 the image
+built from `main` was scanned with Trivy 0.52.2 (vulnerability DB updated
+2026-11-06) with no ignore file, and none of CVE-2026-40356 is reported: Debian trixie lists krb5 fixed in 1.21.3-5+deb13u1 (DSA-6293-1). The
+`.trivyignore.yaml` entry was removed when the ignore file was converted to the
+YAML format with expiry dates.
+
+---
+
+### CVE-2026-7598 - libssh2 integer overflow (resolved 2026-11-06)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-7598 |
+| **Package** | libssh2-1t64 |
+| **Severity** | High |
+| **Status** | Resolved (no longer reported by Trivy) |
+| **Introduced** | 2026-05-25 |
+| **Last reassessed** | 2026-05-25 |
+| **Resolved** | 2026-11-06 |
+
+**Resolution**: The entry's reassess-by date had passed. On 2026-11-06 the image
+built from `main` was scanned with Trivy 0.52.2 (vulnerability DB updated
+2026-11-06) with no ignore file, and none of CVE-2026-7598 is reported: Debian trixie lists libssh2 fixed in 1.11.1-1+deb13u1 (DSA-6365-1). The
+`.trivyignore.yaml` entry was removed when the ignore file was converted to the
+YAML format with expiry dates.
+
+---
+
+### CVE-2026-11822, CVE-2026-11824 - libsqlite3-0 base image package (resolved 2026-11-06)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-11822, CVE-2026-11824 |
+| **Package** | libsqlite3-0 |
+| **Severity** | High |
+| **Status** | Resolved (no longer reported by Trivy) |
+| **Introduced** | 2026-06-18 |
+| **Last reassessed** | 2026-06-18 |
+| **Resolved** | 2026-11-06 |
+
+**Resolution**: The entry's reassess-by date had passed. On 2026-11-06 the image
+built from `main` was scanned with Trivy 0.52.2 (vulnerability DB updated
+2026-11-06) with no ignore file, and none of CVE-2026-11822, CVE-2026-11824 is reported: the installed libsqlite3-0 3.46.1-7+deb13u2 is the Debian trixie version that carries the fix for both CVEs. The
+`.trivyignore.yaml` entry was removed when the ignore file was converted to the
+YAML format with expiry dates.
+
+---
+
+### CVE-2026-48962 - perl-base IO::Compress (resolved 2026-11-06)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-48962 |
+| **Package** | perl-base (IO::Compress) |
+| **Severity** | High |
+| **Status** | Resolved (no longer reported by Trivy) |
+| **Introduced** | 2026-06-18 |
+| **Last reassessed** | 2026-06-18 |
+| **Resolved** | 2026-11-06 |
+
+**Resolution**: The entry's reassess-by date had passed. On 2026-11-06 the image
+built from `main` was scanned with Trivy 0.52.2 (vulnerability DB updated
+2026-11-06) with no ignore file, and none of CVE-2026-48962 is reported: the hardened runtime image has no perl-base package; Debian trixie lists libio-compress-perl fixed in 2.213-1+deb13u1. The
+`.trivyignore.yaml` entry was removed when the ignore file was converted to the
+YAML format with expiry dates.
+
+---
+
+### perl-base bundled Perl and Archive::Tar CVEs (resolved 2026-11-06)
+
+| Field | Value |
+|-------|-------|
+| **CVE** | CVE-2026-42496, CVE-2026-8376, CVE-2026-42497, CVE-2026-9538 |
+| **Package** | perl-base (Perl and Archive::Tar CVEs) |
+| **Severity** | Critical (CVE-2026-42496, CVE-2026-8376), High (CVE-2026-42497, CVE-2026-9538) |
+| **Status** | Resolved (no longer reported by Trivy) |
+| **Introduced** | 2026-05-28 |
+| **Last reassessed** | 2026-05-28 |
+| **Resolved** | 2026-11-06 |
+
+**Resolution**: The entry's reassess-by date had passed. On 2026-11-06 the image
+built from `main` was scanned with Trivy 0.52.2 (vulnerability DB updated
+2026-11-06) with no ignore file, and none of CVE-2026-42496, CVE-2026-8376, CVE-2026-42497, CVE-2026-9538 is reported. The hardened
+runtime image has no perl-base package (checked with a full Trivy package
+listing). Debian trixie lists perl fixed in 5.40.1-6+deb13u1 for CVE-2026-42496,
+CVE-2026-8376 and CVE-2026-42497, and CVE-2026-9538 is not applicable without
+Perl in the image. The `.trivyignore.yaml` entries were removed when the ignore
+file was converted to the YAML format with expiry dates.
