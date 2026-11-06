@@ -88,3 +88,40 @@ CVE-2026-76642
 CVE-2026-78408
 CVE-2026-78409
 CVE-2026-78410
+
+# libexpat1 (expat) CVEs, second batch -- no fixed version in Debian trixie as of
+# 2026-11-06; confirmed fixed only in sid/forky.
+# Affects: libexpat1 2.8.3-1~deb13u1+dhi4 in the pinned hardened Python runtime
+# base image. The application parses no XML. See docs/known-vulnerabilities.md
+# (reassess by 2027-01-05).
+# CVE-2026-113351: DoS via improper memory tracking in XML_ParserReset (HIGH)
+# CVE-2026-115506: DoS via delayed entity amplification detection (HIGH)
+# CVE-2026-117610: DoS via NULL pointer dereference in external entity parsing (HIGH)
+# CVE-2026-118370: DoS via integer overflow during XML attribute parsing (HIGH)
+CVE-2026-113351
+CVE-2026-115506
+CVE-2026-117610
+CVE-2026-118370
+
+# libsqlite3-0 CVEs, second batch -- no fixed version in Debian trixie as of
+# 2026-11-06; confirmed fixed only in sid/forky.
+# Affects: libsqlite3-0 3.46.1-7+deb13u2+dhi1 in the pinned hardened Python
+# runtime base image. The application uses PostgreSQL and never opens a SQLite
+# database. See docs/known-vulnerabilities.md (reassess by 2027-01-05).
+# CVE-2026-119373: DoS via heap-based buffer overflow in FTS5 (HIGH)
+# CVE-2026-119374: arbitrary code execution via corrupted FTS5 index (HIGH)
+# CVE-2026-119379: arbitrary code execution via crafted session changesets (HIGH)
+CVE-2026-119373
+CVE-2026-119374
+CVE-2026-119379
+
+# zlib1g CVEs -- no fixed version in Debian trixie as of 2026-11-06; confirmed
+# fixed only in sid/forky.
+# Affects: zlib1g 1:1.3.dfsg+really1.3.1-1+dhi4 in the pinned hardened Python
+# runtime base image. The application calls no zlib gz* file API. See
+# docs/known-vulnerabilities.md (reassess by 2027-01-05).
+# CVE-2026-85091: heap buffer overflow in gz_vacate() (HIGH)
+# CVE-2026-76844: Trivy attributes this webpack-dev-middleware path traversal
+#   advisory to zlib1g; the image has no Node.js or webpack (HIGH)
+CVE-2026-85091
+CVE-2026-76844
