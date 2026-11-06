@@ -251,6 +251,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `fix(renovate)`: restore `commitMessageAction: "update"` inside the
+  `lockFileMaintenance` block. That block does not inherit the top-level value
+  and defaults to the capitalized "Lock file maintenance", so the lock file
+  PR title ("chore(deps): Lock file maintenance lock file") failed the
+  lowercase-subject check in `pr-title.yml`. #102 removed the override as
+  redundant; it was not, and #70 had added it for exactly this reason.
 - `fix(web)`: label the entity list search input for accessibility. The
   `/entities` search field now has an `id` and a visually hidden `<label for>`,
   which clears SonarCloud `Web:InputWithoutLabelCheck`.
