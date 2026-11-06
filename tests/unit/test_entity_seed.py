@@ -260,8 +260,10 @@ class TestValidate:
     def test_real_seed_must_set_its_own_namespace(self) -> None:
         seed = _seed(_base_entities(), namespace=str(DEFAULT_ENTITY_NAMESPACE))
         assert validate_seed(seed) == [
-            "file: field 'namespace': a non-synthetic seed must set its own "
-            "private namespace UUID"
+            (
+                "file: field 'namespace': a non-synthetic seed must set its own "
+                "private namespace UUID"
+            )
         ]
 
     def test_synthetic_seed_may_use_default_namespace(self) -> None:
