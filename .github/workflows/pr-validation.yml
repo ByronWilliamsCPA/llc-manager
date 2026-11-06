@@ -31,9 +31,14 @@ on:
       - master
       - develop
 
-# Cancel in-progress runs for same PR
+# Cancel in-progress runs for same PR. #CRITICAL: merge_group events carry no
+# pull_request number, so a number-only key collapses every merge queue run
+# into one shared group and a newer queue entry cancels the older entry's
+# required checks (the queue then ejects it with failed_checks). Falling back
+# to github.ref keys each queue run on its own gh-readonly-queue branch.
+# #VERIFY: keep the `|| github.ref` fallback.
 concurrency:
-  group: pr-validation-${{ github.event.pull_request.number }}
+  group: pr-validation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:

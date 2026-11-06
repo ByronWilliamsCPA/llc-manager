@@ -244,6 +244,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `fix(ci)`: `pr-validation.yml` concurrency group now falls back to
+  `github.ref` when there is no pull request number. Every merge queue run
+  previously shared the group `pr-validation-`, so a second queued pull request
+  cancelled the first one's PR Validation run and the queue ejected it with
+  `failed_checks`.
 - `fix(docker)`: the builder stage no longer installs `build-essential`, `git`,
   and `curl`; they pulled in a Debian `perl` that conflicts with the base
   image's `perl-base`, which made the image build fail. Every locked runtime
