@@ -244,6 +244,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `fix(ci)`: the bare required gates `CI Gate` (`ci.yml`), `Security Gate
+  Validation` (`security-analysis.yml`) and `Dependency & Standards
+  Validation` (`pr-validation.yml`) now run with `if: always()` and fail unless
+  their upstream job result is `success`. They were plain `echo` jobs that
+  reported SKIPPED when the upstream job failed, and a skipped required check
+  satisfies the ruleset and merge queue. Replaces #96.
 - `fix(ci)`: `pr-validation.yml` concurrency group now falls back to
   `github.ref` when there is no pull request number. Every merge queue run
   previously shared the group `pr-validation-`, so a second queued pull request
