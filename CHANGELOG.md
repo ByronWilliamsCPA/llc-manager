@@ -400,6 +400,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- `fix(security)`: document unfixed libexpat1, libsqlite3-0 and zlib1g base
+  image CVEs. Nine HIGH findings (CVE-2026-113351, CVE-2026-115506,
+  CVE-2026-117610, CVE-2026-118370, CVE-2026-119373, CVE-2026-119374,
+  CVE-2026-119379, CVE-2026-76844, CVE-2026-85091) have no fixed version in
+  Debian trixie; accepted with a 2027-01-05 reassessment date (see
+  `docs/known-vulnerabilities.md`).
 - `fix(security)`: accepted, with documented reassessment dates, the unfixed
   `libexpat1` and `libuuid1` HIGH findings in the runtime base image. No
   patched base image digest exists (see `docs/known-vulnerabilities.md`).
