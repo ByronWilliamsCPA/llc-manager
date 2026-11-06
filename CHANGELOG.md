@@ -251,6 +251,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `fix(web)`: label the entity list search input for accessibility. The
+  `/entities` search field now has an `id` and a visually hidden `<label for>`,
+  which clears SonarCloud `Web:InputWithoutLabelCheck`.
 - `fix(ci)`: the bare required gates `CI Gate` (`ci.yml`), `Security Gate
   Validation` (`security-analysis.yml`) and `Dependency & Standards
   Validation` (`pr-validation.yml`) now run with `if: always()` and fail unless
