@@ -126,11 +126,13 @@ Claude MUST adopt a security-first approach in all development:
 For deployment on FIPS-enabled systems (Ubuntu LTS with fips-updates, government systems, healthcare, finance):
 
 **Prohibited algorithms** (will fail in FIPS mode):
+
 - MD5, MD4, SHA-1 (for security purposes)
 - DES, 3DES, RC2, RC4, Blowfish
 - Non-approved key exchange methods
 
 **Required patterns**:
+
 ```python
 # ✗ WRONG - Will fail on FIPS systems
 import hashlib
@@ -144,11 +146,13 @@ h = hashlib.sha256(data)
 ```
 
 **Check FIPS compatibility**:
+
 ```bash
 uv run python scripts/check_fips_compatibility.py --fix-hints
 ```
 
 **Problematic packages** (need verification or replacement):
+
 - `bcrypt` → Use `passlib` with PBKDF2 or `argon2-cffi`
 - `pycrypto` → Use `pycryptodome` with FIPS mode
 - Verify `cryptography` version >= 3.4.6 with OpenSSL FIPS provider

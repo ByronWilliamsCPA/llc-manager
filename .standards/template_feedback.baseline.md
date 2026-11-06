@@ -146,12 +146,14 @@ When `.standards/template_feedback.baseline.md` is updated by cruft:
 4. **Preserve your feedback** - NEVER overwrite actual feedback items
 
 **What to merge:**
+
 - Format template updates
 - New categories or priority definitions
 - Updated submission instructions
 - Example improvements
 
 **What NOT to merge:**
+
 - Your actual feedback items
 - Your project-specific notes
 - Any local workarounds documented
