@@ -120,7 +120,7 @@ path = [
     # Linter and tool configuration files
     ".darglint",
     ".dockerignore",
-    ".trivyignore",
+    ".trivyignore.yaml",
     ".editorconfig",
     ".env.example",
     ".infisical.json",
