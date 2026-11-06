@@ -7,6 +7,7 @@ This document describes the configuration file templates created for the cookiec
 All configuration files have been created in `/home/user/cookiecutter-python-template/llc_manager/`
 
 ### 1. **codecov.yml** - Code Coverage Configuration
+
 - **Purpose**: Configure Codecov for coverage tracking and reporting
 - **Cookiecutter Variables**:
   - `LLC Manager` - Project name in comments
@@ -21,6 +22,7 @@ All configuration files have been created in `/home/user/cookiecutter-python-tem
   - Annotations enabled for detailed coverage reports
 
 ### 2. **renovate.json** - Dependency Management
+
 - **Purpose**: Configure automated dependency updates via Renovate Bot
 - **Cookiecutter Variables**:
   - `ByronWilliamsCPA` - GitHub assignees and reviewers
@@ -37,6 +39,7 @@ All configuration files have been created in `/home/user/cookiecutter-python-tem
   - Weekly lock file maintenance on Monday mornings
 
 ### 3. **REUSE.toml** - License Compliance
+
 - **Purpose**: Centralized license information via REUSE specification
 - **Cookiecutter Variables**:
   - `llc_manager` - Package name
@@ -52,6 +55,7 @@ All configuration files have been created in `/home/user/cookiecutter-python-tem
   - Benchmark results and metadata: CC0-1.0
 
 ### 4. **osv-scanner.toml** - CVE Exception Handling
+
 - **Purpose**: Document vulnerability exceptions and false positives
 - **Features**:
   - Template structure with clear guidelines for adding exceptions
@@ -64,6 +68,7 @@ All configuration files have been created in `/home/user/cookiecutter-python-tem
 - **No Cookiecutter Variables** - File is generic for all projects
 
 ### 5. **mkdocs.yml** - Documentation Configuration (Conditional)
+
 - **Purpose**: Configure MkDocs Material theme for project documentation
 - **Condition**: Only generated if `yes == "yes"`
 - **Cookiecutter Variables**:
@@ -86,6 +91,7 @@ All configuration files have been created in `/home/user/cookiecutter-python-tem
   - Strict mode disabled for repo root file links
 
 ### 6. **noxfile.py** - Automation Sessions (Conditional)
+
 - **Purpose**: Define Nox-UV automation sessions for testing, documentation, and compliance
 - **Condition**: Only generated if `yes == "yes"`
 - **Cookiecutter Variables**:
@@ -115,6 +121,7 @@ All configuration files have been created in `/home/user/cookiecutter-python-tem
   - Error handling for missing SBOM files
 
 ### 7. **scripts/check_type_hints.py** - Type Hint Syntax Validation
+
 - **Purpose**: Enforce that files using Python 3.10+ `|` union syntax include `from __future__ import annotations`
 - **No Cookiecutter Variables** - Script is generic for all projects
 - **Features**:
@@ -129,6 +136,7 @@ All configuration files have been created in `/home/user/cookiecutter-python-tem
   - Integrated into CI workflow quality checks
   - Exit code 0 for compliance, 1 for violations
 - **Usage Examples**:
+
   ```bash
   # Check source files
   python scripts/check_type_hints.py
@@ -139,6 +147,7 @@ All configuration files have been created in `/home/user/cookiecutter-python-tem
   # Include test files
   python scripts/check_type_hints.py --include-tests
   ```
+
 - **Rationale**: While Python 3.10+ supports native `|` union syntax, including the future import ensures forward compatibility and code clarity across Python versions.
 
 ## Cookiecutter Variables Used
@@ -166,11 +175,13 @@ All templates use the following cookiecutter variables from `cookiecutter.json`:
 Two files use Jinja2 conditional rendering:
 
 ### mkdocs.yml
+
 ```jinja2
   [Full mkdocs configuration]
 ```
 
 ### noxfile.py
+
 ```jinja2
   """Full nox-uv sessions with multi-Python version testing"""
 ```
