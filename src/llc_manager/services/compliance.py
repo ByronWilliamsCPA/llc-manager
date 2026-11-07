@@ -14,19 +14,22 @@ Rules, in one place:
   obligations.
 * Registrations in a terminal status (expired, withdrawn, revoked) are
   ignored. For the others, ``annual_report_due`` counts unless the last
-  filed annual report is on or after it; ``next_renewal_date`` and
-  ``expiration_date`` always count.
+  filed annual report is dated no earlier than ``EARLY_FILING_DAYS`` before
+  it (so a report filed early, or late, satisfies that cycle);
+  ``next_renewal_date`` and ``expiration_date`` always count.
 * A tax filing counts while it has no ``filed_date`` and its status is not
   ``filed`` or ``not_required``. Its date is ``due_date`` while that date is
   not yet past (due today is not past); once ``due_date`` is past, the
-  ``extended_due_date`` replaces it when one exists. A filing with only an
-  extended date uses that date.
+  ``extended_due_date`` replaces it when one exists. A filing with status
+  ``extended`` uses its ``extended_due_date`` immediately, even before the
+  original date. A filing with only an extended date uses that date.
 * ``next_due_date`` is the earliest outstanding date, which is in the past
   when something is overdue. The status is the worst across obligations; as
   the worst status always belongs to the earliest date, it is derived from
   that date.
 * The registered agent is the active, non-deleted agent, preferring the one
-  in the entity's formation state, then the lowest state code, then name.
+  in the entity's formation state (compared ignoring case and padding), then
+  the lowest state code, then name.
 """
 
 from __future__ import annotations
@@ -52,6 +55,17 @@ if TYPE_CHECKING:
 # window changes only this constant.
 DUE_SOON_DAYS = 60
 
+# #ASSUME: Data integrity - the models do not link a filed annual report to
+# the due date it satisfies. A report dated within this many days before
+# ``annual_report_due`` (or after it) is treated as satisfying that due date.
+# The window is deliberately short: a late filing for the previous cycle would
+# have to be more than nine months late to hide the current one, so a genuinely
+# overdue report is not masked, at the cost of not recognising filings made
+# earlier than this.
+# #VERIFY: confirm with the data owners how far ahead of the due date reports
+# are filed and whether annual_report_due is rolled forward after filing.
+EARLY_FILING_DAYS = 90
+
 _TERMINAL_REGISTRATION_STATUSES = frozenset(
     {
         RegistrationStatus.EXPIRED,
@@ -74,12 +88,9 @@ def _registration_dates(registration: StateRegistration) -> Iterator[date]:
     if registration.status in _TERMINAL_REGISTRATION_STATUSES:
         return
     due = registration.annual_report_due
-    # #ASSUME: Data integrity - a report filed before its due date is not
-    # recognised as completing it, so the due date must be rolled forward when
-    # the report is filed; otherwise it keeps showing as outstanding.
-    # #VERIFY: confirm with the data owners how annual_report_due is maintained.
+    last_filed = registration.last_annual_report
     if due is not None and (
-        registration.last_annual_report is None or registration.last_annual_report < due
+        last_filed is None or last_filed < due - timedelta(days=EARLY_FILING_DAYS)
     ):
         yield due
     if registration.next_renewal_date is not None:
@@ -102,7 +113,7 @@ def _filing_date(filing: TaxFiling, today: date) -> date | None:
     if filing.filed_date is not None or filing.status in _CLOSED_FILING_STATUSES:
         return None
     due, extended = filing.due_date, filing.extended_due_date
-    if due is None:
+    if due is None or (filing.status == FilingStatus.EXTENDED and extended is not None):
         return extended
     if due < today and extended is not None:
         return extended
@@ -152,6 +163,20 @@ def _status_for(due: date | None, today: date) -> ComplianceStatus:
     return ComplianceStatus.CURRENT
 
 
+def _same_state(state: str, formation_state: str | None) -> bool:
+    """Compare two state codes ignoring case and surrounding whitespace.
+
+    Args:
+        state (str): An agent's state code.
+        formation_state (str | None): The entity's formation state, if any.
+
+    Returns:
+        bool: True when both are non-empty and equal once normalised.
+    """
+    wanted = (formation_state or "").strip().upper()
+    return bool(wanted) and state.strip().upper() == wanted
+
+
 def _agent_display_name(entity: Entity) -> str | None:
     """Return the display name of the entity's current registered agent.
 
@@ -170,7 +195,7 @@ def _agent_display_name(entity: Entity) -> str | None:
     chosen = min(
         candidates,
         key=lambda agent: (
-            agent.state != entity.formation_state,
+            not _same_state(agent.state, entity.formation_state),
             agent.state,
             agent.agent_name,
         ),

@@ -58,10 +58,14 @@ changes no existing field.
 | `registered_agent_name` | Service company name when recorded, otherwise the agent name, of the active registered agent; `null` when none |
 
 Rules: soft-deleted records and inactive entities are ignored; registrations
-that are expired, withdrawn or revoked are ignored; filed or not-required tax
-filings are ignored; a tax filing uses its original due date until that date
-has passed, then its extended due date when one exists. See
-`llc_manager.services.compliance` for the full rule set.
+that are expired, withdrawn or revoked are ignored; an annual report counts as
+filed when `last_annual_report` is dated no more than 90 days before
+`annual_report_due` (or later), so filing early does not leave it overdue;
+filed or not-required tax filings are ignored; a tax filing with status
+`extended` uses its extended due date straight away, and any other filing
+uses its original due date until that date has passed, then its extended due
+date when one exists. See `llc_manager.services.compliance` for the full rule
+set.
 
 ### Documents (`/api/v1/documents`)
 

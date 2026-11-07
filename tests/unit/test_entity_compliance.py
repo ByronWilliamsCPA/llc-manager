@@ -37,6 +37,7 @@ from llc_manager.models.tax_filing import (
 from llc_manager.schemas.compliance import ComplianceStatus
 from llc_manager.services.compliance import (
     DUE_SOON_DAYS,
+    EARLY_FILING_DAYS,
     summarize_compliance,
 )
 from tests.auth_helpers import AUTH_HEADERS
@@ -224,6 +225,56 @@ class TestObligations:
         assert summary.next_due_date == _in(150)
         assert summary.status is ComplianceStatus.CURRENT
 
+    def test_annual_report_filed_early_without_rolling_the_due_date(self) -> None:
+        # Due April 1, filed March 20, evaluated April 2: not overdue.
+        due, filed, today = date(2026, 4, 1), date(2026, 3, 20), date(2026, 4, 2)
+        entity = _entity(
+            registrations=[
+                _registration(annual_report_due=due, last_annual_report=filed)
+            ]
+        )
+
+        summary = summarize_compliance(entity, today)
+
+        assert summary.next_due_date is None
+        assert summary.status is ComplianceStatus.UNKNOWN
+
+    def test_early_filing_window_constant_is_ninety_days(self) -> None:
+        assert EARLY_FILING_DAYS == 90
+
+    @pytest.mark.parametrize(
+        ("days_before_due", "outstanding"),
+        [(0, False), (1, False), (89, False), (90, False), (91, True), (365, True)],
+    )
+    def test_early_filing_window_boundary(
+        self, days_before_due: int, outstanding: bool
+    ) -> None:
+        due = _in(-5)
+        entity = _entity(
+            registrations=[
+                _registration(
+                    annual_report_due=due,
+                    last_annual_report=due - timedelta(days=days_before_due),
+                )
+            ]
+        )
+
+        summary = summarize_compliance(entity, TODAY)
+
+        assert (summary.next_due_date == due) is outstanding
+
+    def test_prior_cycle_report_does_not_hide_an_overdue_one(self) -> None:
+        # Filed a year and a day early relative to this cycle's due date.
+        entity = _entity(
+            registrations=[
+                _registration(
+                    annual_report_due=_in(-1), last_annual_report=_in(-1 - 366)
+                )
+            ]
+        )
+
+        assert summarize_compliance(entity, TODAY).status is ComplianceStatus.OVERDUE
+
     def test_annual_report_last_filed_before_due_date_is_outstanding(self) -> None:
         entity = _entity(
             registrations=[
@@ -391,6 +442,50 @@ class TestExtensions:
         assert summary.next_due_date == _in(-3)
         assert summary.status is ComplianceStatus.OVERDUE
 
+    def test_extended_status_uses_extension_before_original_passes(self) -> None:
+        entity = _entity(
+            filings=[
+                _filing(
+                    due_date=_in(1),
+                    extended_due_date=_in(180),
+                    status=FilingStatus.EXTENDED,
+                )
+            ]
+        )
+
+        summary = summarize_compliance(entity, TODAY)
+
+        assert summary.next_due_date == _in(180)
+        assert summary.status is ComplianceStatus.CURRENT
+
+    def test_extended_status_without_extended_date_falls_back_to_original(
+        self,
+    ) -> None:
+        entity = _entity(
+            filings=[_filing(due_date=_in(20), status=FilingStatus.EXTENDED)]
+        )
+
+        summary = summarize_compliance(entity, TODAY)
+
+        assert summary.next_due_date == _in(20)
+        assert summary.status is ComplianceStatus.DUE_SOON
+
+    def test_extended_status_with_past_extension_is_overdue(self) -> None:
+        entity = _entity(
+            filings=[
+                _filing(
+                    due_date=_in(-60),
+                    extended_due_date=_in(-1),
+                    status=FilingStatus.EXTENDED,
+                )
+            ]
+        )
+
+        summary = summarize_compliance(entity, TODAY)
+
+        assert summary.next_due_date == _in(-1)
+        assert summary.status is ComplianceStatus.OVERDUE
+
     def test_original_used_while_it_is_not_yet_past(self) -> None:
         entity = _entity(
             filings=[_filing(due_date=_in(20), extended_due_date=_in(200))]
@@ -467,6 +562,39 @@ class TestRegisteredAgent:
         assert (
             summarize_compliance(entity, TODAY).registered_agent_name
             == "Delaware Agent"
+        )
+
+    @pytest.mark.parametrize(
+        ("formation_state", "agent_state"),
+        [("de", "DE"), ("DE", "de"), (" de ", "DE")],
+    )
+    def test_formation_state_match_ignores_case_and_padding(
+        self, formation_state: str, agent_state: str
+    ) -> None:
+        entity = _entity(
+            agents=[
+                _agent(state="AA", agent_name="Alpha Agent"),
+                _agent(state=agent_state, agent_name="Delaware Agent"),
+            ]
+        )
+        entity.formation_state = formation_state
+
+        assert (
+            summarize_compliance(entity, TODAY).registered_agent_name
+            == "Delaware Agent"
+        )
+
+    def test_missing_formation_state_does_not_raise_or_match(self) -> None:
+        entity = _entity(
+            agents=[
+                _agent(state="ZZ", agent_name="Zulu Agent"),
+                _agent(state="AA", agent_name="Alpha Agent"),
+            ]
+        )
+        entity.formation_state = None
+
+        assert (
+            summarize_compliance(entity, TODAY).registered_agent_name == "Alpha Agent"
         )
 
     def test_choice_is_deterministic_without_a_formation_state_match(self) -> None:
@@ -586,6 +714,23 @@ class TestEndpoints:
         body = _client(session, today=_in(31)).get(f"/api/v1/entities/{uuid4()}").json()
 
         assert body["compliance"]["status"] == "overdue"
+
+    def test_patch_response_reflects_the_updated_entity(self) -> None:
+        # Inactive entities report no obligations; activating one through PATCH
+        # must be reflected in the same response, not a pre-update summary.
+        entity = _entity(filings=[_filing(due_date=_in(-4))], is_active=False)
+        session = _FakeAsyncSession([_FakeResult(scalar_one=entity)])
+
+        response = _client(session).patch(
+            f"/api/v1/entities/{entity.id}", json={"is_active": True}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["compliance"] == {
+            "next_due_date": _in(-4).isoformat(),
+            "status": "overdue",
+            "registered_agent_name": None,
+        }
 
     def test_existing_response_fields_are_unchanged(self) -> None:
         entity = _compliant_entity()
