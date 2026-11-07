@@ -12,7 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `feat(auth)`: Authentik OIDC sign-in (authorization code with PKCE) at
   `/auth/login`, `/auth/callback`, and `/auth/logout`, with a signed-cookie
   session (`llc_session`), admin and viewer roles from group membership, a
-  per-session CSRF token, and a dev mode (`auth_dev_mode`). The gates
+  per-session CSRF token, and a dev mode (`auth_dev_mode`). The ID token
+  issuer is pinned to the configured `authentik_issuer`, and the session cookie
+  is `Secure` unless the environment is explicitly development, local, or test
+  (or the public URL is https). The gates
   (`require_user`, `require_admin`, `verify_csrf`) are implemented and tested
   but not yet attached to the web routes, so no page behaves differently. With
   no sign-in settings, `/auth/login` answers 503.
@@ -23,7 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `local_admin_password_hash`, `trusted_proxy_ips`, and `auth_dev_mode`.
   Setting the client ID or secret requires the issuer, both credentials, and
   `public_base_url` together; the break-glass switch needs an argon2 hash; dev
-  mode is refused outside development, local, and test environments.
+  mode is refused unless `LLC_MANAGER_ENVIRONMENT` (or `ENVIRONMENT`), read from
+  the process or `.env`, is explicitly development, local, or test; an unset
+  name does not count, and a plain-http `public_base_url` needs the same.
   `authlib`, `itsdangerous`, and `argon2-cffi` are now runtime dependencies.
   No route behavior changes yet, and a host that sets none of the new
   settings starts as before.
