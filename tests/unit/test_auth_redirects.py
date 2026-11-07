@@ -54,3 +54,44 @@ def test_unsafe_values_fall_back_to_default(value: str | None) -> None:
 def test_lookalike_auth_prefix_is_allowed() -> None:
     """A path that merely starts with the letters ``auth`` is a normal page."""
     assert safe_next("/authors") == "/authors"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "/entities/../auth/callback",
+        "/entities/%2e%2e/auth/login",
+        "/entities/%2E%2E/auth/login",
+        "/entities/..%2fauth/login",
+        "/entities/%2e%2e%2fauth/login",
+        "/./auth/login",
+        "/entities/./../auth",
+        "/entities/%252e%252e/auth/login",
+        "/a/b/../../auth/login?x=1",
+        "/entities/..%5cauth",
+    ],
+)
+def test_paths_that_resolve_into_auth_are_rejected(value: str) -> None:
+    """Dot segments, plain or percent-encoded, cannot reach the /auth prefix."""
+    assert safe_next(value) == DEFAULT_NEXT
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["/entities/../other", "/a/b/../c?x=1", "/entities/%2e%2e/other"],
+)
+def test_dot_segments_that_stay_out_of_auth_are_kept(value: str) -> None:
+    """Only the resolved destination matters; the value is returned unchanged."""
+    assert safe_next(value) == value
+
+
+def test_a_value_at_the_length_limit_is_kept() -> None:
+    value = "/" + "a" * 511
+
+    assert len(value) == 512
+    assert safe_next(value) == value
+
+
+def test_a_value_over_the_length_limit_is_rejected() -> None:
+    """A long ``next`` could overflow the 4 KB session cookie."""
+    assert safe_next("/" + "a" * 512) == DEFAULT_NEXT
