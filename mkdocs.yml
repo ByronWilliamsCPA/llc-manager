@@ -192,6 +192,7 @@ nav:
       - Project Plan Template: planning/project-plan-template.md
       - ADRs:
           - Initial Architecture: planning/adr/adr-001-initial-architecture.md
+          - Authentik SSO Web Login: planning/adr/adr-003-authentik-sso-web-login.md
           - ADR Template: planning/adr/adr-template.md
 
   - Compliance:
