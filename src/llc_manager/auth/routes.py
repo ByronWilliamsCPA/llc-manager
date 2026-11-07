@@ -1,11 +1,17 @@
 """Sign-in, callback and sign-out routes, mounted at ``/auth``."""
 
+import contextlib
 import json
+import secrets
+from functools import cache
 from typing import Annotated, cast
 
 import httpx
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from authlib.integrations.base_client import OAuthError
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from joserfc.errors import JoseError
 
@@ -13,8 +19,9 @@ from llc_manager.auth.csrf import verify_csrf
 from llc_manager.auth.dependencies import current_user
 from llc_manager.auth.oidc import OidcClient, get_oidc_client, redirect_uri
 from llc_manager.auth.redirects import safe_next
-from llc_manager.auth.roles import resolve_role
-from llc_manager.auth.session import SessionUser, store_user
+from llc_manager.auth.roles import Role, resolve_role
+from llc_manager.auth.session import SessionUser, csrf_token, store_user
+from llc_manager.auth.throttle import LoginThrottle
 from llc_manager.core.config import settings
 from llc_manager.core.templates import templates
 from llc_manager.middleware.correlation import get_correlation_id
@@ -27,6 +34,106 @@ router = APIRouter(prefix="/auth", tags=["Auth"], include_in_schema=False)
 _LOGIN_NEXT_KEY = "login_next"
 
 OidcDep = Annotated[OidcClient | None, Depends(get_oidc_client)]
+
+LOCAL_ADMIN_SUB = "local-admin"
+_password_hasher = PasswordHasher()
+
+
+def get_login_throttle(request: Request) -> LoginThrottle:
+    """FastAPI dependency: the break-glass throttle stored on the app.
+
+    Args:
+        request (Request): The incoming request.
+
+    Returns:
+        LoginThrottle: The app-wide throttle.
+    """
+    return cast("LoginThrottle", request.app.state.login_throttle)
+
+
+ThrottleDep = Annotated[LoginThrottle, Depends(get_login_throttle)]
+
+
+def require_local_login_enabled() -> None:
+    """Hide the break-glass login (404) unless it is enabled and has a hash.
+
+    Raises:
+        HTTPException: 404 when the break-glass login is not available.
+    """
+    if not (settings.local_admin_enabled and settings.local_admin_password_hash):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+
+def _client_ip(request: Request) -> str:
+    """Return the throttle key: the client address after proxy handling.
+
+    Args:
+        request (Request): The incoming request.
+
+    Returns:
+        str: ``request.client.host``, which the proxy-header middleware has
+            already rewritten to the real client behind a trusted proxy.
+    """
+    # #CRITICAL: the throttle is only as good as this address. The raw
+    # X-Forwarded-For header must never be read here; only the middleware may
+    # rewrite request.client, and only for peers in trusted_proxy_ips.
+    # #VERIFY: tests/unit/test_auth_proxy_trust.py (spoofed header, untrusted peer).
+    return request.client.host if request.client else "unknown"
+
+
+@cache
+def _dummy_hash() -> str:
+    """Return an argon2 hash of a random secret that nobody knows.
+
+    Returns:
+        str: A hash with the default parameters, computed once per process.
+    """
+    return _password_hasher.hash(secrets.token_urlsafe(32))
+
+
+def _verify(stored_hash: str, password: str) -> bool:
+    """Check ``password`` against ``stored_hash``; any failure is a mismatch.
+
+    A stored value that is not a usable hash (argon2 raises ``InvalidHashError``
+    or a plain ``VerificationError`` for it) fails immediately, which would
+    answer faster than a real mismatch, so a dummy hash is verified instead to
+    spend comparable time.
+
+    Args:
+        stored_hash (str): The configured argon2 hash.
+        password (str): The submitted password.
+
+    Returns:
+        bool: True only when the password matches the hash.
+    """
+    # #ASSUME: the cost of a wrong-password check is the cost of one argon2
+    # verification whether or not the stored hash is usable.
+    # #VERIFY: test_a_corrupt_hash_still_costs_a_real_verification.
+    try:
+        return _password_hasher.verify(stored_hash, password)
+    except VerifyMismatchError:
+        return False
+    except (VerificationError, InvalidHashError):
+        # A malformed stored hash fails before any hashing work is done.
+        with contextlib.suppress(VerificationError):
+            _password_hasher.verify(_dummy_hash(), password)
+        return False
+
+
+async def _password_matches(password: str) -> bool:
+    """Verify ``password`` against the configured hash off the event loop.
+
+    Args:
+        password (str): The submitted password.
+
+    Returns:
+        bool: True only when a hash is configured and the password matches.
+    """
+    stored = settings.local_admin_password_hash
+    if stored is None:
+        return False
+    return await run_in_threadpool(_verify, stored.get_secret_value(), password)
+
 
 # Discovery and token responses that are not valid JSON mean the provider (or
 # something in front of it) is misbehaving, which is an outage for our purposes.
@@ -277,3 +384,142 @@ async def logout(request: Request) -> Response:
         status_code=status.HTTP_200_OK,
         show_login=True,
     )
+
+
+def _local_login_form(
+    request: Request,
+    *,
+    next_: str,
+    error: str | None = None,
+    status_code: int = status.HTTP_200_OK,
+) -> HTMLResponse:
+    """Render the break-glass form, seeding a CSRF token in the session.
+
+    Args:
+        request (Request): The incoming request.
+        next_ (str): A validated in-site path to return to after sign-in.
+        error (str | None): Message to show above the form.
+        status_code (int): HTTP status of the response.
+
+    Returns:
+        HTMLResponse: The rendered form.
+    """
+    return templates.TemplateResponse(
+        request,
+        "auth/local_login.html",
+        {"csrf_token": csrf_token(request.session), "next": next_, "error": error},
+        status_code=status_code,
+    )
+
+
+@router.get("/local-login", dependencies=[Depends(require_local_login_enabled)])
+async def local_login_form(
+    request: Request,
+    next_: Annotated[str | None, Query(alias="next")] = None,
+) -> Response:
+    """Show the break-glass login form.
+
+    Args:
+        request (Request): The incoming request.
+        next_ (Annotated[str | None, Query(alias="next")]): Relative path to
+            return to after sign-in.
+
+    Returns:
+        Response: The login form, or a redirect when already signed in.
+    """
+    target = safe_next(next_)
+    if current_user(request) is not None:
+        return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
+    return _local_login_form(request, next_=target)
+
+
+@router.post(
+    "/local-login",
+    dependencies=[Depends(require_local_login_enabled), Depends(verify_csrf)],
+)
+async def local_login_submit(
+    request: Request,
+    throttle: ThrottleDep,
+    password: Annotated[str, Form()],
+    next_: Annotated[str | None, Form(alias="next")] = None,
+) -> Response:
+    """Check the break-glass password and start an administrator session.
+
+    #CRITICAL: this is a second login path. It stays off by default, uses an
+    argon2 hash, is throttled per client IP, and logs every attempt.
+    #VERIFY: ``tests/unit/test_auth_break_glass.py`` covers each of those.
+
+    #ASSUME: the throttle lives in this process, so with two replicas the
+    effective limit is 5 failures per 15 minutes per replica, not in total.
+    #VERIFY: ``docs/planning/adr/adr-003-authentik-sso-web-login.md`` lists
+    this under Negative consequences; revisit before adding workers.
+
+    Args:
+        request (Request): The incoming request.
+        throttle (ThrottleDep): The failure throttle.
+        password (Annotated[str, Form()]): The submitted password.
+        next_ (Annotated[str | None, Form(alias="next")]): Relative path to
+            return to after sign-in.
+
+    Returns:
+        Response: A redirect on success, else the form again (401) or a
+        throttle page (429).
+    """
+    target = safe_next(next_)
+    client_ip = _client_ip(request)
+    correlation_id = get_correlation_id()
+
+    if throttle.is_blocked(client_ip):
+        logger.warning(
+            "local_login_throttled",
+            client_ip=client_ip,
+            correlation_id=correlation_id,
+        )
+        response = _message(
+            request,
+            title="Too many attempts",
+            message="Too many failed attempts. Try again later.",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+        response.headers["Retry-After"] = str(throttle.retry_after(client_ip))
+        return response
+
+    # #EDGE: concurrent guesses. The attempt is counted before the slow hash
+    # check, with no await in between, so parallel requests cannot all pass
+    # the check above; a success clears the count again.
+    # #VERIFY: test_the_attempt_is_counted_before_the_hash_is_checked.
+    throttle.record_failure(client_ip)
+    if not await _password_matches(password):
+        logger.warning(
+            "local_login_failed",
+            client_ip=client_ip,
+            correlation_id=correlation_id,
+        )
+        return _local_login_form(
+            request,
+            next_=target,
+            error="That password is not correct.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    throttle.reset(client_ip)
+    # #CRITICAL: session fixation - store_user clears the pre-login session
+    # and mints a new CSRF token before the user is written.
+    # #VERIFY: test_session_is_rebuilt_not_reused_on_success.
+    store_user(
+        request.session,
+        SessionUser(
+            sub=LOCAL_ADMIN_SUB,
+            email=None,
+            name="Local administrator",
+            role=Role.ADMIN,
+            auth_method="local",
+        ),
+        max_age=settings.session_max_age_seconds,
+    )
+    logger.warning(
+        "local_login_succeeded",
+        client_ip=client_ip,
+        correlation_id=correlation_id,
+    )
+    return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)

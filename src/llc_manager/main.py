@@ -15,6 +15,7 @@ from llc_manager.api.v1 import router as v1_router
 from llc_manager.auth.oidc import build_oidc_client
 from llc_manager.auth.routes import router as auth_router
 from llc_manager.auth.session import SESSION_COOKIE
+from llc_manager.auth.throttle import LoginThrottle
 from llc_manager.core.config import settings
 from llc_manager.middleware.correlation import CorrelationMiddleware
 from llc_manager.middleware.security import (
@@ -127,6 +128,7 @@ def create_app() -> FastAPI:
         https_only=(settings.public_base_url or "").startswith("https://"),
     )
     app.state.oidc_client = build_oidc_client(settings)
+    app.state.login_throttle = LoginThrottle()
 
     # Include routers
     app.include_router(health_router, prefix="/api", tags=["Health"])
