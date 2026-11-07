@@ -437,6 +437,58 @@ class TestCallback:
         assert replay.status_code == 400
 
 
+class TestBrokenDiscoveryDocument:
+    """A malformed provider document must give the retry page, not a 500."""
+
+    def _client(
+        self, monkeypatch: pytest.MonkeyPatch, provider: FakeProvider
+    ) -> TestClient:
+        _configure(monkeypatch, BASE_URL)
+        app = create_app()
+        app.state.oidc_client = provider.client
+        return TestClient(app, base_url=BASE_URL, follow_redirects=False)
+
+    def test_login_without_an_authorization_endpoint(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        provider = FakeProvider(with_authorization_endpoint=False)
+        with self._client(monkeypatch, provider) as client:
+            response = client.get("/auth/login")
+
+        assert response.status_code == 503
+        assert "temporarily unavailable" in response.text
+
+    def test_callback_without_a_jwks_uri(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = FakeProvider(with_jwks=False)
+        with self._client(monkeypatch, provider) as client:
+            _, params = _start_login(client, provider)
+
+            response = _finish_login(client, provider, params)
+
+        assert response.status_code == 503
+        assert "temporarily unavailable" in response.text
+        assert "user" not in response.headers.get("set-cookie", "")
+
+    @pytest.mark.parametrize("error", [RuntimeError("x"), KeyError("token_endpoint")])
+    def test_stub_failures_on_both_routes(
+        self, client: TestClient, error: Exception
+    ) -> None:
+        class _Broken:
+            async def authorize_redirect(self, *_args: Any, **_kwargs: Any) -> None:
+                raise error
+
+            async def authorize_access_token(self, *_args: Any, **_kwargs: Any) -> None:
+                raise error
+
+        cast("FastAPI", client.app).state.oidc_client = _Broken()
+
+        login = client.get("/auth/login")
+        callback = client.get("/auth/callback", params={"code": "c", "state": "s"})
+
+        assert login.status_code == 503
+        assert callback.status_code == 503
+
+
 class TestLogout:
     def test_logout_requires_csrf_token(self, client: TestClient) -> None:
         client.cookies.set(

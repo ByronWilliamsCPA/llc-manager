@@ -28,9 +28,19 @@ _LOGIN_NEXT_KEY = "login_next"
 
 OidcDep = Annotated[OidcClient | None, Depends(get_oidc_client)]
 
-# Discovery and token responses that are not valid JSON mean the provider (or
-# something in front of it) is misbehaving, which is an outage for our purposes.
-_PROVIDER_FAILURES = (httpx.HTTPError, json.JSONDecodeError)
+# A provider that cannot be reached, or whose discovery or token response is
+# unusable, is an outage for our purposes. authlib raises RuntimeError for a
+# discovery document that lacks an endpoint or key set, and KeyError for one
+# that lacks a required field; neither may surface as a 500.
+# #EDGE: only the exception class name is logged, never its message, because a
+# message can echo provider-supplied text.
+# #VERIFY: tests/unit/test_auth_oidc_flow.py::TestBrokenDiscoveryDocument.
+_PROVIDER_FAILURES = (
+    httpx.HTTPError,
+    json.JSONDecodeError,
+    RuntimeError,
+    KeyError,
+)
 
 
 def _message(
