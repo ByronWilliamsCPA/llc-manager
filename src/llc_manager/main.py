@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from llc_manager.api.health import router as health_router
 from llc_manager.api.ui import router as ui_router
@@ -129,6 +130,25 @@ def create_app() -> FastAPI:
     )
     app.state.oidc_client = build_oidc_client(settings)
     app.state.login_throttle = LoginThrottle()
+
+    # Trust X-Forwarded-For and X-Forwarded-Proto only from the configured
+    # proxies, so the client address (break-glass throttle, rate limiter) and
+    # the scheme are the real ones behind Traefik. This must stay the last
+    # add_middleware call so it is the outermost layer. An empty list adds
+    # nothing, so an unconfigured host keeps its current stack (uvicorn's own
+    # default of trusting 127.0.0.1 still applies underneath).
+    # #CRITICAL: an over-broad list lets any caller choose its own client IP and
+    # so bypass the login throttle.
+    # #ASSUME: the reverse proxy overwrites X-Forwarded-For and -Proto rather
+    # than passing client-supplied values through unchanged.
+    # #VERIFY: log request.url.scheme and request.client.host from a real
+    # request behind the proxy (ADR-003 validation checklist); the unit tests
+    # cover the middleware, not the proxy.
+    if settings.trusted_proxy_ips:
+        app.add_middleware(
+            ProxyHeadersMiddleware,
+            trusted_hosts=settings.trusted_proxy_ips,
+        )
 
     # Include routers
     app.include_router(health_router, prefix="/api", tags=["Health"])
