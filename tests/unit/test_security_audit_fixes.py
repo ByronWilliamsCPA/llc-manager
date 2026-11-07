@@ -6,6 +6,7 @@ import pytest
 
 from llc_manager.core.config import Settings
 from llc_manager.core.exceptions import ConfigurationError
+from tests.auth_helpers import configure_production_sign_in
 
 
 class TestSecretKeyMinLength:
@@ -29,6 +30,7 @@ class TestSecretKeyMinLength:
         monkeypatch.setenv("ENVIRONMENT", "production")
         # 64 chars - well above the 32-char minimum
         long_key = "a" * 64
+        configure_production_sign_in(monkeypatch)
         settings = Settings(secret_key=long_key)  # type: ignore[call-arg]
         assert settings.secret_key == long_key
 

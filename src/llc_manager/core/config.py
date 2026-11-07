@@ -557,6 +557,56 @@ class Settings(BaseSettings):
                 raise ConfigurationError(message, details={"config_key": key})
         return self
 
+    @model_validator(mode="after")
+    def _require_a_sign_in_method_outside_development(self) -> "Settings":
+        """Refuse to start a non-development app that nobody could sign in to.
+
+        The web UI is gated, so outside an explicit development, local, or test
+        environment the app needs ``public_base_url`` and either a complete
+        Authentik configuration or the break-glass login with its hash. An
+        unset or blank environment name is not development.
+
+        Returns:
+            Settings: The validated settings.
+
+        Raises:
+            ConfigurationError: If the sign-in configuration is missing.
+        """
+        # #CRITICAL: Security - fail closed. Without this the gated UI would
+        # start and answer every page with a redirect to a login that cannot
+        # work, or (with an unnamed environment) look healthy while unusable.
+        # #VERIFY: tests/unit/test_auth_settings.py::TestProductionRequiresSignIn
+        # covers each missing piece, an unset name, and a blank name.
+        if self.explicit_development_environment:
+            return self
+        break_glass = (
+            self.local_admin_enabled and self.local_admin_password_hash is not None
+        )
+        missing: list[str] = []
+        if self.public_base_url is None:
+            missing.append(
+                "LLC_MANAGER_PUBLIC_BASE_URL (the https address users visit)"
+            )
+        if not self.oidc_configured and not break_glass:
+            missing.append(
+                "a sign-in method: either LLC_MANAGER_AUTHENTIK_ISSUER, "
+                "LLC_MANAGER_AUTHENTIK_CLIENT_ID and "
+                "LLC_MANAGER_AUTHENTIK_CLIENT_SECRET, or "
+                "LLC_MANAGER_LOCAL_ADMIN_ENABLED=true with "
+                "LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH"
+            )
+        if not missing:
+            return self
+        message = (
+            "The web UI requires a way to sign in, and this process is not in an "
+            "explicit development environment (LLC_MANAGER_ENVIRONMENT is unset "
+            "or is not one of development, local, test). Missing: "
+            + "; ".join(missing)
+            + ". See docs/guides/authentik-setup.md. For local development set "
+            "LLC_MANAGER_ENVIRONMENT=development."
+        )
+        raise ConfigurationError(message, details={"config_key": "public_base_url"})
+
     @computed_field  # type: ignore[prop-decorator]  # Pydantic pattern: decorator composition confuses pyright
     @property
     def database_url(self) -> str:

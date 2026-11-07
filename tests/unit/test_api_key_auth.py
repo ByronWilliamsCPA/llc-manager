@@ -14,7 +14,7 @@ from llc_manager.core.auth import keys_match
 from llc_manager.core.config import Settings, settings
 from llc_manager.core.exceptions import ConfigurationError
 from llc_manager.main import create_app
-from tests.auth_helpers import TEST_API_KEY
+from tests.auth_helpers import TEST_API_KEY, configure_production_sign_in
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -125,6 +125,7 @@ class TestApiKeyLength:
         monkeypatch.setenv("LLC_MANAGER_ENVIRONMENT", "production")
         monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
         monkeypatch.setenv("LLC_MANAGER_API_KEY", "k" * 40)
+        configure_production_sign_in(monkeypatch)
         assert Settings().api_key is not None
 
     def test_short_key_allowed_in_test(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -144,6 +145,7 @@ class TestApiKeyLength:
         monkeypatch.setenv("LLC_MANAGER_ENVIRONMENT", "production")
         monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
         monkeypatch.setenv("LLC_MANAGER_API_KEY", "")
+        configure_production_sign_in(monkeypatch)
         assert Settings(_env_file=None).api_key is None
 
     def test_service_api_key_name_is_accepted(

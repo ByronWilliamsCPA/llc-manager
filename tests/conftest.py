@@ -7,13 +7,11 @@ This module provides:
 - Temporary directory management
 """
 
+import os
 from pathlib import Path
 
 import pytest
 from pydantic import SecretStr
-
-from llc_manager.core.config import settings
-from tests.auth_helpers import TEST_API_KEY
 
 # ============================================================================
 # Test Fixture Paths
@@ -43,6 +41,16 @@ def pytest_configure(config: pytest.Config) -> None:
     Args:
         config: Pytest configuration object.
     """
+    # The web UI now fails closed unless the environment is explicitly
+    # development, local, or test (see Settings), and ``llc_manager.core.config``
+    # builds the global settings when it is first imported. Name the test
+    # environment here, before any test module imports the package. Do not add
+    # a module-level ``llc_manager`` import to this file: conftest is imported
+    # before this hook runs, so it would build the settings without the name.
+    # The unprefixed name is used on purpose: ``LLC_MANAGER_ENVIRONMENT`` wins
+    # over it, so a test that sets either name still controls the result.
+    os.environ.setdefault("ENVIRONMENT", "test")
+
     # Test type markers (for test pyramid)
     config.addinivalue_line(
         "markers",
@@ -178,5 +186,8 @@ def configured_api_key(monkeypatch: pytest.MonkeyPatch) -> str:
     Returns:
         The configured test key.
     """
+    from llc_manager.core.config import settings
+    from tests.auth_helpers import TEST_API_KEY
+
     monkeypatch.setattr(settings, "api_key", SecretStr(TEST_API_KEY))
     return TEST_API_KEY

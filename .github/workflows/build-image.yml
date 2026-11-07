@@ -122,9 +122,19 @@ jobs:
           LLC_MANAGER_SECRET_KEY="$(openssl rand -hex 32)"
           echo "::add-mask::${LLC_MANAGER_SECRET_KEY}"
           export LLC_MANAGER_SECRET_KEY
+          # Production also fails closed without a sign-in method. These
+          # placeholders satisfy the startup check only; OIDC discovery is
+          # lazy, so no request ever reaches the unresolvable issuer host.
+          LLC_MANAGER_AUTHENTIK_CLIENT_SECRET="$(openssl rand -hex 16)"
+          echo "::add-mask::${LLC_MANAGER_AUTHENTIK_CLIENT_SECRET}"
+          export LLC_MANAGER_AUTHENTIK_CLIENT_SECRET
           docker run -d --name llc-manager-smoke -p 18000:8000 \
             -e LLC_MANAGER_ENVIRONMENT=production \
             -e LLC_MANAGER_SECRET_KEY \
+            -e LLC_MANAGER_PUBLIC_BASE_URL=https://llc-manager-smoke.example.invalid \
+            -e LLC_MANAGER_AUTHENTIK_ISSUER=https://auth.example.invalid/application/o/smoke/ \
+            -e LLC_MANAGER_AUTHENTIK_CLIENT_ID=smoke-test \
+            -e LLC_MANAGER_AUTHENTIK_CLIENT_SECRET \
             -e LLC_MANAGER_DATABASE_HOST=db.example.invalid \
             llc-manager-smoke:ci
           ok=""
