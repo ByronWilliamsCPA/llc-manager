@@ -12,6 +12,7 @@ from pydantic import Field, model_validator
 
 from llc_manager.models.entity import EntityType
 from llc_manager.schemas.base import BaseSchema, FullSchema, XeroId
+from llc_manager.schemas.compliance import EntityCompliance, unknown_compliance
 
 # Entity types that are not legal entities and carry no legal-entity fields.
 PERSONAL_ENTITY_TYPES = frozenset({EntityType.INDIVIDUAL, EntityType.HOUSEHOLD})
@@ -125,6 +126,13 @@ class EntityResponse(FullSchema, EntityBase):
 
     id: UUID
     bank_accounts: list[EntityBankAccountRef] = Field(default_factory=list)
+    compliance: EntityCompliance = Field(
+        default_factory=unknown_compliance,
+        description=(
+            "Read-only compliance summary computed on each read from the "
+            "entity's state registrations and tax filings."
+        ),
+    )
 
 
 class EntityListResponse(BaseSchema):
