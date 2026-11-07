@@ -105,6 +105,15 @@ nothing in `src/` implements it.
 - CSP and CDN script loading in `base.html` are unchanged and tracked
   separately.
 
+### Known scanner finding
+
+The repository's FIPS compatibility scan flags `argon2-cffi` in
+`pyproject.toml`, because Argon2id is not a NIST-approved algorithm. The
+decision is to keep Argon2id for the break-glass password hash: the app does not
+target FIPS-enabled hosts, and the finding is informational (the FIPS job
+passes). Revisit only if a deployment target requires FIPS mode, in which case
+the hash would move to PBKDF2 and the settings validator would change with it.
+
 ## Alternatives Considered
 
 ### Alternative 1: Server-side sessions in PostgreSQL

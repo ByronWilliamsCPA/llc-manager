@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`require_user`, `require_admin`, `verify_csrf`) are implemented and tested
   but not yet attached to the web routes, so no page behaves differently. With
   no sign-in settings, `/auth/login` answers 503.
+- `feat(auth)`: break-glass local admin login at `/auth/local-login` (404
+  unless `local_admin_enabled` and an argon2 hash are set), limited to 5
+  failures per 15 minutes per client IP (429 with `Retry-After`), with every
+  attempt logged at WARNING with the correlation ID. The failure throttle is
+  held in process memory, so with several replicas or workers the effective
+  limit is per replica. The app trusts `X-Forwarded-For` and
+  `X-Forwarded-Proto` only from the proxies listed in `trusted_proxy_ips`; an
+  empty list adds no middleware.
 - `feat(auth)`: settings and validators for browser sign-in through Authentik
   (ADR-003): `public_base_url`, `authentik_client_id`,
   `authentik_client_secret`, `authentik_groups_claim`, `admin_group`,
