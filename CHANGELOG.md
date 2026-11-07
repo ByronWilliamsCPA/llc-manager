@@ -19,6 +19,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`require_user`, `require_admin`, `verify_csrf`) are implemented and tested
   but not yet attached to the web routes, so no page behaves differently. With
   no sign-in settings, `/auth/login` answers 503.
+- `feat(auth)`: break-glass local admin login at `/auth/local-login` (404
+  unless `local_admin_enabled` and an argon2 hash are set). Each client is
+  limited to 5 failures per 15 minutes (429 with `Retry-After`); an IPv6 client
+  is keyed by its /64 and an IPv4-mapped address by its IPv4 address. A global
+  budget of 20 failures per 15 minutes across all clients then refuses every
+  attempt until the window slides. Tradeoff: under an active guessing attack
+  the real operator is locked out too, which favors confidentiality of the
+  financial data over break-glass availability. Password checks run one at a
+  time per process (argon2 uses 64 MiB per hash) and passwords over 1024
+  characters are refused before hashing. Every attempt is logged at WARNING
+  with the correlation ID. A break-glass session ends when break-glass is
+  disabled or its hash is rotated, and an OIDC token claiming the reserved
+  `local-admin` subject is refused. Throttle state is held in process memory,
+  so with several replicas or workers the limits apply per replica. The app
+  trusts `X-Forwarded-For` and `X-Forwarded-Proto` only from the proxies listed
+  in `trusted_proxy_ips`: a single address (which may be public) or a private
+  or loopback network no broader than /8 (IPv4) or /16 (IPv6), with no host
+  bits set; an empty list adds no middleware, and enabling break-glass outside
+  development without it logs a startup warning. CIDR entries need uvicorn
+  0.31.0 or later, which is now the floor.
+- `fix(auth)`: review fixes for browser sign-in. `next` targets are judged
+  after percent-decoding and dot-segment resolution (so `/x/../auth/login` is
+  refused) and capped at 512 characters; a malformed `HX-Current-URL` header
+  now yields the documented 401 instead of a 500; a break-glass session with a
+  non-ASCII fingerprint is treated as signed out.
 - `feat(auth)`: settings and validators for browser sign-in through Authentik
   (ADR-003): `public_base_url`, `authentik_client_id`,
   `authentik_client_secret`, `authentik_groups_claim`, `admin_group`,
