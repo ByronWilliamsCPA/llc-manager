@@ -139,6 +139,7 @@ api = [
     "psycopg[binary]>=3.1.0",  # Sync PostgreSQL driver (for Alembic)
     # Browser login (see ADR-003)
     "authlib>=1.9",  # OIDC client: authorization code flow with PKCE
+    "joserfc>=1.0",  # JoseError, raised by authlib on a bad ID token
     "itsdangerous>=2.2",  # Signs the Starlette session cookie
     "argon2-cffi>=25.1",  # Break-glass admin password hash
     "httpx>=0.28",  # HTTP client that authlib's Starlette integration uses
