@@ -4,4 +4,8 @@ from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
 
-templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
+from llc_manager.auth.templating import install_auth_globals
+
+templates = install_auth_globals(
+    Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
+)

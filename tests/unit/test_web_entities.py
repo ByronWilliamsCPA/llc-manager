@@ -9,9 +9,16 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
+from llc_manager.auth.session import SESSION_COOKIE
+from llc_manager.core.config import settings
 from llc_manager.db.session import get_async_session
 from llc_manager.main import create_app
 from llc_manager.models.entity import EntityType
+from tests.auth_helpers import (
+    TEST_CSRF_TOKEN,
+    session_cookie_value,
+    user_session,
+)
 
 FIXTURE_ID = UUID("11111111-1111-1111-1111-111111111111")
 
@@ -108,8 +115,13 @@ def fixture_entity() -> SimpleNamespace:
 
 @pytest.fixture
 def client_with_entities(fixture_entity: SimpleNamespace) -> Iterator[TestClient]:
-    """TestClient with get_async_session overridden to yield a stubbed session
-    that returns the fixture entity for both list and detail queries."""
+    """Signed-in admin TestClient with the database stubbed out.
+
+    ``get_async_session`` is overridden to yield a stubbed session that returns
+    the fixture entity for both list and detail queries. The client carries an
+    admin session cookie and the matching ``X-CSRF-Token`` header, as a browser
+    would after signing in (the web routes are gated).
+    """
     app = create_app()
 
     async def _override() -> AsyncIterator[_StubSession]:
@@ -118,6 +130,11 @@ def client_with_entities(fixture_entity: SimpleNamespace) -> Iterator[TestClient
 
     app.dependency_overrides[get_async_session] = _override
     with TestClient(app) as c:
+        c.cookies.set(
+            SESSION_COOKIE,
+            session_cookie_value(settings.secret_key, user_session("admin")),
+        )
+        c.headers["X-CSRF-Token"] = TEST_CSRF_TOKEN
         yield c
     app.dependency_overrides.clear()
 
