@@ -46,9 +46,14 @@ def clean_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _unset_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Remove the environment name so the process names no environment."""
+    """Remove the environment name so the process names no environment.
+
+    An unset name counts as production for the secret key check too, so this
+    also supplies a valid key; the tests that use it assert on other settings.
+    """
     monkeypatch.delenv("LLC_MANAGER_ENVIRONMENT", raising=False)
     monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
 
 
 @pytest.fixture

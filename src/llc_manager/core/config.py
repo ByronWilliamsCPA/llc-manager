@@ -5,7 +5,6 @@ Pydantic-settings handles the parsing and validation.
 """
 
 import ipaddress
-import os
 from pathlib import Path
 from typing import Annotated, ClassVar, Literal
 from urllib.parse import urlsplit
@@ -27,6 +26,10 @@ from llc_manager.core.exceptions import ConfigurationError
 # override via LLC_MANAGER_SECRET_KEY in any non-development deployment;
 # see `Settings._reject_default_secret_key_outside_dev` for enforcement.
 _DEFAULT_SECRET_KEY_PLACEHOLDER = "change-me-in-production"  # noqa: S105  # nosec B105 -- permanent false positive (reviewed PR #9); startup sentinel explicitly rejected by _reject_default_secret_key_outside_dev outside development
+
+# Every shipped placeholder secret key starts with this prefix. Matched case
+# insensitively; see ``_is_placeholder_secret_key``.
+_PLACEHOLDER_KEY_PREFIX = "change-"
 
 # Minimum acceptable SECRET_KEY length outside development. 32 bytes (~256 bits
 # of entropy when sourced from a CSPRNG) is the OWASP recommendation for HMAC
@@ -63,26 +66,21 @@ def _invalid_proxy_entry_message(entry: str) -> str:
     )
 
 
-def _is_development_environment() -> bool:
-    """Return True when the process runs in a development-class environment.
+def _is_placeholder_secret_key(value: str) -> bool:
+    """Return True when a secret key looks like a shipped placeholder.
 
-    Reads ``LLC_MANAGER_ENVIRONMENT``, then ``ENVIRONMENT``. An unset name
-    counts as development.
+    Every placeholder this project has shipped (the package default and the
+    old ``.env.example`` value) starts with ``change-``, and a value like that
+    is never a random key, so the whole prefix is rejected.
+
+    Args:
+        value (str): The configured secret key.
 
     Returns:
-        bool: True for ``development``, ``local``, ``test``, or no name at all.
+        bool: True for a value starting with ``change-``, ignoring case and
+            surrounding whitespace.
     """
-    # #ASSUME: Security - the environment name comes from the process
-    # environment, so a value set only in a ``.env`` file is not seen here and
-    # an unset name is treated as development.
-    # #VERIFY: production deployments set LLC_MANAGER_ENVIRONMENT in the
-    # container environment, not only in a file.
-    env = (
-        os.getenv("LLC_MANAGER_ENVIRONMENT")
-        or os.getenv("ENVIRONMENT")
-        or "development"
-    ).lower()
-    return env in _DEVELOPMENT_ENVIRONMENTS
+    return value.strip().lower().startswith(_PLACEHOLDER_KEY_PREFIX)
 
 
 class Settings(BaseSettings):
@@ -180,9 +178,8 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     # Deployment environment name, read from the process environment and the
-    # env file alike (``LLC_MANAGER_ENVIRONMENT``, then ``ENVIRONMENT``). Unlike
-    # ``_is_development_environment`` an unset name is *not* development here;
-    # see ``explicit_development_environment``.
+    # env file alike (``LLC_MANAGER_ENVIRONMENT``, then ``ENVIRONMENT``). An
+    # unset name is *not* development; see ``explicit_development_environment``.
     environment: str | None = Field(
         default=None,
         validation_alias=AliasChoices("LLC_MANAGER_ENVIRONMENT", "ENVIRONMENT"),
@@ -228,6 +225,26 @@ class Settings(BaseSettings):
     # ``{documents_root}/{document_id}{extension}`` and never by caller path.
     documents_root: Path = Path("/data/docs")
 
+    @field_validator("secret_key", mode="before")
+    @classmethod
+    def _blank_secret_key_is_unset(cls, value: object) -> object:
+        """Treat a blank secret key as unset.
+
+        ``.env.example`` ships ``LLC_MANAGER_SECRET_KEY=`` with no value. A
+        blank key falls back to the package default, which the validators below
+        refuse outside development, so it is never used as a signing key.
+
+        Args:
+            value (object): The raw value.
+
+        Returns:
+            object: The package default for a blank string, else the value
+                unchanged.
+        """
+        if isinstance(value, str) and not value.strip():
+            return _DEFAULT_SECRET_KEY_PLACEHOLDER
+        return value
+
     @field_validator("api_key", mode="after")
     @classmethod
     def _empty_api_key_is_unset(cls, value: SecretStr | None) -> SecretStr | None:
@@ -262,33 +279,49 @@ class Settings(BaseSettings):
             return self
         if len(self.api_key.get_secret_value()) >= _MIN_SECRET_KEY_LENGTH:
             return self
-        if _is_development_environment():
+        if self.explicit_development_environment:
             return self
         message = (
             f"LLC_MANAGER_API_KEY (or LLC_MANAGER_SERVICE_API_KEY) must be at "
             f"least {_MIN_SECRET_KEY_LENGTH} characters outside development, "
-            "local, and test environments."
+            "local, and test environments. An unset environment name counts as "
+            "production."
         )
         raise ConfigurationError(message, details={"config_key": "api_key"})
 
     @model_validator(mode="after")
     def _reject_default_secret_key_outside_dev(self) -> "Settings":
-        """Block startup when the default secret_key is used in non-dev envs.
+        """Block startup when a placeholder secret_key is used outside dev.
 
         A comment saying "change me in production" does not prevent a real
-        deployment from accidentally shipping with a public default key. The
-        validator reads LLC_MANAGER_ENVIRONMENT / ENVIRONMENT; anything other
-        than ``development`` / ``local`` / ``test`` must supply an override.
+        deployment from accidentally shipping with a public default key, which
+        would let anyone forge a session cookie. Anything other than an
+        explicit ``development`` / ``local`` / ``test`` environment name (an
+        unset name included) must supply a real key. The package default, the
+        old ``.env.example`` value, and any value starting with ``change-`` are
+        refused.
+
+        Returns:
+            Settings: The validated settings.
+
+        Raises:
+            ConfigurationError: If the key is a placeholder outside
+                development, local, and test environments.
         """
-        if self.secret_key != _DEFAULT_SECRET_KEY_PLACEHOLDER:
+        # #CRITICAL: Security - a public secret key lets an attacker sign an
+        # admin session cookie, so an unset environment name must not relax it.
+        # #VERIFY: tests/unit/test_security_audit_fixes.py::TestPlaceholderSecretKeys.
+        if not _is_placeholder_secret_key(self.secret_key):
             return self
 
-        if _is_development_environment():
+        if self.explicit_development_environment:
             return self
 
         message = (
-            "LLC_MANAGER_SECRET_KEY must be set to a non-default value outside "
-            "development, local, and test environments."
+            "LLC_MANAGER_SECRET_KEY must be set to a real random value (for "
+            "example `openssl rand -hex 32`), not a placeholder starting with "
+            "'change-', outside development, local, and test environments. An "
+            "unset environment name counts as production."
         )
         raise ConfigurationError(message, details={"config_key": "secret_key"})
 
@@ -296,24 +329,32 @@ class Settings(BaseSettings):
     def _enforce_secret_key_min_length(self) -> "Settings":
         """Reject short secret keys outside development environments.
 
-        The placeholder check above only catches the literal default. A user-
+        The placeholder check above only catches placeholder values. A user-
         supplied but trivially short value (e.g. "secret") would otherwise
         pass. OWASP recommends >= 256 bits of entropy for HMAC/signing keys;
         we enforce 32 characters as a proxy.
+
+        Returns:
+            Settings: The validated settings.
+
+        Raises:
+            ConfigurationError: If the key is shorter than the minimum length
+                outside development, local, and test environments.
         """
-        if self.secret_key == _DEFAULT_SECRET_KEY_PLACEHOLDER:
+        if _is_placeholder_secret_key(self.secret_key):
             # Already handled by the placeholder validator above.
             return self
 
         if len(self.secret_key) >= _MIN_SECRET_KEY_LENGTH:
             return self
 
-        if _is_development_environment():
+        if self.explicit_development_environment:
             return self
 
         message = (
             f"LLC_MANAGER_SECRET_KEY must be at least {_MIN_SECRET_KEY_LENGTH} "
-            "characters outside development, local, and test environments."
+            "characters outside development, local, and test environments. An "
+            "unset environment name counts as production."
         )
         raise ConfigurationError(message, details={"config_key": "secret_key"})
 
@@ -475,7 +516,9 @@ class Settings(BaseSettings):
         The name comes from the same sources as every other setting (process
         environment and env file), so a ``.env`` file cannot turn on a
         development-only feature while naming no environment. Unlike
-        ``_is_development_environment``, an unset or blank name does not count.
+        a ``.env`` entry counts, and an unset or blank name does not. Every
+        startup check that relaxes outside production (secret key, API key,
+        sign-in requirement) uses this property.
 
         Returns:
             bool: True only for an explicit ``development``, ``local``, or
