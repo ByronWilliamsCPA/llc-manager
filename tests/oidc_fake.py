@@ -21,28 +21,47 @@ REDIRECT_URI = "https://llc.example.test/auth/callback"
 class FakeProvider:
     """Signs ID tokens and exposes an authlib client wired to itself."""
 
-    def __init__(self) -> None:
-        """Generate a signing key and register the authlib client."""
+    def __init__(
+        self,
+        *,
+        metadata_issuer: str = ISSUER,
+        with_jwks: bool = True,
+        with_authorization_endpoint: bool = True,
+    ) -> None:
+        """Generate a signing key and register the authlib client.
+
+        Args:
+            metadata_issuer: The issuer the fake discovery document reports.
+            with_jwks: Whether the discovery document carries a key set. When
+                false it has neither ``jwks`` nor ``jwks_uri``.
+            with_authorization_endpoint: Whether the discovery document names
+                an authorization endpoint.
+        """
         self._key = RSAKey.generate_key(
             2048, {"kid": "test-key", "use": "sig", "alg": "RS256"}
         )
         self.next_claims: dict[str, Any] = {}
         self.fail_with: Exception | None = None
         self.last_exchange: dict[str, Any] = {}
+        metadata: dict[str, Any] = {
+            "issuer": metadata_issuer,
+            "token_endpoint": "https://auth.example.test/token/",
+            "id_token_signing_alg_values_supported": ["RS256"],
+        }
+        if with_authorization_endpoint:
+            metadata["authorization_endpoint"] = "https://auth.example.test/authorize/"
+        if with_jwks:
+            metadata["jwks"] = {"keys": [self._key.as_dict(private=False)]}
         oauth = OAuth()
         oauth.register(
             name="authentik",
             client_id=CLIENT_ID,
             client_secret="test-client-secret",  # pragma: allowlist secret
-            issuer=ISSUER,
-            authorization_endpoint="https://auth.example.test/authorize/",
-            token_endpoint="https://auth.example.test/token/",
-            jwks={"keys": [self._key.as_dict(private=False)]},
-            id_token_signing_alg_values_supported=["RS256"],
             client_kwargs={
                 "scope": "openid profile email",
                 "code_challenge_method": "S256",
             },
+            **metadata,
         )
         self.client: Any = oauth.authentik
         self.client.fetch_access_token = self._fetch_access_token

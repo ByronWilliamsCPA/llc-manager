@@ -17,7 +17,12 @@ from joserfc.errors import JoseError
 
 from llc_manager.auth.csrf import verify_csrf
 from llc_manager.auth.dependencies import current_user
-from llc_manager.auth.oidc import OidcClient, get_oidc_client, redirect_uri
+from llc_manager.auth.oidc import (
+    OidcClient,
+    get_oidc_client,
+    issuer_claims_options,
+    redirect_uri,
+)
 from llc_manager.auth.redirects import safe_next
 from llc_manager.auth.roles import Role, resolve_role
 from llc_manager.auth.session import SessionUser, csrf_token, store_user
@@ -135,9 +140,19 @@ async def _password_matches(password: str) -> bool:
     return await run_in_threadpool(_verify, stored.get_secret_value(), password)
 
 
-# Discovery and token responses that are not valid JSON mean the provider (or
-# something in front of it) is misbehaving, which is an outage for our purposes.
-_PROVIDER_FAILURES = (httpx.HTTPError, json.JSONDecodeError)
+# A provider that cannot be reached, or whose discovery or token response is
+# unusable, is an outage for our purposes. authlib raises RuntimeError for a
+# discovery document that lacks an endpoint or key set, and KeyError for one
+# that lacks a required field; neither may surface as a 500.
+# #EDGE: only the exception class name is logged, never its message, because a
+# message can echo provider-supplied text.
+# #VERIFY: tests/unit/test_auth_oidc_flow.py::TestBrokenDiscoveryDocument.
+_PROVIDER_FAILURES = (
+    httpx.HTTPError,
+    json.JSONDecodeError,
+    RuntimeError,
+    KeyError,
+)
 
 
 def _message(
@@ -275,13 +290,15 @@ async def callback(request: Request, oidc: OidcDep) -> Response:
     Returns:
         Response: A redirect to the requested page, or an error message page.
     """
-    if oidc is None:
+    if oidc is None or settings.authentik_issuer is None:
         return _not_configured(request)
     # The login state lives in the session, so it is read now and the session
     # is only replaced after the token exchange has used it.
     target = safe_next(request.session.get(_LOGIN_NEXT_KEY))
     try:
-        token = await oidc.authorize_access_token(request)
+        token = await oidc.authorize_access_token(
+            request, claims_options=issuer_claims_options(settings.authentik_issuer)
+        )
     except _PROVIDER_FAILURES as exc:
         return _provider_unreachable(request, exc)
     except (OAuthError, JoseError) as exc:

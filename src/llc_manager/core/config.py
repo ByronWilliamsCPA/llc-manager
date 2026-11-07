@@ -82,6 +82,10 @@ class Settings(BaseSettings):
         api_title (str): API documentation title.
         api_version (str): API version string.
         cors_origins (list[str]): List of allowed CORS origins.
+        environment (str | None): Deployment environment name
+            (``LLC_MANAGER_ENVIRONMENT``, then ``ENVIRONMENT``), read from the
+            process environment and the env file. An unset name is not
+            treated as development by the auth checks.
         secret_key (str): Secret key for signing tokens.
         access_token_expire_minutes (int): Token expiration time in minutes.
         public_base_url (str | None): Public ``https://`` origin of the app,
@@ -103,7 +107,8 @@ class Settings(BaseSettings):
             addresses or CIDR networks of reverse proxies whose forwarded
             headers are trusted.
         auth_dev_mode (bool): Sign in as a fixed admin without Authentik.
-            Refused outside development, local, and test environments.
+            Refused unless the environment name is explicitly development,
+            local, or test.
         api_key (SecretStr | None): Shared key that callers of ``/api/v1``
             send in the ``X-API-Key`` header. Read from
             ``LLC_MANAGER_API_KEY`` or, if that is unset,
@@ -148,6 +153,15 @@ class Settings(BaseSettings):
     # CORS settings
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
+    # Deployment environment name, read from the process environment and the
+    # env file alike (``LLC_MANAGER_ENVIRONMENT``, then ``ENVIRONMENT``). Unlike
+    # ``_is_development_environment`` an unset name is *not* development here;
+    # see ``explicit_development_environment``.
+    environment: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("LLC_MANAGER_ENVIRONMENT", "ENVIRONMENT"),
+    )
+
     # Security settings
     secret_key: str = _DEFAULT_SECRET_KEY_PLACEHOLDER
     access_token_expire_minutes: int = 30
@@ -170,7 +184,8 @@ class Settings(BaseSettings):
     # Reverse proxies whose X-Forwarded-* headers are trusted.
     trusted_proxy_ips: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
-    # Fixed admin user, no Authentik. Refused outside development.
+    # Fixed admin user, no Authentik. Refused unless the environment is
+    # explicitly development, local, or test.
     auth_dev_mode: bool = False
 
     # Inbound service authentication for /api/v1 (see core/auth.py). An explicit
@@ -282,6 +297,7 @@ class Settings(BaseSettings):
         "authentik_client_id",
         "authentik_client_secret",
         "local_admin_password_hash",
+        "environment",
         mode="before",
     )
     @classmethod
@@ -402,6 +418,26 @@ class Settings(BaseSettings):
         return value
 
     @property
+    def explicit_development_environment(self) -> bool:
+        """Whether the environment is named, and named development-class.
+
+        The name comes from the same sources as every other setting (process
+        environment and env file), so a ``.env`` file cannot turn on a
+        development-only feature while naming no environment. Unlike
+        ``_is_development_environment``, an unset or blank name does not count.
+
+        Returns:
+            bool: True only for an explicit ``development``, ``local``, or
+            ``test`` name.
+        """
+        # #CRITICAL: Security - dev mode makes every visitor an administrator,
+        # and the cookie Secure flag and https requirement hang off this too.
+        # Failing closed on an unset name keeps a mis-deployed container safe.
+        # #VERIFY: tests/unit/test_auth_settings.py::TestDevMode.
+        name = (self.environment or "").strip().lower()
+        return name in _DEVELOPMENT_ENVIRONMENTS
+
+    @property
     def oidc_configured(self) -> bool:
         """Whether every setting that browser OIDC login needs is present."""
         return (
@@ -483,11 +519,13 @@ class Settings(BaseSettings):
                 development, local, and test environments.
         """
         # #CRITICAL: Security - dev mode signs everyone in as admin.
-        # #VERIFY: tests/unit/test_auth_settings.py covers production refusal.
-        if self.auth_dev_mode and not _is_development_environment():
+        # #VERIFY: tests/unit/test_auth_settings.py covers production refusal,
+        # an unset name, and a name that only a .env file supplies.
+        if self.auth_dev_mode and not self.explicit_development_environment:
             message = (
-                "LLC_MANAGER_AUTH_DEV_MODE must not be enabled outside "
-                "development, local, and test environments."
+                "LLC_MANAGER_AUTH_DEV_MODE must not be enabled unless "
+                "LLC_MANAGER_ENVIRONMENT (or ENVIRONMENT) is explicitly "
+                "development, local, or test."
             )
             raise ConfigurationError(message, details={"config_key": "auth_dev_mode"})
         return self
@@ -500,10 +538,10 @@ class Settings(BaseSettings):
             Settings: The validated settings.
 
         Raises:
-            ConfigurationError: If a configured URL is not ``https://`` outside
-                development, local, and test environments.
+            ConfigurationError: If a configured URL is not ``https://`` and the
+                environment is not explicitly development, local, or test.
         """
-        if _is_development_environment():
+        if self.explicit_development_environment:
             return self
         # The issuer is only checked once browser login is intended; see
         # ``_oidc_intended``.
@@ -513,8 +551,8 @@ class Settings(BaseSettings):
         for key, value in checked:
             if value is not None and not value.startswith("https://"):
                 message = (
-                    f"LLC_MANAGER_{key.upper()} must start with https:// outside "
-                    "development, local, and test environments."
+                    f"LLC_MANAGER_{key.upper()} must start with https:// unless "
+                    "the environment is explicitly development, local, or test."
                 )
                 raise ConfigurationError(message, details={"config_key": key})
         return self

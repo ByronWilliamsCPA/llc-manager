@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from argon2 import PasswordHasher
 from pydantic import SecretStr
@@ -111,6 +113,12 @@ class TestUnconfiguredProductionIsUnchanged:
         assert s.local_admin_enabled is False
         assert s.auth_dev_mode is False
 
+    def test_unset_environment_without_any_auth_setting_starts(self) -> None:
+        s = Settings(_env_file=None)
+        assert s.oidc_configured is False
+        assert s.auth_dev_mode is False
+        assert s.explicit_development_environment is False
+
     def test_legacy_issuer_alone_still_starts_in_production(
         self, monkeypatch: pytest.MonkeyPatch, production: None
     ) -> None:
@@ -179,6 +187,7 @@ class TestOidcConsistency:
     def test_http_issuer_is_allowed_in_development(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_ENVIRONMENT", "development")
         _oidc_env(monkeypatch)
         monkeypatch.setenv("LLC_MANAGER_PUBLIC_BASE_URL", "http://localhost:8000")
         monkeypatch.setenv(
@@ -220,8 +229,24 @@ class TestPublicBaseUrl:
     def test_http_is_allowed_in_development(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_ENVIRONMENT", "development")
         monkeypatch.setenv("LLC_MANAGER_PUBLIC_BASE_URL", "http://localhost:8000")
         assert Settings(_env_file=None).public_base_url == "http://localhost:8000"
+
+    def test_http_is_rejected_when_the_environment_name_is_unset(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_PUBLIC_BASE_URL", "http://localhost:8000")
+        with pytest.raises(ConfigurationError, match="https://"):
+            Settings(_env_file=None)
+
+    def test_http_is_rejected_when_dotenv_says_production(self, tmp_path: Path) -> None:
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            "ENVIRONMENT=production\nLLC_MANAGER_PUBLIC_BASE_URL=http://llc.example.com\n"
+        )
+        with pytest.raises(ConfigurationError, match="https://"):
+            Settings(_env_file=str(env_file))
 
 
 class TestBreakGlassSettings:
@@ -275,6 +300,82 @@ class TestDevMode:
         monkeypatch.setenv("LLC_MANAGER_ENVIRONMENT", environment)
         monkeypatch.setenv("LLC_MANAGER_AUTH_DEV_MODE", "true")
         assert Settings(_env_file=None).auth_dev_mode is True
+
+    @pytest.mark.parametrize("environment", ["development", "local", "test"])
+    def test_unprefixed_environment_name_counts(
+        self, monkeypatch: pytest.MonkeyPatch, environment: str
+    ) -> None:
+        monkeypatch.setenv("ENVIRONMENT", environment)
+        monkeypatch.setenv("LLC_MANAGER_AUTH_DEV_MODE", "true")
+        assert Settings(_env_file=None).auth_dev_mode is True
+
+    def test_refused_when_the_environment_name_is_unset(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_AUTH_DEV_MODE", "true")
+        with pytest.raises(ConfigurationError, match="AUTH_DEV_MODE"):
+            Settings(_env_file=None)
+
+    def test_refused_when_the_environment_name_is_blank(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_ENVIRONMENT", " ")
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
+        monkeypatch.setenv("LLC_MANAGER_AUTH_DEV_MODE", "true")
+        with pytest.raises(ConfigurationError, match="AUTH_DEV_MODE"):
+            Settings(_env_file=None)
+
+    def test_refused_when_dotenv_says_production(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        env_file = tmp_path / ".env"
+        env_file.write_text("ENVIRONMENT=production\n")
+        monkeypatch.setenv("LLC_MANAGER_AUTH_DEV_MODE", "true")
+        with pytest.raises(ConfigurationError, match="AUTH_DEV_MODE"):
+            Settings(_env_file=str(env_file))
+
+    def test_dotenv_cannot_enable_dev_mode_without_naming_the_environment(
+        self, tmp_path: Path
+    ) -> None:
+        env_file = tmp_path / ".env"
+        env_file.write_text("LLC_MANAGER_AUTH_DEV_MODE=true\n")
+        with pytest.raises(ConfigurationError, match="AUTH_DEV_MODE"):
+            Settings(_env_file=str(env_file))
+
+    def test_dotenv_naming_a_development_environment_allows_dev_mode(
+        self, tmp_path: Path
+    ) -> None:
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            "\n".join(
+                [
+                    "LLC_MANAGER_ENVIRONMENT=development",
+                    "LLC_MANAGER_AUTH_DEV_MODE=true",
+                ]
+            )
+        )
+        assert Settings(_env_file=str(env_file)).auth_dev_mode is True
+
+    def test_process_environment_overrides_dotenv(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        env_file = tmp_path / ".env"
+        env_file.write_text("ENVIRONMENT=development\n")
+        monkeypatch.setenv("LLC_MANAGER_ENVIRONMENT", "production")
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
+        monkeypatch.setenv("LLC_MANAGER_AUTH_DEV_MODE", "true")
+        with pytest.raises(ConfigurationError, match="AUTH_DEV_MODE"):
+            Settings(_env_file=str(env_file))
+
+    def test_prefixed_name_wins_over_unprefixed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_ENVIRONMENT", "production")
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
+        monkeypatch.setenv("ENVIRONMENT", "development")
+        monkeypatch.setenv("LLC_MANAGER_AUTH_DEV_MODE", "true")
+        with pytest.raises(ConfigurationError, match="AUTH_DEV_MODE"):
+            Settings(_env_file=None)
 
 
 class TestTrustedProxyIps:

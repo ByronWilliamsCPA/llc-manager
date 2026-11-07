@@ -14,6 +14,7 @@ from pydantic import SecretStr
 from llc_manager.auth.oidc import (
     build_oidc_client,
     discovery_url,
+    issuer_claims_options,
     redirect_uri,
 )
 from llc_manager.auth.session import SESSION_COOKIE
@@ -110,10 +111,23 @@ class TestLogin:
         assert "samesite=lax" in cookie
         assert "max-age=28800" in cookie
 
+    def test_session_cookie_is_secure_for_a_plain_http_url_outside_development(
+        self, provider: FakeProvider, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _configure(monkeypatch, "http://localhost:8000")
+        monkeypatch.setattr(settings, "environment", None)
+        app = create_app()
+        app.state.oidc_client = provider.client
+        with TestClient(app, follow_redirects=False) as local_client:
+            response = local_client.get("/auth/login")
+
+        assert "secure" in response.headers["set-cookie"].lower()
+
     def test_session_cookie_is_not_secure_for_a_plain_http_public_url(
         self, provider: FakeProvider, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _configure(monkeypatch, "http://localhost:8000")
+        monkeypatch.setattr(settings, "environment", "development")
         app = create_app()
         app.state.oidc_client = provider.client
         with TestClient(app, follow_redirects=False) as local_client:
@@ -422,6 +436,133 @@ class TestCallback:
         replay = _finish_login(client, provider, params)
 
         assert replay.status_code == 400
+
+
+class TestConfiguredIssuerIsEnforced:
+    """The ID token issuer is checked against the configured issuer."""
+
+    def _client(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        provider: FakeProvider,
+        configured_issuer: str,
+    ) -> TestClient:
+        _configure(monkeypatch, BASE_URL)
+        monkeypatch.setattr(settings, "authentik_issuer", configured_issuer)
+        app = create_app()
+        app.state.oidc_client = provider.client
+        return TestClient(app, base_url=BASE_URL, follow_redirects=False)
+
+    def test_issuer_from_a_substituted_discovery_document_is_rejected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        other = "https://other-idp.example.test/application/o/llc-manager/"
+        provider = FakeProvider(metadata_issuer=other)
+        with self._client(monkeypatch, provider, ISSUER) as client:
+            _, params = _start_login(client, provider)
+
+            response = _finish_login(client, provider, params, iss=other)
+
+        assert response.status_code == 400
+        assert "user" not in response.headers.get("set-cookie", "")
+
+    @pytest.mark.parametrize(
+        "configured", [ISSUER, ISSUER.rstrip("/")], ids=["slash", "no-slash"]
+    )
+    def test_matching_issuer_is_accepted_whatever_the_trailing_slash(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        provider: FakeProvider,
+        configured: str,
+    ) -> None:
+        with self._client(monkeypatch, provider, configured) as client:
+            _, params = _start_login(client, provider)
+
+            response = _finish_login(client, provider, params)
+
+        assert response.status_code == 303
+
+    @pytest.mark.parametrize(
+        "configured", [ISSUER, ISSUER.rstrip("/")], ids=["slash", "no-slash"]
+    )
+    def test_mismatching_issuer_is_rejected(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        provider: FakeProvider,
+        configured: str,
+    ) -> None:
+        with self._client(monkeypatch, provider, configured) as client:
+            _, params = _start_login(client, provider)
+
+            response = _finish_login(
+                client, provider, params, iss="https://evil.example/"
+            )
+
+        assert response.status_code == 400
+
+
+def test_issuer_claims_options_cover_both_slash_forms() -> None:
+    assert issuer_claims_options("https://a.test/o/x/") == {
+        "iss": {
+            "essential": True,
+            "values": ["https://a.test/o/x", "https://a.test/o/x/"],
+        }
+    }
+    assert issuer_claims_options("https://a.test/o/x") == issuer_claims_options(
+        "https://a.test/o/x/"
+    )
+
+
+class TestBrokenDiscoveryDocument:
+    """A malformed provider document must give the retry page, not a 500."""
+
+    def _client(
+        self, monkeypatch: pytest.MonkeyPatch, provider: FakeProvider
+    ) -> TestClient:
+        _configure(monkeypatch, BASE_URL)
+        app = create_app()
+        app.state.oidc_client = provider.client
+        return TestClient(app, base_url=BASE_URL, follow_redirects=False)
+
+    def test_login_without_an_authorization_endpoint(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        provider = FakeProvider(with_authorization_endpoint=False)
+        with self._client(monkeypatch, provider) as client:
+            response = client.get("/auth/login")
+
+        assert response.status_code == 503
+        assert "temporarily unavailable" in response.text
+
+    def test_callback_without_a_jwks_uri(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        provider = FakeProvider(with_jwks=False)
+        with self._client(monkeypatch, provider) as client:
+            _, params = _start_login(client, provider)
+
+            response = _finish_login(client, provider, params)
+
+        assert response.status_code == 503
+        assert "temporarily unavailable" in response.text
+        assert "user" not in response.headers.get("set-cookie", "")
+
+    @pytest.mark.parametrize("error", [RuntimeError("x"), KeyError("token_endpoint")])
+    def test_stub_failures_on_both_routes(
+        self, client: TestClient, error: Exception
+    ) -> None:
+        class _Broken:
+            async def authorize_redirect(self, *_args: Any, **_kwargs: Any) -> None:
+                raise error
+
+            async def authorize_access_token(self, *_args: Any, **_kwargs: Any) -> None:
+                raise error
+
+        cast("FastAPI", client.app).state.oidc_client = _Broken()
+
+        login = client.get("/auth/login")
+        callback = client.get("/auth/callback", params={"code": "c", "state": "s"})
+
+        assert login.status_code == 503
+        assert callback.status_code == 503
 
 
 class TestLogout:
