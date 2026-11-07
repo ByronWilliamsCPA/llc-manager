@@ -34,10 +34,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `local-admin` subject is refused. Throttle state is held in process memory,
   so with several replicas or workers the limits apply per replica. The app
   trusts `X-Forwarded-For` and `X-Forwarded-Proto` only from the proxies listed
-  in `trusted_proxy_ips`, each of which must be a private or loopback address
-  or network no broader than /8 (IPv4) or /16 (IPv6) with no host bits set; an
-  empty list adds no middleware, and enabling break-glass outside development
-  without it logs a startup warning.
+  in `trusted_proxy_ips`: a single address (which may be public) or a private
+  or loopback network no broader than /8 (IPv4) or /16 (IPv6), with no host
+  bits set; an empty list adds no middleware, and enabling break-glass outside
+  development without it logs a startup warning. CIDR entries need uvicorn
+  0.31.0 or later, which is now the floor.
+- `fix(auth)`: review fixes for browser sign-in. `next` targets are judged
+  after percent-decoding and dot-segment resolution (so `/x/../auth/login` is
+  refused) and capped at 512 characters; a malformed `HX-Current-URL` header
+  now yields the documented 401 instead of a 500; a break-glass session with a
+  non-ASCII fingerprint is treated as signed out.
 - `feat(auth)`: settings and validators for browser sign-in through Authentik
   (ADR-003): `public_base_url`, `authentik_client_id`,
   `authentik_client_secret`, `authentik_groups_claim`, `admin_group`,
