@@ -1,6 +1,17 @@
 {
   "components": {
     "schemas": {
+      "ComplianceStatus": {
+        "description": "Overall compliance standing derived from outstanding due dates.\n\nAttributes:\n    CURRENT: Every outstanding obligation is more than the due-soon window away.\n    DUE_SOON: The earliest outstanding obligation is due today or within the window.\n    OVERDUE: At least one outstanding obligation is past its due date.\n    UNKNOWN: No outstanding obligation with a date exists, so nothing is claimed.",
+        "enum": [
+          "current",
+          "due_soon",
+          "overdue",
+          "unknown"
+        ],
+        "title": "ComplianceStatus",
+        "type": "string"
+      },
       "DocumentCategory": {
         "description": "Top-level document folders shared with the document consumers.\n\nA consumer that has to guess a category uses ``OTHER``, never a specific\nfolder.",
         "enum": [
@@ -255,6 +266,52 @@
           "id"
         ],
         "title": "EntityBankAccountRef",
+        "type": "object"
+      },
+      "EntityCompliance": {
+        "description": "Read-only compliance summary computed from an entity's records.\n\nNever fabricated: an entity with no outstanding dated obligation returns a\nnull date and the ``unknown`` status.",
+        "properties": {
+          "next_due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Earliest outstanding compliance date (UTC calendar date) across state registrations and tax filings. It is in the past when an obligation is overdue. Null when no outstanding obligation has a date.",
+            "examples": [
+              "2026-04-01"
+            ],
+            "title": "Next Due Date"
+          },
+          "registered_agent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name of the current registered agent (service company when recorded, otherwise the agent name). Null when none is active.",
+            "examples": [
+              "Example Registered Agents Inc"
+            ],
+            "title": "Registered Agent Name"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ComplianceStatus",
+            "default": "unknown",
+            "description": "Worst status across outstanding obligations: `overdue` beats `due_soon` (due today or within 60 days) beats `current`. `unknown` when there is nothing outstanding to judge.",
+            "examples": [
+              "due_soon"
+            ]
+          }
+        },
+        "title": "EntityCompliance",
         "type": "object"
       },
       "EntityCreate": {
@@ -595,6 +652,10 @@
               }
             ],
             "title": "Business Zip"
+          },
+          "compliance": {
+            "$ref": "#/components/schemas/EntityCompliance",
+            "description": "Read-only compliance summary computed on each read from the entity's state registrations and tax filings."
           },
           "created_at": {
             "format": "date-time",
@@ -1605,7 +1666,7 @@
     },
     "/api/v1/entities": {
       "get": {
-        "description": "Return a paginated, optionally filtered list of entities (legal entities, individuals, and households). Supports full-text search across `legal_name`, `ein`, and `dba_names`, plus `is_active`, `entity_type`, and exact `xero_tenant_id` filters. Soft-deleted entities are excluded.",
+        "description": "Return a paginated, optionally filtered list of entities (legal entities, individuals, and households). Supports full-text search across `legal_name`, `ein`, and `dba_names`, plus `is_active`, `entity_type`, and exact `xero_tenant_id` filters. Soft-deleted entities are excluded. Each item includes a read-only `compliance` summary (next due date, status, registered agent name) computed from its registrations and filings.",
         "operationId": "list_entities_api_v1_entities_get",
         "parameters": [
           {
@@ -1828,7 +1889,7 @@
         ]
       },
       "get": {
-        "description": "Fetch a single entity by its UUID. Soft-deleted entities are not returned.",
+        "description": "Fetch a single entity by its UUID, including the read-only `compliance` summary. Soft-deleted entities are not returned.",
         "operationId": "get_entity_api_v1_entities__entity_id__get",
         "parameters": [
           {

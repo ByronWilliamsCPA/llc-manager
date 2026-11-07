@@ -10,7 +10,7 @@
 # #VERIFY: per-user authorization wired before any non-localhost deployment
 # that holds real individual or household data.
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -19,6 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from llc_manager.core.clock import get_today
 from llc_manager.db.session import get_async_session
 from llc_manager.models.entity import Entity, EntityType
 from llc_manager.schemas.entity import (
@@ -29,12 +30,33 @@ from llc_manager.schemas.entity import (
     EntityResponse,
     EntityUpdate,
 )
+from llc_manager.services.compliance import summarize_compliance
 
 router = APIRouter()
 
 DBSession = Annotated[AsyncSession, Depends(get_async_session)]
+Today = Annotated[date, Depends(get_today)]
 
 _UNIQUE_CONFLICT = "An entity with this EIN or Xero tenant ID already exists"
+
+
+def _to_response(entity: Entity, today: date) -> EntityResponse:
+    """Serialize an entity with its computed compliance summary.
+
+    The summary reads the already-loaded registrations, filings and agents, so
+    it adds no queries to the list path.
+
+    Args:
+        entity (Entity): Entity with its relationships loaded.
+        today (date): UTC date the compliance summary is judged against.
+
+    Returns:
+        EntityResponse: The entity response including ``compliance``.
+    """
+    response = EntityResponse.model_validate(entity)
+    return response.model_copy(
+        update={"compliance": summarize_compliance(entity, today)}
+    )
 
 
 async def _ensure_xero_tenant_free(
@@ -100,7 +122,9 @@ async def _flush_or_conflict(db: AsyncSession) -> None:
         "entities, individuals, and households). "
         "Supports full-text search across `legal_name`, `ein`, and "
         "`dba_names`, plus `is_active`, `entity_type`, and exact "
-        "`xero_tenant_id` filters. Soft-deleted entities are excluded."
+        "`xero_tenant_id` filters. Soft-deleted entities are excluded. Each item "
+        "includes a read-only `compliance` summary (next due date, status, "
+        "registered agent name) computed from its registrations and filings."
     ),
     responses={
         200: {"description": "Paginated list of entities"},
@@ -108,6 +132,7 @@ async def _flush_or_conflict(db: AsyncSession) -> None:
 )
 async def list_entities(
     db: DBSession,
+    today: Today,
     *,
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Items per page"),
@@ -122,6 +147,7 @@ async def list_entities(
 
     Args:
         db (DBSession): Database session.
+        today (Today): Injected UTC date for the compliance summary.
         page (int): Page number (1-indexed).
         size (int): Number of items per page.
         search (str | None): Optional search string for legal name or EIN.
@@ -164,7 +190,7 @@ async def list_entities(
     pages = (total + size - 1) // size if total > 0 else 1
 
     return EntityListResponse(
-        items=[EntityResponse.model_validate(e) for e in entities],
+        items=[_to_response(e, today) for e in entities],
         total=total,
         page=page,
         size=size,
@@ -191,12 +217,14 @@ async def list_entities(
 )
 async def create_entity(
     db: DBSession,
+    today: Today,
     entity_in: EntityCreate,
 ) -> EntityResponse:
     """Create a new entity.
 
     Args:
         db (DBSession): Database session.
+        today (Today): Injected UTC date for the compliance summary.
         entity_in (EntityCreate): Entity creation data.
 
     Returns:
@@ -222,7 +250,7 @@ async def create_entity(
     await _flush_or_conflict(db)
     await db.refresh(entity)
 
-    return EntityResponse.model_validate(entity)
+    return _to_response(entity, today)
 
 
 @router.get(
@@ -230,7 +258,10 @@ async def create_entity(
     response_model=EntityResponse,
     status_code=status.HTTP_200_OK,
     summary="Get entity by ID",
-    description="Fetch a single entity by its UUID. Soft-deleted entities are not returned.",
+    description=(
+        "Fetch a single entity by its UUID, including the read-only "
+        "`compliance` summary. Soft-deleted entities are not returned."
+    ),
     responses={
         200: {"description": "Entity retrieved"},
         404: {"description": "Entity not found"},
@@ -238,12 +269,14 @@ async def create_entity(
 )
 async def get_entity(
     db: DBSession,
+    today: Today,
     entity_id: UUID,
 ) -> EntityResponse:
     """Get an entity by ID.
 
     Args:
         db (DBSession): Database session.
+        today (Today): Injected UTC date for the compliance summary.
         entity_id (UUID): Entity UUID.
 
     Returns:
@@ -263,7 +296,7 @@ async def get_entity(
             detail=f"Entity with ID {entity_id} not found",
         )
 
-    return EntityResponse.model_validate(entity)
+    return _to_response(entity, today)
 
 
 def _personal_with_legal_fields(entity: Entity, entity_in: EntityUpdate) -> bool:
@@ -316,6 +349,7 @@ def _personal_with_legal_fields(entity: Entity, entity_in: EntityUpdate) -> bool
 )
 async def update_entity(
     db: DBSession,
+    today: Today,
     entity_id: UUID,
     entity_in: EntityUpdate,
 ) -> EntityResponse:
@@ -323,6 +357,7 @@ async def update_entity(
 
     Args:
         db (DBSession): Database session.
+        today (Today): Injected UTC date for the compliance summary.
         entity_id (UUID): Entity UUID.
         entity_in (EntityUpdate): Entity update data.
 
@@ -372,7 +407,7 @@ async def update_entity(
     await _flush_or_conflict(db)
     await db.refresh(entity)
 
-    return EntityResponse.model_validate(entity)
+    return _to_response(entity, today)
 
 
 @router.delete(
