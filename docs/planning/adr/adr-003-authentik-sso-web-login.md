@@ -96,6 +96,15 @@ nothing in `src/` implements it.
   default and hardened as described above.
 - The login throttle is process-local. With several replicas or workers the
   effective limit is the per-process limit times the process count.
+- The break-glass login has a global budget of 20 failures per 15 minutes
+  across all clients, on top of the per-client limit (IPv6 keyed by /64). While
+  it is exhausted every attempt gets 429, including the real operator. This
+  trades break-glass availability during an active attack for confidentiality
+  of the financial data: a distributed guesser cannot multiply the per-client
+  limit by the number of addresses it controls. The budget is also per process.
+- A break-glass session is bound to the configured password hash, so disabling
+  break-glass or rotating the hash signs it out; other sessions still cannot be
+  revoked before expiry.
 - Group renames in Authentik silently change access unless the setting is
   updated. The setup guide records the expected names.
 
