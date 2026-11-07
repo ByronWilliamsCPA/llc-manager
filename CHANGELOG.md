@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `feat(auth)`: settings and validators for browser sign-in through Authentik
+  (ADR-003): `public_base_url`, `authentik_client_id`,
+  `authentik_client_secret`, `authentik_groups_claim`, `admin_group`,
+  `viewer_group`, `session_max_age_seconds`, `local_admin_enabled`,
+  `local_admin_password_hash`, `trusted_proxy_ips`, and `auth_dev_mode`.
+  Setting the client ID or secret requires the issuer, both credentials, and
+  `public_base_url` together; the break-glass switch needs an argon2 hash; dev
+  mode is refused outside development, local, and test environments.
+  `authlib`, `itsdangerous`, and `argon2-cffi` are now runtime dependencies.
+  No route behavior changes yet, and a host that sets none of the new
+  settings starts as before.
 - `feat(cli)`: `import_documents --dry-run` (alias of `--validate-only`) prints one
   status line per manifest row and also checks that each file is readable and
   that no two rows hold identical bytes (SHA-256); it never touches the
@@ -235,6 +246,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- `refactor(auth)`: removed the unused `authentik_jwks_url` and
+  `authentik_audience` settings. They implied bearer-JWT validation on
+  `/api/v1`, which is not planned; the service API keeps `X-API-Key` (ADR-003).
 - `scripts/generate-client.sh` -- React frontend artefact superseded by HTMX
   migration (NEW-004)
 - Orphan license files under `LICENSES/` that no file in the tree
