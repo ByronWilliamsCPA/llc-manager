@@ -4,9 +4,11 @@ Settings are loaded from environment variables with the prefix 'LLC_MANAGER_'.
 Pydantic-settings handles the parsing and validation.
 """
 
+import ipaddress
 import os
 from pathlib import Path
-from typing import ClassVar, Literal
+from typing import Annotated, ClassVar, Literal
+from urllib.parse import urlsplit
 
 from pydantic import (
     AliasChoices,
@@ -17,7 +19,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from llc_manager.core.exceptions import ConfigurationError
 
@@ -82,9 +84,26 @@ class Settings(BaseSettings):
         cors_origins (list[str]): List of allowed CORS origins.
         secret_key (str): Secret key for signing tokens.
         access_token_expire_minutes (int): Token expiration time in minutes.
-        authentik_issuer (str | None): Authentik OIDC issuer URL.
-        authentik_jwks_url (str | None): Authentik JWKS endpoint URL.
-        authentik_audience (str | None): Authentik token audience.
+        public_base_url (str | None): Public ``https://`` origin of the app,
+            for example ``https://llc.example.com``. OIDC redirect URIs are
+            built from it, never from request headers.
+        authentik_issuer (str | None): Authentik OIDC issuer URL, typically
+            ``https://<authentik-host>/application/o/<slug>/``.
+        authentik_client_id (str | None): OAuth2 client ID of the Authentik
+            provider.
+        authentik_client_secret (SecretStr | None): OAuth2 client secret.
+        authentik_groups_claim (str): ID token claim that holds group names.
+        admin_group (str): Group name that maps to the admin role.
+        viewer_group (str): Group name that maps to the viewer role.
+        session_max_age_seconds (int): Absolute lifetime of a browser session.
+        local_admin_enabled (bool): Switch for the break-glass admin login.
+        local_admin_password_hash (SecretStr | None): Argon2 hash of the
+            break-glass password. Never a plaintext password.
+        trusted_proxy_ips (Annotated[list[str], NoDecode]): Comma-separated IP
+            addresses or CIDR networks of reverse proxies whose forwarded
+            headers are trusted.
+        auth_dev_mode (bool): Sign in as a fixed admin without Authentik.
+            Refused outside development, local, and test environments.
         api_key (SecretStr | None): Shared key that callers of ``/api/v1``
             send in the ``X-API-Key`` header. Read from
             ``LLC_MANAGER_API_KEY`` or, if that is unset,
@@ -133,14 +152,26 @@ class Settings(BaseSettings):
     secret_key: str = _DEFAULT_SECRET_KEY_PLACEHOLDER
     access_token_expire_minutes: int = 30
 
-    # Authentik OIDC integration (placeholder - not yet wired into endpoints).
-    # When set, a future per-user check in core/auth.py will validate
-    # Authorization: Bearer JWTs against Authentik's JWKS. core/auth.py
-    # currently holds only the interim API-key check. See SECURITY-FINDINGS.md
-    # A01-1.
+    # Browser login through Authentik OIDC (see ADR-003). /api/v1 keeps the
+    # X-API-Key check in core/auth.py; these settings only drive the web UI.
+    public_base_url: str | None = None
     authentik_issuer: str | None = None
-    authentik_jwks_url: str | None = None
-    authentik_audience: str | None = None
+    authentik_client_id: str | None = None
+    authentik_client_secret: SecretStr | None = None
+    authentik_groups_claim: str = Field(default="groups", min_length=1)
+    admin_group: str = Field(default="llc-manager-admins", min_length=1)
+    viewer_group: str = Field(default="llc-manager-viewers", min_length=1)
+    session_max_age_seconds: int = Field(default=28800, gt=0)
+
+    # Break-glass local admin login, off by default.
+    local_admin_enabled: bool = False
+    local_admin_password_hash: SecretStr | None = None
+
+    # Reverse proxies whose X-Forwarded-* headers are trusted.
+    trusted_proxy_ips: Annotated[list[str], NoDecode] = Field(default_factory=list)
+
+    # Fixed admin user, no Authentik. Refused outside development.
+    auth_dev_mode: bool = False
 
     # Inbound service authentication for /api/v1 (see core/auth.py). An explicit
     # validation alias bypasses env_prefix, so both full names are listed; the
@@ -244,6 +275,249 @@ class Settings(BaseSettings):
             "characters outside development, local, and test environments."
         )
         raise ConfigurationError(message, details={"config_key": "secret_key"})
+
+    @field_validator(
+        "public_base_url",
+        "authentik_issuer",
+        "authentik_client_id",
+        "authentik_client_secret",
+        "local_admin_password_hash",
+        mode="before",
+    )
+    @classmethod
+    def _blank_auth_value_is_unset(cls, value: object) -> object:
+        """Treat a blank auth setting as unset.
+
+        An empty value (for example ``LLC_MANAGER_AUTHENTIK_ISSUER=`` in an env
+        file) must behave like no value at all.
+
+        Args:
+            value (object): The raw value.
+
+        Returns:
+            object: None for a blank string, else the value unchanged.
+        """
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("public_base_url", mode="after")
+    @classmethod
+    def _normalize_public_base_url(cls, value: str | None) -> str | None:
+        """Require a bare http(s) origin and strip any trailing slash.
+
+        Args:
+            value (str | None): The configured URL.
+
+        Returns:
+            str | None: The origin without a trailing slash, or None.
+
+        Raises:
+            ConfigurationError: If the value is not a bare ``http://`` or
+                ``https://`` origin.
+        """
+        if value is None:
+            return None
+        parts = urlsplit(value.strip())
+        is_origin = (
+            parts.scheme in {"http", "https"}
+            and bool(parts.hostname)
+            and parts.path in {"", "/"}
+            and not parts.query
+            and not parts.fragment
+        )
+        if not is_origin:
+            message = (
+                "LLC_MANAGER_PUBLIC_BASE_URL must be a bare http(s) origin such "
+                "as https://llc.example.com (no path, query, or fragment)."
+            )
+            raise ConfigurationError(message, details={"config_key": "public_base_url"})
+        return f"{parts.scheme}://{parts.netloc}"
+
+    @field_validator("local_admin_password_hash", mode="after")
+    @classmethod
+    def _require_argon2_hash(cls, value: SecretStr | None) -> SecretStr | None:
+        """Reject a break-glass value that is not an argon2 hash.
+
+        Args:
+            value (SecretStr | None): The configured hash.
+
+        Returns:
+            SecretStr | None: The value, unchanged.
+
+        Raises:
+            ConfigurationError: If the value does not start with ``$argon2``.
+        """
+        if value is not None and not value.get_secret_value().startswith("$argon2"):
+            message = (
+                "LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH must be an argon2 hash "
+                "(it starts with $argon2). Never set a plaintext password."
+            )
+            raise ConfigurationError(
+                message, details={"config_key": "local_admin_password_hash"}
+            )
+        return value
+
+    @field_validator("trusted_proxy_ips", mode="before")
+    @classmethod
+    def _split_proxy_ips(cls, value: object) -> object:
+        """Accept a comma-separated string of proxy addresses.
+
+        Args:
+            value (object): The raw value.
+
+        Returns:
+            object: A list of stripped, non-empty items for a string, else the
+                value unchanged.
+        """
+        if isinstance(value, str):
+            return [part.strip() for part in value.split(",") if part.strip()]
+        return value
+
+    @field_validator("trusted_proxy_ips", mode="after")
+    @classmethod
+    def _check_proxy_ips(cls, value: list[str]) -> list[str]:
+        """Require every entry to be an IP address or a CIDR network.
+
+        Args:
+            value (list[str]): The configured entries.
+
+        Returns:
+            list[str]: The entries, unchanged.
+
+        Raises:
+            ConfigurationError: If an entry is not an IP address or network.
+        """
+        for entry in value:
+            try:
+                ipaddress.ip_network(entry, strict=False)
+            except ValueError as exc:
+                message = (
+                    "LLC_MANAGER_TRUSTED_PROXY_IPS entries must be IP addresses "
+                    f"or CIDR networks; got {entry!r}."
+                )
+                raise ConfigurationError(
+                    message, details={"config_key": "trusted_proxy_ips"}
+                ) from exc
+        return value
+
+    @property
+    def oidc_configured(self) -> bool:
+        """Whether every setting that browser OIDC login needs is present."""
+        return (
+            self.authentik_issuer is not None
+            and self.authentik_client_id is not None
+            and self.authentik_client_secret is not None
+            and self.public_base_url is not None
+        )
+
+    @property
+    def _oidc_intended(self) -> bool:
+        """Whether a setting that only the browser login uses has been set.
+
+        ``authentik_issuer`` is deliberately not counted. It existed before
+        browser login as a standalone placeholder, so a host that sets only the
+        issuer must keep starting until the gate ships.
+        """
+        return (
+            self.authentik_client_id is not None
+            or self.authentik_client_secret is not None
+        )
+
+    @model_validator(mode="after")
+    def _enforce_oidc_settings_are_complete(self) -> "Settings":
+        """Reject a partly configured OIDC login.
+
+        Setting the client ID or the client secret means the issuer, the other
+        credential, and ``public_base_url`` must be set too. Setting neither
+        leaves OIDC login unconfigured and is valid, whatever the issuer is.
+
+        Returns:
+            Settings: The validated settings.
+
+        Raises:
+            ConfigurationError: If OIDC login is intended but incomplete.
+        """
+        # #CRITICAL: startup - a host that sets none of the new client settings
+        # must keep starting exactly as before (PR 1 to 3 hard rule).
+        # #VERIFY: TestUnconfiguredProductionIsUnchanged in
+        # tests/unit/test_auth_settings.py.
+        if not self._oidc_intended or self.oidc_configured:
+            return self
+        message = (
+            "LLC_MANAGER_AUTHENTIK_ISSUER, LLC_MANAGER_AUTHENTIK_CLIENT_ID, "
+            "LLC_MANAGER_AUTHENTIK_CLIENT_SECRET, and LLC_MANAGER_PUBLIC_BASE_URL "
+            "must all be set together."
+        )
+        raise ConfigurationError(message, details={"config_key": "authentik_issuer"})
+
+    @model_validator(mode="after")
+    def _enforce_local_admin_needs_hash(self) -> "Settings":
+        """Reject an enabled break-glass login that has no password hash.
+
+        Returns:
+            Settings: The validated settings.
+
+        Raises:
+            ConfigurationError: If the login is enabled without a hash.
+        """
+        if self.local_admin_enabled and self.local_admin_password_hash is None:
+            message = (
+                "LLC_MANAGER_LOCAL_ADMIN_ENABLED requires "
+                "LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH."
+            )
+            raise ConfigurationError(
+                message, details={"config_key": "local_admin_password_hash"}
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _refuse_dev_mode_outside_development(self) -> "Settings":
+        """Block startup when the dev-mode login is on in a non-dev environment.
+
+        Returns:
+            Settings: The validated settings.
+
+        Raises:
+            ConfigurationError: If ``auth_dev_mode`` is true outside
+                development, local, and test environments.
+        """
+        # #CRITICAL: Security - dev mode signs everyone in as admin.
+        # #VERIFY: tests/unit/test_auth_settings.py covers production refusal.
+        if self.auth_dev_mode and not _is_development_environment():
+            message = (
+                "LLC_MANAGER_AUTH_DEV_MODE must not be enabled outside "
+                "development, local, and test environments."
+            )
+            raise ConfigurationError(message, details={"config_key": "auth_dev_mode"})
+        return self
+
+    @model_validator(mode="after")
+    def _require_https_outside_development(self) -> "Settings":
+        """Require https for the public URL, and the issuer once login is intended.
+
+        Returns:
+            Settings: The validated settings.
+
+        Raises:
+            ConfigurationError: If a configured URL is not ``https://`` outside
+                development, local, and test environments.
+        """
+        if _is_development_environment():
+            return self
+        # The issuer is only checked once browser login is intended; see
+        # ``_oidc_intended``.
+        checked = [("public_base_url", self.public_base_url)]
+        if self._oidc_intended:
+            checked.append(("authentik_issuer", self.authentik_issuer))
+        for key, value in checked:
+            if value is not None and not value.startswith("https://"):
+                message = (
+                    f"LLC_MANAGER_{key.upper()} must start with https:// outside "
+                    "development, local, and test environments."
+                )
+                raise ConfigurationError(message, details={"config_key": key})
+        return self
 
     @computed_field  # type: ignore[prop-decorator]  # Pydantic pattern: decorator composition confuses pyright
     @property

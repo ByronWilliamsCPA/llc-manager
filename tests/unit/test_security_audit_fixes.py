@@ -61,23 +61,26 @@ class TestAuthentikConfigPlaceholders:
     def test_authentik_fields_default_none(self) -> None:
         settings = Settings()
         assert settings.authentik_issuer is None
-        assert settings.authentik_jwks_url is None
-        assert settings.authentik_audience is None
+        assert settings.authentik_client_id is None
+        assert settings.authentik_client_secret is None
+        assert not hasattr(settings, "authentik_jwks_url")
+        assert not hasattr(settings, "authentik_audience")
 
     @pytest.mark.unit
     def test_authentik_fields_loadable_from_env(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_PUBLIC_BASE_URL", "https://llc.example.com")
         monkeypatch.setenv("LLC_MANAGER_AUTHENTIK_ISSUER", "https://auth.example.com")
-        monkeypatch.setenv(
-            "LLC_MANAGER_AUTHENTIK_JWKS_URL",
-            "https://auth.example.com/jwks/",
-        )
-        monkeypatch.setenv("LLC_MANAGER_AUTHENTIK_AUDIENCE", "llc-manager-api")
+        monkeypatch.setenv("LLC_MANAGER_AUTHENTIK_CLIENT_ID", "llc-manager")
+        monkeypatch.setenv("LLC_MANAGER_AUTHENTIK_CLIENT_SECRET", "not-a-real-secret")
         settings = Settings()
         assert settings.authentik_issuer == "https://auth.example.com"
-        assert settings.authentik_jwks_url == "https://auth.example.com/jwks/"
-        assert settings.authentik_audience == "llc-manager-api"
+        assert settings.authentik_client_id == "llc-manager"
+        assert settings.authentik_client_secret is not None
+        assert settings.authentik_client_secret.get_secret_value() == (
+            "not-a-real-secret"
+        )
 
 
 class TestCacheControlOnApiResponses:
