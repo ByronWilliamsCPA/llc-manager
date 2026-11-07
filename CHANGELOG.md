@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `feat(auth)`: Authentik OIDC sign-in (authorization code with PKCE) at
+  `/auth/login`, `/auth/callback`, and `/auth/logout`, with a signed-cookie
+  session (`llc_session`), admin and viewer roles from group membership, a
+  per-session CSRF token, and a dev mode (`auth_dev_mode`). The gates
+  (`require_user`, `require_admin`, `verify_csrf`) are implemented and tested
+  but not yet attached to the web routes, so no page behaves differently. With
+  no sign-in settings, `/auth/login` answers 503.
 - `feat(auth)`: settings and validators for browser sign-in through Authentik
   (ADR-003): `public_base_url`, `authentik_client_id`,
   `authentik_client_secret`, `authentik_groups_claim`, `admin_group`,
