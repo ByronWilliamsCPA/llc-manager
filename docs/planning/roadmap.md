@@ -19,30 +19,30 @@ Phase 3: LLM Integration ░░░░░░░░░░░░░░░░ (Futur
 
 | Milestone                 | Target | Status         | Dependencies |
 | ------------------------- | ------ | -------------- | ------------ |
-| M0: Dev Environment Ready | Week 1 | ⏸️ Planned     | None         |
-| M0.5: Excel Data Import   | Week 1 | ⏸️ Planned     | M0           |
+| M0: Dev Environment Ready | Week 1 | ✅ Complete    | None         |
+| M0.5: Excel Data Import   | Week 1 | 🚧 In progress | M0           |
 | M1: Authentik SSO Working | Week 2 | 🚧 In progress | M0           |
-| M2: Entity Dashboard      | Week 3 | ⏸️ Planned     | M1           |
-| M3: Entity Detail View    | Week 3 | ⏸️ Planned     | M2           |
-| M4: Entity CRUD           | Week 4 | ⏸️ Planned     | M3           |
+| M2: Entity Dashboard      | Week 3 | 🚧 In progress | M1           |
+| M3: Entity Detail View    | Week 3 | 🚧 In progress | M2           |
+| M4: Entity CRUD           | Week 4 | 🚧 In progress | M3           |
 | M5: Compliance Dashboard  | Week 5 | ⏸️ Planned     | M4           |
 | M6: Apprise Notifications | Week 6 | ⏸️ Planned     | M5           |
-| M7: Docker Deployment     | Week 6 | ⏸️ Planned     | M6           |
+| M7: Docker Deployment     | Week 6 | 🚧 In progress | M6           |
 
 Numbering follows [PROJECT-PLAN.md](./PROJECT-PLAN.md), which is the source of
-truth for milestone scope and branches. M1 is implemented and tested against a
-fake OIDC provider; it stays in progress until the live Authentik checks in
-[the setup guide](../guides/authentik-setup.md) pass.
+truth for milestone scope and branches. M1 code is complete: Authentik OIDC
+sign-in, roles, CSRF, and the break-glass login are implemented and tested
+against a fake OIDC provider (see
+[ADR-003](./adr/adr-003-authentik-sso-web-login.md)). M1 stays in progress
+until the operator creates the Authentik application and groups, the live
+sign-in checks in [the setup guide](../guides/authentik-setup.md) pass, and the
+gate is enabled in production.
 
-------------------------- | ------ | ---------- | ------------ |
-| M0: Dev Environment Ready | Week 1 | ⏸️ Planned | None         |
-| M1: Database & Migrations | Week 1 | ⏸️ Planned | M0           |
-| M2: Authentik SSO Working | Week 2 | ⏸️ Planned | M1           |
-| M3: Entity CRUD Complete  | Week 3 | ⏸️ Planned | M2           |
-| M4: Dashboard & Search    | Week 4 | ⏸️ Planned | M3           |
-| M5: Compliance Calendar   | Week 5 | ⏸️ Planned | M4           |
-| M6: Apprise Notifications | Week 6 | ⏸️ Planned | M5           |
-| M7: Docker Deployment     | Week 6 | ⏸️ Planned | M6           |
+Other in-progress rows are partly built: M0.5 has the import tooling and runbook
+but no reconciliation or timing check yet; M2 has the searchable entity list;
+M3 shows core entity fields only; M4 has the admin edit form and route guards
+but no create form, related-record editing, or UI soft delete; M7 has the
+Dockerfile, GHCR publish workflow, and health endpoints but no Portainer guide.
 
 ---
 
@@ -54,11 +54,11 @@ Establish development environment, database schema, and CI/CD pipeline.
 
 ### Phase 0 Deliverables
 
-- [ ] Development environment documented and working
-- [ ] Database migrations created from existing models
-- [ ] CI/CD pipeline configured (lint, type-check, test)
-- [ ] Docker development setup working
-- [ ] Pre-commit hooks installed
+- [x] Development environment documented and working
+- [x] Database migrations created from existing models
+- [x] CI/CD pipeline configured (lint, type-check, test)
+- [x] Docker development setup working
+- [x] Pre-commit hooks installed
 
 ### Phase 0 Success Criteria
 
@@ -71,11 +71,11 @@ Establish development environment, database schema, and CI/CD pipeline.
 
 | Task                                           | Branch                    | Status |
 | ---------------------------------------------- | ------------------------- | ------ |
-| Configure Alembic and create initial migration | `feat/phase-0-alembic`    | ⏸️     |
-| Add asyncpg and SQLAlchemy async session       | `feat/phase-0-db-async`   | ⏸️     |
-| Create docker-compose.yml for local dev        | `feat/phase-0-docker-dev` | ⏸️     |
-| Configure GitHub Actions CI workflow           | `feat/phase-0-ci`         | ⏸️     |
-| Write local development guide                  | `docs/local-dev-guide`    | ⏸️     |
+| Configure Alembic and create initial migration | `feat/phase-0-alembic`    | ✅     |
+| Add asyncpg and SQLAlchemy async session       | `feat/phase-0-db-async`   | ✅     |
+| Create docker-compose.yml for local dev        | `feat/phase-0-docker-dev` | ✅     |
+| Configure GitHub Actions CI workflow           | `feat/phase-0-ci`         | ✅     |
+| Write local development guide                  | `docs/local-dev-guide`    | ✅     |
 
 ---
 
@@ -87,10 +87,10 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 
 ### Phase 1 Deliverables
 
-- [ ] Authentik OIDC authentication working (implemented; live Authentik check pending)
-- [ ] Entity list view with search/filter
-- [ ] Entity detail view with all related data
-- [ ] Entity create/edit forms (Admin role)
+- [ ] Authentik OIDC authentication working (code complete and tested against a fake provider; pending operator setup and a live check, see [the setup guide](../guides/authentik-setup.md))
+- [x] Entity list view with search/filter (search by name, EIN, or DBA)
+- [ ] Entity detail view with all related data (core entity fields only; related data pending)
+- [ ] Entity create/edit forms (Admin role) (edit form shipped; create form pending)
 - [x] Role-based access control (Admin vs Viewer)
 
 ### Phase 1 Success Criteria
@@ -111,8 +111,8 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 
 **Acceptance Criteria**:
 
-- [ ] Login redirects to Authentik (tested against a fake provider; live check pending)
-- [ ] Successful auth creates session (tested against a fake provider; live check pending)
+- [x] Login redirects to Authentik (tested against a fake provider; live check pending operator setup, see [the setup guide](../guides/authentik-setup.md))
+- [x] Successful auth creates session (tested against a fake provider; live check pending operator setup, see [the setup guide](../guides/authentik-setup.md))
 - [x] Logout clears session and redirects
 - [x] Unauthenticated users redirected to login
 
@@ -136,16 +136,16 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 - [ ] Dashboard shows entity name, EIN (masked), formation state
 - [ ] Search filters by name, EIN, address
 - [ ] Sort by name, formation date, active status
-- [ ] HTMX enables filtering without full page reload
+- [x] HTMX enables filtering without full page reload
 
 **Tasks**:
 
 | Task                                   | Branch                     | Status |
 | -------------------------------------- | -------------------------- | ------ |
-| Create base Jinja2 templates with HTMX | `feat/phase-1-templates`   | ⏸️     |
-| Implement entity list router           | `feat/phase-1-entity-list` | ⏸️     |
-| Add search/filter functionality        | `feat/phase-1-search`      | ⏸️     |
-| Style with Tailwind CSS                | `feat/phase-1-styling`     | ⏸️     |
+| Create base Jinja2 templates with HTMX | `feat/phase-1-templates`   | ✅     |
+| Implement entity list router           | `feat/phase-1-entity-list` | ✅     |
+| Add search/filter functionality        | `feat/phase-1-search`      | ✅     |
+| Style with Tailwind CSS                | `feat/phase-1-styling`     | ✅     |
 
 #### US-003: Entity Detail View
 
@@ -155,7 +155,7 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 
 **Acceptance Criteria**:
 
-- [ ] Shows all entity fields (legal name, DBAs, EIN, addresses)
+- [x] Shows all entity fields (legal name, DBAs, EIN, addresses)
 - [ ] Displays owners with percentages
 - [ ] Lists state registrations with renewal dates
 - [ ] Shows registered agent information
@@ -167,7 +167,7 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 
 | Task                                        | Branch                        | Status |
 | ------------------------------------------- | ----------------------------- | ------ |
-| Create entity detail template               | `feat/phase-1-entity-detail`  | ⏸️     |
+| Create entity detail template               | `feat/phase-1-entity-detail`  | ✅     |
 | Implement entity service with eager loading | `feat/phase-1-entity-service` | ⏸️     |
 | Add collapsible sections for related data   | `feat/phase-1-detail-ui`      | ⏸️     |
 
@@ -180,7 +180,7 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 **Acceptance Criteria**:
 
 - [ ] Create entity form with validation
-- [ ] Edit entity with inline HTMX updates
+- [x] Edit entity with inline HTMX updates
 - [ ] Add/remove owners, registrations, bank accounts
 - [ ] Soft delete entities (mark inactive)
 
@@ -191,7 +191,7 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 | Create entity forms with Pydantic validation | `feat/phase-1-entity-forms` | ⏸️     |
 | Implement create/update routes               | `feat/phase-1-entity-crud`  | ⏸️     |
 | Add inline editing for related entities      | `feat/phase-1-inline-edit`  | ⏸️     |
-| Implement admin-only route guards            | `feat/phase-1-admin-guards` | ⏸️     |
+| Implement admin-only route guards            | `feat/phase-1-admin-guards` | ✅     |
 
 ---
 
@@ -259,17 +259,17 @@ Add compliance calendar showing upcoming deadlines with Apprise notifications.
 
 **Acceptance Criteria**:
 
-- [ ] Dockerfile builds optimized image with health check
+- [x] Dockerfile builds optimized image with health check
 - [ ] GitHub Actions pushes to ghcr.io; Portainer guide documented
 
 **Tasks**:
 
 | Task                             | Branch                    | Status |
 | -------------------------------- | ------------------------- | ------ |
-| Create production Dockerfile     | `feat/phase-2-dockerfile` | ⏸️     |
-| Configure GHCR publish workflow  | `feat/phase-2-ghcr`       | ⏸️     |
+| Create production Dockerfile     | `feat/phase-2-dockerfile` | ✅     |
+| Configure GHCR publish workflow  | `feat/phase-2-ghcr`       | ✅     |
 | Write Portainer deployment guide | `docs/portainer-deploy`   | ⏸️     |
-| Add health check endpoint        | `feat/phase-2-health`     | ⏸️     |
+| Add health check endpoint        | `feat/phase-2-health`     | ✅     |
 
 ---
 
