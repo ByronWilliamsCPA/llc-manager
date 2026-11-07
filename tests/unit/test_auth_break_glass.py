@@ -1,5 +1,8 @@
 """Tests for the break-glass login at /auth/local-login."""
 
+import asyncio
+import threading
+import time
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, cast
 
@@ -11,6 +14,7 @@ from pydantic import SecretStr
 
 from llc_manager.auth import routes
 from llc_manager.auth.session import SESSION_COOKIE
+from llc_manager.auth.throttle import GLOBAL_MAX_FAILURES
 from llc_manager.core.config import settings
 from llc_manager.main import create_app
 from tests.auth_helpers import decode_session_cookie, session_cookie_value
@@ -185,6 +189,28 @@ class TestEnabled:
         assert response.status_code == 403
         assert "user" not in _session(client)
 
+    def test_an_over_long_password_is_refused_without_hashing(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        token = _token(client)
+        hashed: list[str] = []
+        real = routes._verify
+        monkeypatch.setattr(
+            routes,
+            "_verify",
+            lambda stored, password: hashed.append(password) or real(stored, password),
+        )
+
+        response = _submit(client, "x" * 1025, token)
+
+        assert response.status_code == 422
+        assert hashed == []
+
+    def test_a_password_at_the_limit_is_still_checked(self, client: TestClient) -> None:
+        response = _submit(client, "x" * 1024, _token(client))
+
+        assert response.status_code == 401
+
     def test_corrupt_stored_hash_fails_closed(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -246,6 +272,62 @@ class TestVerificationPath:
         _submit(client, "wrong", _token(client))
 
         assert seen == [1]
+
+
+@pytest.mark.usefixtures("enabled")
+class TestVerificationIsSerialized:
+    """Each argon2 check allocates 64 MiB; the container limit is 512 MiB."""
+
+    def test_concurrent_verifications_never_overlap(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lock = threading.Lock()
+        active = 0
+        peak = 0
+
+        def slow_verify(_stored: str, _password: str) -> bool:
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            time.sleep(0.05)
+            with lock:
+                active -= 1
+            return False
+
+        monkeypatch.setattr(routes, "_verify", slow_verify)
+
+        async def run() -> list[bool]:
+            return await asyncio.gather(
+                *(routes._password_matches("pw") for _ in range(6))
+            )
+
+        results = asyncio.run(run())
+
+        assert results == [False] * 6
+        assert peak == 1
+
+    def test_the_limiter_is_released_after_a_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls = 0
+
+        def boom(_stored: str, _password: str) -> bool:
+            nonlocal calls
+            calls += 1
+            message = "verification crashed"
+            raise RuntimeError(message)
+
+        monkeypatch.setattr(routes, "_verify", boom)
+
+        async def run() -> None:
+            for _ in range(2):
+                with pytest.raises(RuntimeError):
+                    await routes._password_matches("pw")
+
+        asyncio.run(run())
+
+        assert calls == 2
 
 
 @pytest.mark.usefixtures("enabled")
@@ -320,6 +402,182 @@ class TestRateLimit:
                 assert _submit(first, "wrong", token_first).status_code == 401
             assert throttle.is_blocked("10.0.0.1")
             assert _submit(first, PASSWORD, token_first).status_code == 429
+
+
+def _client_at(app: "FastAPI", host: str) -> TestClient:
+    return TestClient(app, base_url=BASE_URL, follow_redirects=False, client=(host, 1))
+
+
+def _fail_from(app: "FastAPI", host: str, times: int) -> TestClient:
+    """Fail ``times`` attempts from ``host`` and return that client."""
+    client = _client_at(app, host)
+    token = _token(client)
+    for _ in range(times):
+        assert _submit(client, "wrong", token).status_code == 401
+    return client
+
+
+@pytest.mark.usefixtures("enabled")
+class TestClientKeys:
+    def test_one_ipv6_slash_64_shares_a_budget(self) -> None:
+        app = create_app()
+        _fail_from(app, "2001:db8:1:2::1", 5)
+
+        other = _client_at(app, "2001:db8:1:2::ffff")
+        response = _submit(other, PASSWORD, _token(other))
+
+        assert response.status_code == 429
+
+    def test_other_ipv6_networks_are_not_affected(self) -> None:
+        app = create_app()
+        _fail_from(app, "2001:db8:1:2::1", 5)
+
+        other = _client_at(app, "2001:db8:1:3::1")
+
+        assert _submit(other, PASSWORD, _token(other)).status_code == 303
+
+    def test_an_ipv4_mapped_address_shares_the_ipv4_budget(self) -> None:
+        app = create_app()
+        _fail_from(app, "203.0.113.9", 5)
+
+        mapped = _client_at(app, "::ffff:203.0.113.9")
+
+        assert _submit(mapped, PASSWORD, _token(mapped)).status_code == 429
+
+
+@pytest.mark.usefixtures("enabled")
+class TestGlobalBudget:
+    """20 failures per 15 minutes across all clients, then everyone gets 429."""
+
+    def test_four_clients_exhaust_the_budget_for_everyone(self) -> None:
+        app = create_app()
+        for index in range(4):
+            _fail_from(app, f"10.0.1.{index}", 5)
+
+        fresh = _client_at(app, "10.0.2.1")
+        response = _submit(fresh, PASSWORD, _token(fresh))
+
+        assert response.status_code == 429
+        assert int(response.headers["retry-after"]) > 0
+        assert "user" not in decode_session_cookie(
+            settings.secret_key, fresh.cookies[SESSION_COOKIE]
+        )
+
+    def test_nineteen_failures_leave_the_login_open(self) -> None:
+        app = create_app()
+        for index in range(3):
+            _fail_from(app, f"10.0.1.{index}", 5)
+        _fail_from(app, "10.0.1.9", 4)
+
+        fresh = _client_at(app, "10.0.2.1")
+
+        assert _submit(fresh, PASSWORD, _token(fresh)).status_code == 303
+
+    def test_a_success_does_not_clear_the_global_budget(self) -> None:
+        app = create_app()
+        for index in range(3):
+            _fail_from(app, f"10.0.1.{index}", 5)
+        _fail_from(app, "10.0.1.9", 4)
+        ok = _client_at(app, "10.0.2.1")
+        assert _submit(ok, PASSWORD, _token(ok)).status_code == 303
+
+        _fail_from(app, "10.0.1.10", 1)  # the 20th failure
+
+        other = _client_at(app, "10.0.2.2")
+        assert _submit(other, PASSWORD, _token(other)).status_code == 429
+
+    def test_a_success_does_not_use_up_a_global_slot(self) -> None:
+        app = create_app()
+        for index in range(3):
+            _fail_from(app, f"10.0.1.{index}", 5)
+        _fail_from(app, "10.0.1.9", 3)  # 18 failures
+        for host in ("10.0.2.1", "10.0.2.2"):
+            ok = _client_at(app, host)
+            assert _submit(ok, PASSWORD, _token(ok)).status_code == 303
+
+        # 18 failures plus two successes: still one failure short of the limit.
+        _fail_from(app, "10.0.1.10", 1)
+        last = _client_at(app, "10.0.2.3")
+
+        assert _submit(last, PASSWORD, _token(last)).status_code == 303
+
+    def test_the_global_block_is_logged_with_its_scope(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        app = create_app()
+        for index in range(4):
+            _fail_from(app, f"10.0.1.{index}", 5)
+        fresh = _client_at(app, "10.0.2.1")
+        token = _token(fresh)
+        caplog.set_level("WARNING")
+
+        _submit(fresh, "wrong", token)
+
+        assert "local_login_throttled" in caplog.text
+        assert "global" in caplog.text
+
+
+@pytest.mark.usefixtures("enabled")
+class TestGlobalBudgetIsReservedAtAdmission:
+    """Slow verification must not let a burst slip past the global limit."""
+
+    def test_requests_over_the_limit_are_refused_while_verification_is_paused(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = create_app()
+        total = GLOBAL_MAX_FAILURES + 5
+        status_codes: dict[int, int] = {}
+
+        async def run() -> None:
+            gate = asyncio.Event()
+
+            async def paused(_password: str) -> bool:
+                await gate.wait()
+                return False
+
+            monkeypatch.setattr(routes, "_password_matches", paused)
+            clients = [
+                httpx.AsyncClient(
+                    transport=httpx.ASGITransport(app=app, client=(f"10.0.3.{i}", 1)),
+                    base_url=BASE_URL,
+                )
+                for i in range(total)
+            ]
+            tokens: list[str] = []
+            for client in clients:
+                html = (await client.get("/auth/local-login")).text
+                marker = 'name="csrf_token" value="'
+                start = html.index(marker) + len(marker)
+                tokens.append(html[start : html.index('"', start)])
+
+            async def attempt(index: int) -> int:
+                response = await clients[index].post(
+                    "/auth/local-login",
+                    data={"password": "wrong", "csrf_token": tokens[index]},
+                )
+                return response.status_code
+
+            tasks = [asyncio.create_task(attempt(i)) for i in range(total)]
+            for _ in range(200):
+                if sum(task.done() for task in tasks) >= 5:
+                    break
+                await asyncio.sleep(0.025)
+            await asyncio.sleep(0.1)  # let any wrongly admitted request surface
+
+            # Verification has not completed for anyone: the gate is still shut.
+            assert not gate.is_set()
+            finished = [task.result() for task in tasks if task.done()]
+            assert finished == [429] * 5
+
+            gate.set()
+            for code in await asyncio.gather(*tasks):
+                status_codes[code] = status_codes.get(code, 0) + 1
+            for client in clients:
+                await client.aclose()
+
+        asyncio.run(run())
+
+        assert status_codes == {401: GLOBAL_MAX_FAILURES, 429: 5}
 
 
 @pytest.mark.usefixtures("enabled")

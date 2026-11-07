@@ -129,7 +129,7 @@ dev = [
 api = [
     "fastapi>=0.120.1",
     "jinja2>=3.1.0",  # Server-side HTML templates (HTMX UI)
-    "uvicorn[standard]>=0.23.0",
+    "uvicorn[standard]>=0.31.0",  # CIDR trusted proxies (ProxyHeadersMiddleware)
     "python-multipart>=0.0.18",
     "starlette>=0.49.1",
     "jinja2>=3.1.4",  # HTML templating for HTMX/Jinja2 frontend
@@ -143,6 +143,7 @@ api = [
     "itsdangerous>=2.2",  # Signs the Starlette session cookie
     "argon2-cffi>=25.1",  # Break-glass admin password hash
     "httpx>=0.28",  # HTTP client that authlib's Starlette integration uses
+    "anyio>=4.5",  # Serializes break-glass password hashing (CapacityLimiter)
 ]
 
 

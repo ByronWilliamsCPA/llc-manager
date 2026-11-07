@@ -1,12 +1,55 @@
 """Failure throttle for the break-glass login."""
 
+import ipaddress
 import time
 from collections import OrderedDict, deque
 from collections.abc import Callable
 
+# Per client: 5 failures per 15 minutes.
 DEFAULT_MAX_FAILURES = 5
 DEFAULT_WINDOW_SECONDS = 15 * 60
 DEFAULT_MAX_TRACKED = 10_000
+
+# Across all clients: 20 failures per 15 minutes, after which every attempt is
+# refused until the window slides. #CRITICAL: this deliberately trades
+# break-glass availability during an active attack for the confidentiality of
+# the financial data, because a distributed guesser would otherwise get 5
+# attempts per address it controls.
+# #VERIFY: tests/unit/test_auth_break_glass.py::TestGlobalBudget.
+GLOBAL_MAX_FAILURES = 20
+GLOBAL_WINDOW_SECONDS = 15 * 60
+GLOBAL_KEY = "*"
+
+_IPV6_PREFIX = 64
+
+
+def client_key(host: str) -> str:
+    """Normalize a client address into its throttle key.
+
+    IPv4-mapped IPv6 addresses count as the IPv4 address they wrap, and an IPv6
+    address counts as its ``/64`` network, because one subscriber normally
+    controls a whole ``/64`` and could otherwise rotate addresses freely. A value
+    that is not an IP address is returned unchanged.
+
+    Args:
+        host (str): The client address as seen after proxy handling.
+
+    Returns:
+        str: The key the failure counts are kept under.
+    """
+    # #EDGE: an attacker choosing addresses inside one /64 (or spelling the same
+    # address several ways) must not get a fresh budget each time.
+    # #VERIFY: tests/unit/test_auth_throttle.py::TestClientKey.
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped is not None:
+            return str(address.ipv4_mapped)
+        network = ipaddress.IPv6Network((address.packed, _IPV6_PREFIX), strict=False)
+        return str(network)
+    return str(address)
 
 
 class LoginThrottle:
@@ -106,6 +149,18 @@ class LoginThrottle:
         self._failures.move_to_end(key)
         while len(self._failures) > self._max_tracked:
             self._failures.popitem(last=False)
+
+    def forget_latest(self, key: str) -> None:
+        """Give back the most recent failure, such as a reserved attempt that won.
+
+        Args:
+            key (str): Client identifier.
+        """
+        failures = self._recent(key)
+        if failures:
+            failures.pop()
+        if not failures:
+            self._failures.pop(key, None)
 
     def reset(self, key: str) -> None:
         """Forget a client's failures, after a successful login.

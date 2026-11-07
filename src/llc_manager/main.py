@@ -16,7 +16,11 @@ from llc_manager.api.v1 import router as v1_router
 from llc_manager.auth.oidc import build_oidc_client
 from llc_manager.auth.routes import router as auth_router
 from llc_manager.auth.session import SESSION_COOKIE
-from llc_manager.auth.throttle import LoginThrottle
+from llc_manager.auth.throttle import (
+    GLOBAL_MAX_FAILURES,
+    GLOBAL_WINDOW_SECONDS,
+    LoginThrottle,
+)
 from llc_manager.core.config import settings
 from llc_manager.middleware.correlation import CorrelationMiddleware
 from llc_manager.middleware.security import (
@@ -73,6 +77,30 @@ def _session_cookie_is_secure() -> bool:
     if (settings.public_base_url or "").startswith("https://"):
         return True
     return not settings.explicit_development_environment
+
+
+def _warn_if_throttle_key_is_shared() -> None:
+    """Warn when the break-glass throttle cannot tell clients apart.
+
+    Behind a reverse proxy with no ``trusted_proxy_ips``, ``request.client`` is
+    the proxy for every request, so one throttle key covers all users.
+    """
+    # #ASSUME: a deployment outside an explicit development environment sits
+    # behind a reverse proxy (Traefik).
+    # #VERIFY: tests/unit/test_auth_proxy_trust.py::TestBreakGlassWithoutTrustedProxies.
+    if (
+        settings.local_admin_enabled
+        and not settings.explicit_development_environment
+        and not settings.trusted_proxy_ips
+    ):
+        logger.warning(
+            "break_glass_without_trusted_proxies",
+            effect=(
+                "behind a proxy all clients share one throttle key, so a few "
+                "failed attempts lock the break-glass login for everyone"
+            ),
+            fix="set LLC_MANAGER_TRUSTED_PROXY_IPS to the proxy address or network",
+        )
 
 
 def create_app() -> FastAPI:
@@ -149,6 +177,11 @@ def create_app() -> FastAPI:
     )
     app.state.oidc_client = build_oidc_client(settings)
     app.state.login_throttle = LoginThrottle()
+    app.state.global_login_throttle = LoginThrottle(
+        max_failures=GLOBAL_MAX_FAILURES,
+        window_seconds=GLOBAL_WINDOW_SECONDS,
+    )
+    _warn_if_throttle_key_is_shared()
 
     # Trust X-Forwarded-For and X-Forwarded-Proto only from the configured
     # proxies, so the client address (break-glass throttle, rate limiter) and

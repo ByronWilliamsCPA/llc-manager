@@ -12,6 +12,7 @@ from llc_manager.main import create_app
 
 pytestmark = [pytest.mark.unit, pytest.mark.security]
 
+_ARGON2_HASH = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1).hash("pw")
 FORWARDED = {"X-Forwarded-For": "203.0.113.9", "X-Forwarded-Proto": "https"}
 
 
@@ -158,3 +159,91 @@ def test_break_glass_ignores_a_spoofed_header_from_an_untrusted_peer(
     ]
 
     assert statuses == [401, 401, 401, 401, 401, 429]
+
+
+class TestBreakGlassWithoutTrustedProxies:
+    """Behind a proxy with no trusted list, every client shares one throttle key."""
+
+    EVENT = "break_glass_without_trusted_proxies"
+
+    @staticmethod
+    def _configure(
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        enabled: bool,
+        environment: str | None,
+        proxies: list[str],
+    ) -> None:
+        monkeypatch.setattr(settings, "local_admin_enabled", enabled)
+        monkeypatch.setattr(settings, "environment", environment)
+        monkeypatch.setattr(settings, "trusted_proxy_ips", proxies)
+
+    def test_warns_when_enabled_outside_development_without_proxies(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        self._configure(
+            monkeypatch,
+            enabled=True,
+            environment="production",
+            proxies=[],
+        )
+        monkeypatch.setattr(
+            settings, "local_admin_password_hash", SecretStr(_ARGON2_HASH)
+        )
+        caplog.set_level("WARNING")
+
+        create_app()
+
+        records = [r for r in caplog.records if self.EVENT in r.getMessage()]
+        assert len(records) == 1
+        assert records[0].levelname == "WARNING"
+        assert "share one throttle key" in caplog.text
+
+    def test_an_unset_environment_still_warns(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        self._configure(monkeypatch, enabled=True, environment=None, proxies=[])
+        monkeypatch.setattr(
+            settings, "local_admin_password_hash", SecretStr(_ARGON2_HASH)
+        )
+        caplog.set_level("WARNING")
+
+        create_app()
+
+        assert self.EVENT in caplog.text
+
+    @pytest.mark.parametrize(
+        ("enabled", "environment", "proxies"),
+        [
+            (True, "production", ["10.0.0.5"]),
+            (True, "development", []),
+            (False, "production", []),
+        ],
+    )
+    def test_stays_quiet_otherwise(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+        enabled: bool,
+        environment: str,
+        proxies: list[str],
+    ) -> None:
+        self._configure(
+            monkeypatch, enabled=enabled, environment=environment, proxies=proxies
+        )
+        monkeypatch.setattr(
+            settings, "local_admin_password_hash", SecretStr(_ARGON2_HASH)
+        )
+        caplog.set_level("WARNING")
+
+        create_app()
+
+        assert self.EVENT not in caplog.text
+
+    def test_the_app_still_starts(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._configure(monkeypatch, enabled=True, environment="production", proxies=[])
+        monkeypatch.setattr(
+            settings, "local_admin_password_hash", SecretStr(_ARGON2_HASH)
+        )
+
+        assert create_app() is not None

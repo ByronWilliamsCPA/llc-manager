@@ -63,7 +63,13 @@ def _login_target(request: Request) -> str:
     # is not an in-site path.
     # #VERIFY: test_hostile_hx_current_url_falls_back_to_default.
     if is_htmx(request):
-        current = urlsplit(request.headers.get("HX-Current-URL", ""))
+        try:
+            current = urlsplit(request.headers.get("HX-Current-URL", ""))
+        except ValueError:
+            # #EDGE: a malformed URL such as `http://[` makes urlsplit raise;
+            # the gate must still answer 401, not 500.
+            # #VERIFY: test_malformed_hx_current_url_still_answers_401.
+            return safe_next(None)
         candidate = current.path + (f"?{current.query}" if current.query else "")
         return safe_next(candidate)
     if request.method in {"GET", "HEAD"}:

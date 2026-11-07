@@ -46,6 +46,10 @@ def _build_app() -> FastAPI:
     ) -> dict[str, str]:
         return {"sub": user.sub}
 
+    @app.get("/read", dependencies=[Depends(verify_csrf)])
+    async def read() -> dict[str, bool]:
+        return {"read": True}
+
     @app.post("/change", dependencies=[Depends(verify_csrf)])
     async def change() -> dict[str, bool]:
         return {"changed": True}
@@ -105,6 +109,21 @@ class TestRequireUser:
             headers={"HX-Request": "true", "HX-Current-URL": "http://x//evil.example"},
         )
 
+        assert response.headers["hx-redirect"] == "/auth/login?next=%2Fentities"
+
+    @pytest.mark.parametrize(
+        "current_url",
+        ["http://[", "http://[::1", "http://[1/entities", "http://x:99999999"],
+    )
+    def test_malformed_hx_current_url_still_answers_401(
+        self, client: TestClient, current_url: str
+    ) -> None:
+        response = client.get(
+            "/page",
+            headers={"HX-Request": "true", "HX-Current-URL": current_url},
+        )
+
+        assert response.status_code == 401
         assert response.headers["hx-redirect"] == "/auth/login?next=%2Fentities"
 
     def test_non_get_request_does_not_remember_its_path(
@@ -167,6 +186,21 @@ class TestRequireAdmin:
 class TestVerifyCsrf:
     def test_safe_methods_need_no_token(self, client: TestClient) -> None:
         assert client.get("/page").status_code == 303  # gate, not CSRF
+
+    def test_get_is_exempt_even_without_a_session_or_token(
+        self, client: TestClient
+    ) -> None:
+        response = client.get("/read")
+
+        assert response.status_code == 200
+        assert response.json() == {"read": True}
+
+    def test_get_is_exempt_for_a_signed_in_user_without_a_token(
+        self, client: TestClient
+    ) -> None:
+        _sign_in(client)
+
+        assert client.get("/read").status_code == 200
 
     def test_header_token_is_accepted(self, client: TestClient) -> None:
         _sign_in(client)

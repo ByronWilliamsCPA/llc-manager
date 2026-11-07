@@ -6,12 +6,13 @@ import secrets
 from functools import cache
 from typing import Annotated, cast
 
+import anyio
+import anyio.to_thread
 import httpx
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from authlib.integrations.base_client import OAuthError
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from joserfc.errors import JoseError
 
@@ -26,7 +27,7 @@ from llc_manager.auth.oidc import (
 from llc_manager.auth.redirects import safe_next
 from llc_manager.auth.roles import Role, resolve_role
 from llc_manager.auth.session import SessionUser, csrf_token, store_user
-from llc_manager.auth.throttle import LoginThrottle
+from llc_manager.auth.throttle import GLOBAL_KEY, LoginThrottle, client_key
 from llc_manager.core.config import settings
 from llc_manager.core.templates import templates
 from llc_manager.middleware.correlation import get_correlation_id
@@ -41,7 +42,18 @@ _LOGIN_NEXT_KEY = "login_next"
 OidcDep = Annotated[OidcClient | None, Depends(get_oidc_client)]
 
 LOCAL_ADMIN_SUB = "local-admin"
+# Longer input is refused before any hashing: argon2 cost grows with input size.
+_MAX_PASSWORD_LENGTH = 1024
 _password_hasher = PasswordHasher()
+
+# #CRITICAL: one argon2 verification allocates 64 MiB with the default
+# parameters (more if the operator chose a costlier hash), and the production
+# container is limited to 512 MiB. Running them in the shared thread pool
+# (about 40 threads) would let a burst of attempts exhaust memory, so only one
+# verification runs at a time per process. Attempts are already counted per
+# client and globally before they get here, which bounds how many can queue.
+# #VERIFY: test_concurrent_verifications_never_overlap.
+_VERIFY_LIMITER = anyio.CapacityLimiter(1)
 
 
 def get_login_throttle(request: Request) -> LoginThrottle:
@@ -57,6 +69,21 @@ def get_login_throttle(request: Request) -> LoginThrottle:
 
 
 ThrottleDep = Annotated[LoginThrottle, Depends(get_login_throttle)]
+
+
+def get_global_login_throttle(request: Request) -> LoginThrottle:
+    """FastAPI dependency: the failure budget shared by all clients.
+
+    Args:
+        request (Request): The incoming request.
+
+    Returns:
+        LoginThrottle: The app-wide budget.
+    """
+    return cast("LoginThrottle", request.app.state.global_login_throttle)
+
+
+GlobalThrottleDep = Annotated[LoginThrottle, Depends(get_global_login_throttle)]
 
 
 def require_local_login_enabled() -> None:
@@ -128,6 +155,8 @@ def _verify(stored_hash: str, password: str) -> bool:
 async def _password_matches(password: str) -> bool:
     """Verify ``password`` against the configured hash off the event loop.
 
+    Verifications are serialized per process; see ``_VERIFY_LIMITER``.
+
     Args:
         password (str): The submitted password.
 
@@ -137,7 +166,12 @@ async def _password_matches(password: str) -> bool:
     stored = settings.local_admin_password_hash
     if stored is None:
         return False
-    return await run_in_threadpool(_verify, stored.get_secret_value(), password)
+    return await anyio.to_thread.run_sync(
+        _verify,
+        stored.get_secret_value(),
+        password,
+        limiter=_VERIFY_LIMITER,
+    )
 
 
 # A provider that cannot be reached, or whose discovery or token response is
@@ -333,24 +367,41 @@ async def callback(request: Request, oidc: OidcDep) -> Response:
             show_login=True,
         )
 
-    role = resolve_role(
-        claims,
-        groups_claim=settings.authentik_groups_claim,
-        admin_group=settings.admin_group,
-        viewer_group=settings.viewer_group,
+    # #CRITICAL: the break-glass identity is reserved. A directory account with
+    # this subject would otherwise be indistinguishable from the local
+    # administrator in logs and audit trails.
+    # #VERIFY: test_a_token_claiming_the_break_glass_subject_is_rejected.
+    reserved = sub == LOCAL_ADMIN_SUB
+    role = (
+        None
+        if reserved
+        else resolve_role(
+            claims,
+            groups_claim=settings.authentik_groups_claim,
+            admin_group=settings.admin_group,
+            viewer_group=settings.viewer_group,
+        )
     )
     if role is None:
-        logger.warning(
-            "oidc_user_without_role",
-            sub=sub,
-            correlation_id=get_correlation_id(),
-        )
+        if reserved:
+            logger.warning(
+                "oidc_reserved_subject_rejected",
+                correlation_id=get_correlation_id(),
+            )
+        else:
+            logger.warning(
+                "oidc_user_without_role",
+                sub=sub,
+                correlation_id=get_correlation_id(),
+            )
         request.session.clear()
         return _message(
             request,
             title="Access denied",
             message=(
-                "Your account is not a member of a group that may use "
+                "This account cannot sign in to LLC Manager."
+                if reserved
+                else "Your account is not a member of a group that may use "
                 "LLC Manager. Ask an administrator to add you."
             ),
             status_code=status.HTTP_403_FORBIDDEN,
@@ -457,7 +508,8 @@ async def local_login_form(
 async def local_login_submit(
     request: Request,
     throttle: ThrottleDep,
-    password: Annotated[str, Form()],
+    global_throttle: GlobalThrottleDep,
+    password: Annotated[str, Form(max_length=_MAX_PASSWORD_LENGTH)],
     next_: Annotated[str | None, Form(alias="next")] = None,
 ) -> Response:
     """Check the break-glass password and start an administrator session.
@@ -473,8 +525,11 @@ async def local_login_submit(
 
     Args:
         request (Request): The incoming request.
-        throttle (ThrottleDep): The failure throttle.
-        password (Annotated[str, Form()]): The submitted password.
+        throttle (ThrottleDep): The per-client failure throttle.
+        global_throttle (GlobalThrottleDep): The failure budget shared by all
+            clients.
+        password (Annotated[str, Form(max_length=_MAX_PASSWORD_LENGTH)]): The
+            submitted password, at most 1024 characters.
         next_ (Annotated[str | None, Form(alias="next")]): Relative path to
             return to after sign-in.
 
@@ -484,12 +539,25 @@ async def local_login_submit(
     """
     target = safe_next(next_)
     client_ip = _client_ip(request)
+    key = client_key(client_ip)
     correlation_id = get_correlation_id()
 
-    if throttle.is_blocked(client_ip):
+    # #CRITICAL: two budgets. The per-client one (keyed by address, IPv6 by /64)
+    # stops one source; the global one stops a distributed guesser, at the cost
+    # of locking the real operator out too while it is exhausted.
+    # #VERIFY: tests/unit/test_auth_break_glass.py::TestGlobalBudget.
+    blocked_scope = (
+        "client"
+        if throttle.is_blocked(key)
+        else "global"
+        if global_throttle.is_blocked(GLOBAL_KEY)
+        else None
+    )
+    if blocked_scope is not None:
         logger.warning(
             "local_login_throttled",
             client_ip=client_ip,
+            scope=blocked_scope,
             correlation_id=correlation_id,
         )
         response = _message(
@@ -498,14 +566,21 @@ async def local_login_submit(
             message="Too many failed attempts. Try again later.",
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         )
-        response.headers["Retry-After"] = str(throttle.retry_after(client_ip))
+        retry_after = max(
+            throttle.retry_after(key) if throttle.is_blocked(key) else 0,
+            global_throttle.retry_after(GLOBAL_KEY)
+            if global_throttle.is_blocked(GLOBAL_KEY)
+            else 0,
+        )
+        response.headers["Retry-After"] = str(retry_after)
         return response
 
     # #EDGE: concurrent guesses. The attempt is counted before the slow hash
     # check, with no await in between, so parallel requests cannot all pass
     # the check above; a success clears the count again.
     # #VERIFY: test_the_attempt_is_counted_before_the_hash_is_checked.
-    throttle.record_failure(client_ip)
+    throttle.record_failure(key)
+    global_throttle.record_failure(GLOBAL_KEY)
     if not await _password_matches(password):
         logger.warning(
             "local_login_failed",
@@ -519,7 +594,10 @@ async def local_login_submit(
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
-    throttle.reset(client_ip)
+    throttle.reset(key)
+    # The shared budget only gives back this attempt: a success must not erase
+    # failures that other clients made.
+    global_throttle.forget_latest(GLOBAL_KEY)
     # #CRITICAL: session fixation - store_user clears the pre-login session
     # and mints a new CSRF token before the user is written.
     # #VERIFY: test_session_is_rebuilt_not_reused_on_success.
