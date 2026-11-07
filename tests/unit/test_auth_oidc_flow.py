@@ -5,6 +5,7 @@ import hashlib
 import json
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
@@ -67,6 +68,15 @@ def _start_login(client: TestClient, provider: FakeProvider, next_: str | None =
     return response, params
 
 
+def _assert_no_user_stored(client: TestClient) -> None:
+    """Decode the client's signed session cookie and check no user is in it."""
+    cookie = client.cookies.get(SESSION_COOKIE)
+    session = (
+        {} if cookie is None else decode_session_cookie(settings.secret_key, cookie)
+    )
+    assert "user" not in session
+
+
 def _finish_login(
     client: TestClient, provider: FakeProvider, params: dict[str, str], **claims: Any
 ):
@@ -90,6 +100,48 @@ class TestLogin:
         assert params["code_challenge_method"] == "S256"
         assert params["state"]
         assert params["nonce"]
+
+    def test_production_client_builds_a_compliant_authorization_request(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The client built from settings, not the fake, sends the right request."""
+        _configure(monkeypatch, BASE_URL)
+        discovery = {
+            "issuer": ISSUER,
+            "authorization_endpoint": "https://auth.example.test/authorize/",
+            "token_endpoint": "https://auth.example.test/token/",
+            "jwks_uri": "https://auth.example.test/jwks/",
+        }
+        requested: list[str] = []
+
+        def serve(request: httpx.Request) -> httpx.Response:
+            requested.append(str(request.url))
+            return httpx.Response(200, json=discovery)
+
+        production = build_oidc_client(settings)
+        assert production is not None
+        # Discovery goes through a stub transport, so nothing leaves the process.
+        cast("Any", production).client_kwargs["transport"] = httpx.MockTransport(serve)
+        app = create_app()
+        app.state.oidc_client = production
+
+        with TestClient(app, base_url=BASE_URL, follow_redirects=False) as client:
+            response = client.get("/auth/login")
+
+        assert response.status_code == 302
+        assert requested == [discovery_url(ISSUER)]
+        location = urlsplit(response.headers["location"])
+        assert (
+            f"{location.scheme}://{location.netloc}{location.path}"
+            == (discovery["authorization_endpoint"])
+        )
+        query = {key: values[0] for key, values in parse_qs(location.query).items()}
+        assert "openid" in query["scope"].split()
+        assert query["code_challenge_method"] == "S256"
+        assert query["code_challenge"]
+        assert query["state"]
+        assert query["response_type"] == "code"
+        assert query["redirect_uri"] == settings.public_base_url + "/auth/callback"
 
     def test_redirect_uri_ignores_the_request_host(
         self, client: TestClient, provider: FakeProvider
@@ -385,7 +437,7 @@ class TestCallback:
 
         assert response.status_code == 400
         assert "Sign-in failed" in response.text
-        assert "user" not in response.headers.get("set-cookie", "")
+        _assert_no_user_stored(client)
 
     def test_state_mismatch_is_rejected(
         self, client: TestClient, provider: FakeProvider
@@ -490,7 +542,7 @@ class TestConfiguredIssuerIsEnforced:
             response = _finish_login(client, provider, params, iss=other)
 
         assert response.status_code == 400
-        assert "user" not in response.headers.get("set-cookie", "")
+        _assert_no_user_stored(client)
 
     @pytest.mark.parametrize(
         "configured", [ISSUER, ISSUER.rstrip("/")], ids=["slash", "no-slash"]
@@ -569,7 +621,7 @@ class TestBrokenDiscoveryDocument:
 
         assert response.status_code == 503
         assert "temporarily unavailable" in response.text
-        assert "user" not in response.headers.get("set-cookie", "")
+        _assert_no_user_stored(client)
 
     @pytest.mark.parametrize("error", [RuntimeError("x"), KeyError("token_endpoint")])
     def test_stub_failures_on_both_routes(
