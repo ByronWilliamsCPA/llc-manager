@@ -6,12 +6,13 @@ import secrets
 from functools import cache
 from typing import Annotated, cast
 
+import anyio
+import anyio.to_thread
 import httpx
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from authlib.integrations.base_client import OAuthError
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from joserfc.errors import JoseError
 
@@ -42,6 +43,15 @@ OidcDep = Annotated[OidcClient | None, Depends(get_oidc_client)]
 
 LOCAL_ADMIN_SUB = "local-admin"
 _password_hasher = PasswordHasher()
+
+# #CRITICAL: one argon2 verification allocates 64 MiB with the default
+# parameters (more if the operator chose a costlier hash), and the production
+# container is limited to 512 MiB. Running them in the shared thread pool
+# (about 40 threads) would let a burst of attempts exhaust memory, so only one
+# verification runs at a time per process. Attempts are already counted per
+# client and globally before they get here, which bounds how many can queue.
+# #VERIFY: test_concurrent_verifications_never_overlap.
+_VERIFY_LIMITER = anyio.CapacityLimiter(1)
 
 
 def get_login_throttle(request: Request) -> LoginThrottle:
@@ -128,6 +138,8 @@ def _verify(stored_hash: str, password: str) -> bool:
 async def _password_matches(password: str) -> bool:
     """Verify ``password`` against the configured hash off the event loop.
 
+    Verifications are serialized per process; see ``_VERIFY_LIMITER``.
+
     Args:
         password (str): The submitted password.
 
@@ -137,7 +149,12 @@ async def _password_matches(password: str) -> bool:
     stored = settings.local_admin_password_hash
     if stored is None:
         return False
-    return await run_in_threadpool(_verify, stored.get_secret_value(), password)
+    return await anyio.to_thread.run_sync(
+        _verify,
+        stored.get_secret_value(),
+        password,
+        limiter=_VERIFY_LIMITER,
+    )
 
 
 # A provider that cannot be reached, or whose discovery or token response is

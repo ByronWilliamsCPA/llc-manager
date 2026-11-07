@@ -12,7 +12,7 @@ from packaging.requirements import Requirement
 pytestmark = pytest.mark.unit
 
 PYPROJECT = Path(__file__).resolve().parents[2] / "pyproject.toml"
-AUTH_PACKAGES = {"authlib", "itsdangerous", "argon2-cffi", "httpx"}
+AUTH_PACKAGES = {"authlib", "itsdangerous", "argon2-cffi", "httpx", "anyio"}
 
 
 def test_auth_packages_are_in_the_api_extra() -> None:
@@ -30,6 +30,7 @@ def test_auth_packages_are_in_the_api_extra() -> None:
         "itsdangerous",
         "argon2",
         "httpx",
+        "anyio",
     ],
 )
 def test_auth_modules_import(module: str) -> None:

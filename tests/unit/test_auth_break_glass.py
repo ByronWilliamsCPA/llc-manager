@@ -1,5 +1,8 @@
 """Tests for the break-glass login at /auth/local-login."""
 
+import asyncio
+import threading
+import time
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, cast
 
@@ -246,6 +249,62 @@ class TestVerificationPath:
         _submit(client, "wrong", _token(client))
 
         assert seen == [1]
+
+
+@pytest.mark.usefixtures("enabled")
+class TestVerificationIsSerialized:
+    """Each argon2 check allocates 64 MiB; the container limit is 512 MiB."""
+
+    def test_concurrent_verifications_never_overlap(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lock = threading.Lock()
+        active = 0
+        peak = 0
+
+        def slow_verify(_stored: str, _password: str) -> bool:
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            time.sleep(0.05)
+            with lock:
+                active -= 1
+            return False
+
+        monkeypatch.setattr(routes, "_verify", slow_verify)
+
+        async def run() -> list[bool]:
+            return await asyncio.gather(
+                *(routes._password_matches("pw") for _ in range(6))
+            )
+
+        results = asyncio.run(run())
+
+        assert results == [False] * 6
+        assert peak == 1
+
+    def test_the_limiter_is_released_after_a_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls = 0
+
+        def boom(_stored: str, _password: str) -> bool:
+            nonlocal calls
+            calls += 1
+            message = "verification crashed"
+            raise RuntimeError(message)
+
+        monkeypatch.setattr(routes, "_verify", boom)
+
+        async def run() -> None:
+            for _ in range(2):
+                with pytest.raises(RuntimeError):
+                    await routes._password_matches("pw")
+
+        asyncio.run(run())
+
+        assert calls == 2
 
 
 @pytest.mark.usefixtures("enabled")

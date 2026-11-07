@@ -143,6 +143,7 @@ api = [
     "itsdangerous>=2.2",  # Signs the Starlette session cookie
     "argon2-cffi>=25.1",  # Break-glass admin password hash
     "httpx>=0.28",  # HTTP client that authlib's Starlette integration uses
+    "anyio>=4.5",  # Serializes break-glass password hashing (CapacityLimiter)
 ]
 
 
