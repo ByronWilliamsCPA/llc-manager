@@ -17,6 +17,9 @@ FORWARDED = {"X-Forwarded-For": "203.0.113.9", "X-Forwarded-Proto": "https"}
 
 def _app_with_probe(monkeypatch: pytest.MonkeyPatch, trusted: list[str]) -> FastAPI:
     monkeypatch.setattr(settings, "trusted_proxy_ips", trusted)
+    # The test client speaks plain http. Outside an explicit development
+    # environment the session cookie is Secure and the client would drop it.
+    monkeypatch.setattr(settings, "environment", "development")
     app = create_app()
 
     @app.get("/_whoami")
