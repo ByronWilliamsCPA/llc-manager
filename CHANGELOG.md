@@ -229,6 +229,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now configure sign-in. The container smoke test in
   `.github/workflows/build-image.yml` passes placeholder sign-in settings for
   the same reason.
+- `fix(config)!`: **the secret key, API key, and sign-in checks now all treat
+  an unset environment name as production (breaking for hosts that relied on
+  the unset-is-development default; set `LLC_MANAGER_ENVIRONMENT=development`
+  locally).** Before, the key checks read only the process environment and
+  treated an unset name as development, so a host with no environment name (or
+  production named only in `.env`) started with the public default
+  `LLC_MANAGER_SECRET_KEY`, which let anyone forge an admin `llc_session`
+  cookie. All three checks now use the same rule as dev mode and the `.env`
+  file counts. Outside development the app also refuses the old
+  `.env.example` placeholder and any key starting with `change-`
+  (case-insensitive), and a blank key counts as unset; `.env.example` now ships
+  an empty `LLC_MANAGER_SECRET_KEY` with `openssl rand -hex 32` instructions.
+  `docker-compose.yml` passes `LLC_MANAGER_SECRET_KEY` and
+  `LLC_MANAGER_API_KEY` through to the container, and `docker-compose.prod.yml`
+  requires both and sets `LLC_MANAGER_ENVIRONMENT: production`. The gating
+  test now allows only an exact list of open routes, and the image smoke test
+  asserts that anonymous `/entities` redirects to `/auth/login`.
 - `test(auth)`: `tests/conftest.py` sets `ENVIRONMENT=test` (only when unset)
   before the application settings are built, and a route-enumeration test
   (`tests/unit/test_web_gating.py`) fails if any page route is added without
