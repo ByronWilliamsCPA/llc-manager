@@ -181,6 +181,18 @@ class TestLocalSessionBinding:
 
         assert load_user(session, now=1050.0) is None
 
+    @pytest.mark.parametrize("fingerprint", ["caf\u00e9", "\u2603" * 64, "", 7, None])
+    def test_a_malformed_fingerprint_signs_the_session_out(
+        self, fingerprint: object
+    ) -> None:
+        session: dict[str, object] = {}
+        store_user(session, LOCAL_USER, max_age=100, now=1000.0)
+        user = session["user"]
+        assert isinstance(user, dict)
+        user["fp"] = fingerprint
+
+        assert load_user(session, now=1050.0) is None
+
     def test_rotating_the_secret_key_signs_the_session_out(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -135,7 +135,7 @@ def _local_session_is_current(stored: object) -> bool:
     expected = _local_fingerprint()
     if expected is None or not isinstance(stored, str):
         return False
-    return hmac.compare_digest(stored, expected)
+    return hmac.compare_digest(stored.encode("utf-8"), expected.encode("utf-8"))
 
 
 def load_user(session: Session, *, now: float | None = None) -> SessionUser | None:
