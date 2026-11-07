@@ -14,6 +14,7 @@ from pydantic import SecretStr
 from llc_manager.auth.oidc import (
     build_oidc_client,
     discovery_url,
+    issuer_claims_options,
     redirect_uri,
 )
 from llc_manager.auth.session import SESSION_COOKIE
@@ -435,6 +436,81 @@ class TestCallback:
         replay = _finish_login(client, provider, params)
 
         assert replay.status_code == 400
+
+
+class TestConfiguredIssuerIsEnforced:
+    """The ID token issuer is checked against the configured issuer."""
+
+    def _client(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        provider: FakeProvider,
+        configured_issuer: str,
+    ) -> TestClient:
+        _configure(monkeypatch, BASE_URL)
+        monkeypatch.setattr(settings, "authentik_issuer", configured_issuer)
+        app = create_app()
+        app.state.oidc_client = provider.client
+        return TestClient(app, base_url=BASE_URL, follow_redirects=False)
+
+    def test_issuer_from_a_substituted_discovery_document_is_rejected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        other = "https://other-idp.example.test/application/o/llc-manager/"
+        provider = FakeProvider(metadata_issuer=other)
+        with self._client(monkeypatch, provider, ISSUER) as client:
+            _, params = _start_login(client, provider)
+
+            response = _finish_login(client, provider, params, iss=other)
+
+        assert response.status_code == 400
+        assert "user" not in response.headers.get("set-cookie", "")
+
+    @pytest.mark.parametrize(
+        "configured", [ISSUER, ISSUER.rstrip("/")], ids=["slash", "no-slash"]
+    )
+    def test_matching_issuer_is_accepted_whatever_the_trailing_slash(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        provider: FakeProvider,
+        configured: str,
+    ) -> None:
+        with self._client(monkeypatch, provider, configured) as client:
+            _, params = _start_login(client, provider)
+
+            response = _finish_login(client, provider, params)
+
+        assert response.status_code == 303
+
+    @pytest.mark.parametrize(
+        "configured", [ISSUER, ISSUER.rstrip("/")], ids=["slash", "no-slash"]
+    )
+    def test_mismatching_issuer_is_rejected(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        provider: FakeProvider,
+        configured: str,
+    ) -> None:
+        with self._client(monkeypatch, provider, configured) as client:
+            _, params = _start_login(client, provider)
+
+            response = _finish_login(
+                client, provider, params, iss="https://evil.example/"
+            )
+
+        assert response.status_code == 400
+
+
+def test_issuer_claims_options_cover_both_slash_forms() -> None:
+    assert issuer_claims_options("https://a.test/o/x/") == {
+        "iss": {
+            "essential": True,
+            "values": ["https://a.test/o/x", "https://a.test/o/x/"],
+        }
+    }
+    assert issuer_claims_options("https://a.test/o/x") == issuer_claims_options(
+        "https://a.test/o/x/"
+    )
 
 
 class TestBrokenDiscoveryDocument:

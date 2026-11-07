@@ -20,7 +20,9 @@ class OidcClient(Protocol):
         """Start the authorization-code flow with PKCE."""
         ...
 
-    async def authorize_access_token(self, request: Request) -> dict[str, object]:
+    async def authorize_access_token(
+        self, request: Request, *, claims_options: dict[str, dict[str, object]]
+    ) -> dict[str, object]:
         """Exchange the callback code and validate the ID token."""
         ...
 
@@ -35,6 +37,26 @@ def discovery_url(issuer: str) -> str:
         str: The ``.well-known/openid-configuration`` URL.
     """
     return issuer.rstrip("/") + "/.well-known/openid-configuration"
+
+
+def issuer_claims_options(issuer: str) -> dict[str, dict[str, object]]:
+    """Build the ID token claim rules that pin the issuer.
+
+    Both trailing-slash spellings are accepted, so the configured issuer and
+    the one Authentik emits cannot disagree over a slash alone.
+
+    Args:
+        issuer (str): The configured issuer URL.
+
+    Returns:
+        dict[str, dict[str, object]]: Rules for ``authorize_access_token``.
+    """
+    # #CRITICAL: without explicit options authlib trusts the issuer advertised
+    # by the discovery document, so a substituted document would vouch for
+    # itself. The expected issuer must come from configuration.
+    # #VERIFY: TestConfiguredIssuerIsEnforced.
+    base = issuer.rstrip("/")
+    return {"iss": {"essential": True, "values": [base, base + "/"]}}
 
 
 def redirect_uri(public_base_url: str) -> str:
