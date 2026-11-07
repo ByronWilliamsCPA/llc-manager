@@ -216,12 +216,12 @@ uv run python scripts/import_excel.py data/llc_master.xlsx
 
 - [ ] Login redirects to Authentik and returns with session
 - [ ] Logout clears session and redirects
-- [ ] CSRF tokens validated on all state-changing requests
-- [ ] Cookies set with Secure, HttpOnly, SameSite=Lax
+- [x] CSRF tokens validated on all state-changing requests
+- [x] Cookies set with Secure (outside development), HttpOnly, SameSite=Lax
 - [ ] `llc-manager-admins` group → admin role
 - [ ] `llc-manager-viewers` group → viewer role
 - [ ] Role changes in Authentik reflected within session timeout
-- [ ] Local admin works when `AUTH_DEV_MODE=true`
+- [ ] Break-glass local admin works when `LLC_MANAGER_LOCAL_ADMIN_ENABLED=true` with a password hash (`LLC_MANAGER_AUTH_DEV_MODE` is a separate development-only bypass and never applies in production)
 
 ### Milestone M2: Entity Dashboard
 
@@ -705,14 +705,15 @@ class DocumentChunk(Base):
 | Variable | Purpose | Required |
 |----------|---------|----------|
 | `DATABASE_URL` | PostgreSQL connection | Yes |
-| `AUTHENTIK_ISSUER` | OIDC issuer URL | Yes |
-| `AUTHENTIK_CLIENT_ID` | OAuth client ID | Yes |
-| `AUTHENTIK_CLIENT_SECRET` | OAuth client secret | Yes |
-| `SECRET_KEY` | Session encryption (32+ bytes) | Yes |
+| `LLC_MANAGER_PUBLIC_BASE_URL` | Public https origin (login callback) | Yes |
+| `LLC_MANAGER_AUTHENTIK_ISSUER` | OIDC issuer URL | Yes (or break-glass) |
+| `LLC_MANAGER_AUTHENTIK_CLIENT_ID` | OAuth client ID | Yes (or break-glass) |
+| `LLC_MANAGER_AUTHENTIK_CLIENT_SECRET` | OAuth client secret | Yes (or break-glass) |
+| `LLC_MANAGER_SECRET_KEY` | Session cookie signing (32+ chars) | Yes |
 | `APPRISE_URL` | Apprise notification URL | Phase 2 |
-| `LOCAL_ADMIN_USERNAME` | Local admin username | Optional |
-| `LOCAL_ADMIN_PASSWORD` | Local admin password (argon2) | Optional |
-| `AUTH_DEV_MODE` | Bypass OIDC for local dev | Dev only |
+| `LLC_MANAGER_LOCAL_ADMIN_ENABLED` | Enable the break-glass login | Optional |
+| `LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH` | Break-glass password (argon2 hash) | Optional |
+| `LLC_MANAGER_AUTH_DEV_MODE` | Bypass OIDC (development environments only) | Dev only |
 | `TZ` | Timezone for scheduler (use UTC internally) | Optional |
 | `PUID` | User ID for document mount | Production |
 | `PGID` | Group ID for document mount | Production |

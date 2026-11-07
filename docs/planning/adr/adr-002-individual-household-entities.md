@@ -90,10 +90,12 @@ entity was a legal entity (LLC, trust, corporation, and so on).
   entity, so both are permanent once used. The default namespace is public,
   so real seeds must set their own; then a guessed key does not give the
   UUID.
-- The entity API is not yet authenticated, and its responses now include
+- The entity API (`/api/v1`) is protected only by the shared `X-API-Key`
+  header, and the web UI now requires an Authentik sign-in. Responses include
   personal names (individual and household rows) and bank account last-4
-  digits. Real individual or household data must not be loaded into a
-  database that API serves beyond localhost until authentication lands.
+  digits, so real individual or household data must not be loaded until the
+  API key is configured and the Authentik setup is confirmed against the live
+  instance (see [the setup guide](../../guides/authentik-setup.md)).
 
 ### Neutral
 

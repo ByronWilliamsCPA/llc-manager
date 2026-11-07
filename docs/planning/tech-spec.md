@@ -190,7 +190,9 @@ class Document:
 | ------ | ---------------- | --------------------- | ---- |
 | GET    | `/auth/login`    | Redirect to Authentik | No   |
 | GET    | `/auth/callback` | OIDC callback         | No   |
-| POST   | `/auth/logout`   | Logout, clear session | Yes  |
+| POST   | `/auth/logout`   | Logout, clear session (CSRF token required) | Yes  |
+| GET    | `/auth/local-login` | Break-glass login form (404 unless enabled) | No   |
+| POST   | `/auth/local-login` | Break-glass login submit (CSRF, throttled) | No   |
 
 ### API Endpoints (JSON)
 
@@ -295,8 +297,10 @@ class NotificationLog:
 **Authentik OIDC** - See [Authentik OIDC Provider Docs](https://docs.goauthentik.io/docs/providers/oauth2/)
 
 - Authorization Code Flow with PKCE
-- Session cookie after successful auth
-- Token refresh handled automatically
+- Signed session cookie (`llc_session`, Secure outside development) after a successful login; roles come from the ID token only
+- Absolute session lifetime (`LLC_MANAGER_SESSION_MAX_AGE_SECONDS`, default 8 hours); there is no token refresh, an expired session signs in again
+- CSRF token (per session) required on every non-safe web request
+- The application fails closed: outside an explicit development, local, or test environment it refuses to start unless `LLC_MANAGER_PUBLIC_BASE_URL` is set and either OIDC is fully configured or the break-glass login is enabled with a hash
 
 ### Authorization
 
@@ -327,16 +331,18 @@ class NotificationLog:
 **Local Admin Account** (Authentik Fallback):
 
 - **Purpose**: Emergency access when Authentik is unavailable
-- **Username**: Configured via `LOCAL_ADMIN_USERNAME` env var
-- **Password**: Configured via `LOCAL_ADMIN_PASSWORD` env var (hashed with argon2)
-- **Access**: Full admin privileges; bypasses OIDC flow
-- **Login Path**: `GET /auth/local-login` (hidden from main UI)
-- **Audit**: All local admin actions logged with `auth_method: local`
+- **Account**: One fixed local administrator; there is no configurable username
+- **Password**: Only an argon2 hash is stored, in `LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH`; enabled by `LLC_MANAGER_LOCAL_ADMIN_ENABLED=true`
+- **Access**: Admin role; bypasses the OIDC flow
+- **Login Path**: `/auth/local-login`; answers 404 unless enabled and a hash is set, and is not in the main navigation
+- **Throttle**: five failures per fifteen minutes per client IP (per process); further attempts answer 429
+- **Audit**: Sessions carry `auth_method: local`; every attempt is logged with the client IP and correlation ID, never the password
 
 **Local Development**:
 
-- Set `AUTH_DEV_MODE=true` to bypass OIDC
-- Auto-login as admin role for local testing
+- Set `LLC_MANAGER_AUTH_DEV_MODE=true` to bypass OIDC
+- Auto-login as a fixed admin user for local testing
+- Startup refuses dev mode outside an explicit development, local, or test environment
 
 ### Data Protection
 
@@ -441,18 +447,26 @@ CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn llc_manager.main
 
 ### Environment Variables
 
-| Variable                  | Purpose                             | Example                                                 |
-| ------------------------- | ----------------------------------- | ------------------------------------------------------- |
-| `DATABASE_URL`            | PostgreSQL connection               | `postgresql+asyncpg://user:pass@host/db`                |
-| `AUTHENTIK_ISSUER`        | OIDC issuer URL                     | `https://auth.example.com/application/o/llc-manager/`   |
-| `AUTHENTIK_CLIENT_ID`     | OAuth client ID                     | `llc-manager`                                           |
-| `AUTHENTIK_CLIENT_SECRET` | OAuth client secret                 | (secret)                                                |
-| `APPRISE_URL`             | Apprise notification URL            | `http://apprise:8000/notify`                            |
-| `SECRET_KEY`              | Session encryption                  | (32+ byte random)                                       |
-| `LOCAL_ADMIN_USERNAME`    | Local admin username                | `localadmin`                                            |
-| `LOCAL_ADMIN_PASSWORD`    | Local admin password (argon2 hash)  | (secret)                                                |
-| `AUTH_DEV_MODE`           | Bypass OIDC for local dev           | `true` or `false`                                       |
-| `TZ`                      | Timezone for scheduler              | `America/New_York`                                      |
+| Variable                                | Purpose                                              | Example                                                 |
+| --------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------- |
+| `LLC_MANAGER_DATABASE_*`                | PostgreSQL connection parts (host, port, user, ...)  | `LLC_MANAGER_DATABASE_HOST=db`                          |
+| `LLC_MANAGER_ENVIRONMENT`               | Environment name; unset counts as production         | `production`                                            |
+| `LLC_MANAGER_PUBLIC_BASE_URL`           | Public https origin; needed for the login callback   | `https://llc.example.com`                               |
+| `LLC_MANAGER_AUTHENTIK_ISSUER`          | OIDC issuer URL                                      | `https://auth.example.com/application/o/llc-manager/`   |
+| `LLC_MANAGER_AUTHENTIK_CLIENT_ID`       | OAuth client ID                                      | `llc-manager`                                           |
+| `LLC_MANAGER_AUTHENTIK_CLIENT_SECRET`   | OAuth client secret                                  | (secret)                                                |
+| `LLC_MANAGER_AUTHENTIK_GROUPS_CLAIM`    | ID token claim holding group names                   | `groups`                                                |
+| `LLC_MANAGER_ADMIN_GROUP`               | Group that maps to the admin role                    | `llc-manager-admins`                                    |
+| `LLC_MANAGER_VIEWER_GROUP`              | Group that maps to the viewer role                   | `llc-manager-viewers`                                   |
+| `LLC_MANAGER_SESSION_MAX_AGE_SECONDS`   | Absolute session lifetime                            | `28800`                                                 |
+| `LLC_MANAGER_SECRET_KEY`                | Session cookie signing key                           | (32+ char random)                                       |
+| `LLC_MANAGER_API_KEY`                   | Shared key for `/api/v1` (`X-API-Key`)               | (32+ char secret)                                       |
+| `LLC_MANAGER_TRUSTED_PROXY_IPS`         | Reverse proxies whose forwarded headers are trusted  | `10.0.0.5`                                              |
+| `LLC_MANAGER_LOCAL_ADMIN_ENABLED`       | Enable the break-glass login                         | `true` or `false`                                       |
+| `LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH` | Break-glass password (argon2 hash)                   | (secret)                                                |
+| `LLC_MANAGER_AUTH_DEV_MODE`             | Bypass OIDC (development environments only)         | `true` or `false`                                       |
+| `APPRISE_URL`                           | Apprise notification URL (planned)                   | `http://apprise:8000/notify`                            |
+| `TZ`                                    | Timezone for scheduler                               | `America/New_York`                                      |
 
 ## Related Documents
 

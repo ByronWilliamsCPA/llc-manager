@@ -17,8 +17,24 @@ Phase 3: LLM Integration ░░░░░░░░░░░░░░░░ (Futur
 
 ## Milestones
 
-| Milestone                 | Target | Status     | Dependencies |
-| ------------------------- | ------ | ---------- | ------------ |
+| Milestone                 | Target | Status         | Dependencies |
+| ------------------------- | ------ | -------------- | ------------ |
+| M0: Dev Environment Ready | Week 1 | ⏸️ Planned     | None         |
+| M0.5: Excel Data Import   | Week 1 | ⏸️ Planned     | M0           |
+| M1: Authentik SSO Working | Week 2 | 🚧 In progress | M0           |
+| M2: Entity Dashboard      | Week 3 | ⏸️ Planned     | M1           |
+| M3: Entity Detail View    | Week 3 | ⏸️ Planned     | M2           |
+| M4: Entity CRUD           | Week 4 | ⏸️ Planned     | M3           |
+| M5: Compliance Dashboard  | Week 5 | ⏸️ Planned     | M4           |
+| M6: Apprise Notifications | Week 6 | ⏸️ Planned     | M5           |
+| M7: Docker Deployment     | Week 6 | ⏸️ Planned     | M6           |
+
+Numbering follows [PROJECT-PLAN.md](./PROJECT-PLAN.md), which is the source of
+truth for milestone scope and branches. M1 is implemented and tested against a
+fake OIDC provider; it stays in progress until the live Authentik checks in
+[the setup guide](../guides/authentik-setup.md) pass.
+
+------------------------- | ------ | ---------- | ------------ |
 | M0: Dev Environment Ready | Week 1 | ⏸️ Planned | None         |
 | M1: Database & Migrations | Week 1 | ⏸️ Planned | M0           |
 | M2: Authentik SSO Working | Week 2 | ⏸️ Planned | M1           |
@@ -71,11 +87,11 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 
 ### Phase 1 Deliverables
 
-- [ ] Authentik OIDC authentication working
+- [ ] Authentik OIDC authentication working (implemented; live Authentik check pending)
 - [ ] Entity list view with search/filter
 - [ ] Entity detail view with all related data
 - [ ] Entity create/edit forms (Admin role)
-- [ ] Role-based access control (Admin vs Viewer)
+- [x] Role-based access control (Admin vs Viewer)
 
 ### Phase 1 Success Criteria
 
@@ -95,19 +111,19 @@ Implement entity CRUD operations with Authentik authentication and a functional 
 
 **Acceptance Criteria**:
 
-- [ ] Login redirects to Authentik
-- [ ] Successful auth creates session
-- [ ] Logout clears session and redirects
-- [ ] Unauthenticated users redirected to login
+- [ ] Login redirects to Authentik (tested against a fake provider; live check pending)
+- [ ] Successful auth creates session (tested against a fake provider; live check pending)
+- [x] Logout clears session and redirects
+- [x] Unauthenticated users redirected to login
 
 **Tasks**:
 
 | Task                                         | Branch                     | Status |
 | -------------------------------------------- | -------------------------- | ------ |
-| Implement OIDC client with authlib           | `feat/phase-1-oidc`        | ⏸️     |
-| Create auth routes (login, callback, logout) | `feat/phase-1-auth-routes` | ⏸️     |
-| Add session middleware with secure cookies   | `feat/phase-1-sessions`    | ⏸️     |
-| Create role extraction from group claims     | `feat/phase-1-rbac`        | ⏸️     |
+| Implement OIDC client with authlib           | `feat/phase-1-oidc`        | ✅     |
+| Create auth routes (login, callback, logout) | `feat/phase-1-auth-routes` | ✅     |
+| Add session middleware with secure cookies   | `feat/phase-1-sessions`    | ✅     |
+| Create role extraction from group claims     | `feat/phase-1-rbac`        | ✅     |
 
 #### US-002: Entity Dashboard
 

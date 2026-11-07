@@ -291,6 +291,35 @@ other workflows here already use the `|| github.ref` fallback.
 
 ---
 
+### Compose Forwards No Application Secrets; Roadmap and Plan Numbering Disagree
+
+- **Priority**: Medium
+- **Category**: Configuration
+- **Discovered**: 2026-11-07
+
+**Issue**: Two gaps surfaced while documenting the web sign-in rollout. First,
+the template's `docker-compose.yml` forwards only logging and database
+settings to the app container, so an app secret such as a session signing key
+or API key set in `.env` never reaches the container; a stack that relies on
+compose interpolation alone starts without it. Second, the generated
+`docs/planning/roadmap.md` milestone numbering (M1 database, M2 Authentik)
+differs from the one the synthesized `PROJECT-PLAN.md` produces (M0.5 data
+import, M1 Authentik), so the two documents disagree about what a milestone
+number means.
+
+**Context**: Found while adding the Authentik setup guide and aligning the
+roadmap with the project plan.
+
+**Suggested Fix**: Have the compose template list pass-through (value-less)
+entries for every setting the app validates at startup, and have the plan
+synthesizer rewrite the roadmap milestone table when it renumbers milestones,
+or generate one from the other.
+
+**Affected Files**: `docker-compose.yml`, `docs/planning/roadmap.md`,
+`docs/planning/PROJECT-PLAN.md`
+
+---
+
 ## Submitting Feedback
 
 Once you've collected feedback, you can:

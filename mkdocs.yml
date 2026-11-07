@@ -166,6 +166,8 @@ nav:
       - Usage: guides/usage.md
       - Documents: guides/documents.md
       - Manifest Dry Run: guides/document-manifest-dry-run.md
+      - Authentik Setup: guides/authentik-setup.md
+      - Authentik Outage Runbook: guides/authentik-outage-runbook.md
 
   - API Reference:
       - Overview: api-reference.md
