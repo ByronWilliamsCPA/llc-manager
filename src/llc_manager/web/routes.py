@@ -11,14 +11,25 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from llc_manager.auth.csrf import verify_csrf
+from llc_manager.auth.dependencies import require_admin, require_user
+from llc_manager.auth.templating import install_auth_globals
 from llc_manager.db.session import get_async_session
 from llc_manager.models.entity import Entity, EntityType
 from llc_manager.schemas.entity import EntityUpdate
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates = install_auth_globals(Jinja2Templates(directory=str(TEMPLATES_DIR)))
 
-router = APIRouter(tags=["Web"])
+# Every web route needs a signed-in user, and every non-safe method needs the
+# CSRF token. Routes that change data add require_admin on top.
+# #CRITICAL: router-level so a new route cannot be left open by forgetting a
+# decorator argument.
+# #VERIFY: tests/unit/test_web_gating.py enumerates every route.
+router = APIRouter(
+    tags=["Web"],
+    dependencies=[Depends(require_user), Depends(verify_csrf)],
+)
 
 DBSession = Annotated[AsyncSession, Depends(get_async_session)]
 
@@ -122,7 +133,11 @@ async def entity_detail_card(
     )
 
 
-@router.get("/entities/{entity_id}/edit", response_class=HTMLResponse)
+@router.get(
+    "/entities/{entity_id}/edit",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_admin)],
+)
 async def entity_edit_form(
     request: Request,
     db: DBSession,
@@ -177,7 +192,11 @@ def _render_edit_form(
     )
 
 
-@router.patch("/entities/{entity_id}/edit", response_class=HTMLResponse)
+@router.patch(
+    "/entities/{entity_id}/edit",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_admin)],
+)
 async def entity_edit_save(
     request: Request,
     db: DBSession,

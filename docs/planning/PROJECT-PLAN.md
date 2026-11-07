@@ -1,6 +1,6 @@
 # PROJECT-PLAN: LLC Manager
 
-> **Status**: Ready for Development | **Version**: 2.0 | **Updated**: 2026-01-18
+> **Status**: In Development | **Version**: 2.0 | **Updated**: 2026-01-18
 >
 > This document synthesizes the project vision, technical spec, roadmap, and architecture decisions
 > into an actionable development plan with git branches for each milestone.
@@ -44,10 +44,10 @@ The project already has foundational code in place:
 
 ### What Needs Building
 
-- Alembic migrations from existing models
-- **Data import from Excel spreadsheets** (CRITICAL)
-- Authentik OIDC integration
-- Jinja2/HTMX templates and dashboard
+- Alembic migrations from existing models (done)
+- **Data import from Excel spreadsheets** (CRITICAL) (tooling and runbook done; reconciliation and timing checks pending)
+- Authentik OIDC integration (code complete; operator setup and production enablement pending, see M1)
+- Jinja2/HTMX templates and dashboard (entity list, detail, and admin edit form done; dashboard pending)
 - Entity CRUD service layer
 - Audit/edit history tracking
 - Compliance calendar and notifications
@@ -104,11 +104,11 @@ CREATE UNIQUE INDEX idx_entity_ein_active ON entity (ein) WHERE is_active = true
 
 ### Definition of Done
 
-- [ ] `uv sync && uv run pytest` passes
+- [x] `uv sync && uv run pytest` passes
 - [ ] Alembic migrations apply to fresh PostgreSQL
 - [ ] Partial unique indexes handle soft deletes correctly
-- [ ] `docker compose up` starts dev environment with PostgreSQL
-- [ ] Tailwind CSS watcher configured and working
+- [x] `docker compose up` starts dev environment with PostgreSQL
+- [x] Tailwind CSS watcher configured and working
 - [ ] `uv run python scripts/seed.py` populates 10 test entities
 - [ ] GitHub Actions CI passes (lint, type-check, test)
 - [ ] Pre-commit hooks pass
@@ -167,10 +167,10 @@ docker compose up -d
 
 ### Acceptance Criteria
 
-- [ ] Import script reads Excel files using pandas/openpyxl
-- [ ] Field mapping handles all entity types (Entity, Owner, StateRegistration, etc.)
-- [ ] Validation catches common errors (invalid EIN, missing required fields)
-- [ ] Dry-run mode shows what would be imported without modifying database
+- [x] Import script reads Excel files using pandas/openpyxl
+- [x] Field mapping handles all entity types (Entity, Owner, StateRegistration, etc.)
+- [x] Validation catches common errors (invalid EIN, missing required fields)
+- [x] Dry-run mode shows what would be imported without modifying database
 - [ ] Reconciliation report compares imported data against source
 - [ ] Successfully imports 25 entities + related records in < 60 seconds
 - [ ] Import is idempotent (re-running doesn't create duplicates)
@@ -200,6 +200,10 @@ uv run python scripts/import_excel.py data/llc_master.xlsx
 
 **Branch**: `feat/phase-1-auth`
 
+> **Status**: code complete ([ADR-003](adr/adr-003-authentik-sso-web-login.md));
+> pending operator setup (Authentik application and groups) and enabling in
+> production. See [the setup guide](../guides/authentik-setup.md).
+
 | Task | Branch | Priority | User Story |
 |------|--------|----------|------------|
 | Implement OIDC client with authlib | `feat/phase-1-oidc` | P0 | US-001 |
@@ -214,14 +218,14 @@ uv run python scripts/import_excel.py data/llc_master.xlsx
 
 **Acceptance Criteria**:
 
-- [ ] Login redirects to Authentik and returns with session
-- [ ] Logout clears session and redirects
-- [ ] CSRF tokens validated on all state-changing requests
-- [ ] Cookies set with Secure, HttpOnly, SameSite=Lax
-- [ ] `llc-manager-admins` group → admin role
-- [ ] `llc-manager-viewers` group → viewer role
+- [x] Login redirects to Authentik and returns with session (tested against a fake provider; live check pending operator setup, see [the setup guide](../guides/authentik-setup.md))
+- [x] Logout clears session and redirects
+- [x] CSRF tokens validated on all state-changing requests
+- [x] Cookies set with Secure (outside development), HttpOnly, SameSite=Lax
+- [x] `llc-manager-admins` group → admin role (groups must still be created in Authentik, see [the setup guide](../guides/authentik-setup.md))
+- [x] `llc-manager-viewers` group → viewer role (groups must still be created in Authentik, see [the setup guide](../guides/authentik-setup.md))
 - [ ] Role changes in Authentik reflected within session timeout
-- [ ] Local admin works when `AUTH_DEV_MODE=true`
+- [x] Break-glass local admin works when `LLC_MANAGER_LOCAL_ADMIN_ENABLED=true` with a password hash (`LLC_MANAGER_AUTH_DEV_MODE` is a separate development-only bypass and never applies in production)
 
 ### Milestone M2: Entity Dashboard
 
@@ -242,7 +246,7 @@ uv run python scripts/import_excel.py data/llc_master.xlsx
 - [ ] Dashboard shows entity name, EIN (masked), formation state
 - [ ] Search filters by name, EIN, address
 - [ ] Search returns results in < 500ms
-- [ ] HTMX enables filtering without full page reload
+- [x] HTMX enables filtering without full page reload
 - [ ] Error pages display user-friendly messages
 - [ ] Responsive design works on desktop
 
@@ -264,7 +268,7 @@ uv run python scripts/import_excel.py data/llc_master.xlsx
 
 - [ ] Entity detail page loads in < 1 second
 - [ ] Shows legal name, DBAs, EIN (masked), formation state/date
-- [ ] Shows business address and accounting record ID
+- [x] Shows business address and accounting record ID
 
 #### M3b: Owners Block
 
@@ -327,7 +331,7 @@ uv run python scripts/import_excel.py data/llc_master.xlsx
 **Acceptance Criteria (M4a)**:
 
 - [ ] Admin can create new entity with validation
-- [ ] Admin can edit existing entity
+- [x] Admin can edit existing entity
 - [ ] Soft delete marks entity inactive
 - [ ] Viewer cannot access create/edit forms
 
@@ -705,14 +709,15 @@ class DocumentChunk(Base):
 | Variable | Purpose | Required |
 |----------|---------|----------|
 | `DATABASE_URL` | PostgreSQL connection | Yes |
-| `AUTHENTIK_ISSUER` | OIDC issuer URL | Yes |
-| `AUTHENTIK_CLIENT_ID` | OAuth client ID | Yes |
-| `AUTHENTIK_CLIENT_SECRET` | OAuth client secret | Yes |
-| `SECRET_KEY` | Session encryption (32+ bytes) | Yes |
+| `LLC_MANAGER_PUBLIC_BASE_URL` | Public https origin (login callback) | Yes |
+| `LLC_MANAGER_AUTHENTIK_ISSUER` | OIDC issuer URL | Yes (or break-glass) |
+| `LLC_MANAGER_AUTHENTIK_CLIENT_ID` | OAuth client ID | Yes (or break-glass) |
+| `LLC_MANAGER_AUTHENTIK_CLIENT_SECRET` | OAuth client secret | Yes (or break-glass) |
+| `LLC_MANAGER_SECRET_KEY` | Session cookie signing (32+ chars) | Yes |
 | `APPRISE_URL` | Apprise notification URL | Phase 2 |
-| `LOCAL_ADMIN_USERNAME` | Local admin username | Optional |
-| `LOCAL_ADMIN_PASSWORD` | Local admin password (argon2) | Optional |
-| `AUTH_DEV_MODE` | Bypass OIDC for local dev | Dev only |
+| `LLC_MANAGER_LOCAL_ADMIN_ENABLED` | Enable the break-glass login | Optional |
+| `LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH` | Break-glass password (argon2 hash) | Optional |
+| `LLC_MANAGER_AUTH_DEV_MODE` | Bypass OIDC (development environments only) | Dev only |
 | `TZ` | Timezone for scheduler (use UTC internally) | Optional |
 | `PUID` | User ID for document mount | Production |
 | `PGID` | Group ID for document mount | Production |

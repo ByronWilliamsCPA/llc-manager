@@ -125,7 +125,8 @@ This decision affects every aspect of development: codebase structure, developer
 - [ ] Dashboard loads in < 2 seconds with 25 entities
 - [ ] CRUD operations work without full page reloads (HTMX)
 - [ ] Single container deploys successfully to Portainer
-- [ ] Authentik SSO login/logout functional
+- [ ] Authentik SSO login/logout functional (implemented and tested against a
+  fake provider; confirm against the live Authentik instance)
 
 ### Review Schedule
 
@@ -134,10 +135,14 @@ This decision affects every aspect of development: codebase structure, developer
 
 ## Security Considerations
 
-- **No auth layer in Phase 0**: The current deployment has no authentication
-  or authorization. The application must not be exposed on a public network
-  interface until Authentik OIDC integration (planned for Phase 1) is
-  complete and validated.
+- **Web sign-in**: The web UI requires sign-in through Authentik OIDC (see
+  [ADR-003](adr-003-authentik-sso-web-login.md)); outside an explicit
+  development environment the application refuses to start without a sign-in
+  method. `/api/v1` is separately protected by the `X-API-Key` header. The
+  live Authentik behaviour (groups claim, proxy headers) is still to be
+  confirmed against the real instance; follow
+  [the setup guide](../../guides/authentik-setup.md) before exposing the
+  application on a public network interface.
 - **SSRF protection**: `src/llc_manager/middleware/security.py` is in place
   to block server-side request forgery vectors introduced by user-supplied
   URLs (e.g., entity website fields).

@@ -1,8 +1,4 @@
-"""Tests for how the auth package is wired into the app (PR 2 behavior).
-
-PR 2 adds the sign-in machinery but gates nothing, so an app with no auth
-settings must behave exactly as before.
-"""
+"""Tests for how the auth package is wired into the app."""
 
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, cast
@@ -44,13 +40,15 @@ def test_unconfigured_callback_is_a_clear_503_not_a_crash(client: TestClient) ->
     assert response.status_code == 503
 
 
-def test_web_routes_are_still_open(client: TestClient) -> None:
-    # Gating ships in a later PR; until then the root dashboard stays open.
-    assert client.get("/").status_code == 200
+def test_web_routes_are_gated(client: TestClient) -> None:
+    response = client.get("/")
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/auth/login?next=%2F"
 
 
 def test_no_cookie_is_set_for_anonymous_requests(client: TestClient) -> None:
-    response = client.get("/")
+    response = client.get("/auth/login")
 
     assert SESSION_COOKIE not in response.headers.get("set-cookie", "")
 

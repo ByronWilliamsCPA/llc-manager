@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from llc_manager.core.config import Settings
 from llc_manager.core.exceptions import ConfigurationError
+from tests.auth_helpers import configure_production_sign_in
 
 
 class TestSecretKeyMinLength:
@@ -29,6 +32,7 @@ class TestSecretKeyMinLength:
         monkeypatch.setenv("ENVIRONMENT", "production")
         # 64 chars - well above the 32-char minimum
         long_key = "a" * 64
+        configure_production_sign_in(monkeypatch)
         settings = Settings(secret_key=long_key)  # type: ignore[call-arg]
         assert settings.secret_key == long_key
 
@@ -52,6 +56,164 @@ class TestSecretKeyMinLength:
         monkeypatch.setenv("ENVIRONMENT", "production")
         with pytest.raises(ConfigurationError):
             Settings(secret_key="change-me-in-production")  # type: ignore[call-arg]
+
+
+def _unset_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove every environment name so the process names no environment."""
+    monkeypatch.delenv("LLC_MANAGER_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.delenv("LLC_MANAGER_SECRET_KEY", raising=False)
+    monkeypatch.delenv("LLC_MANAGER_API_KEY", raising=False)
+    monkeypatch.delenv("LLC_MANAGER_SERVICE_API_KEY", raising=False)
+
+
+class TestUnsetEnvironmentIsProduction:
+    """An unset environment name must be treated as production by every check."""
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_unset_environment_rejects_default_secret_key(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _unset_environment(monkeypatch)
+        configure_production_sign_in(monkeypatch)
+        with pytest.raises(ConfigurationError) as exc_info:
+            Settings(_env_file=None)
+        assert exc_info.value.details["config_key"] == "secret_key"
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_unset_environment_rejects_short_secret_key(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _unset_environment(monkeypatch)
+        configure_production_sign_in(monkeypatch)
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "too-short")
+        with pytest.raises(ConfigurationError) as exc_info:
+            Settings(_env_file=None)
+        assert exc_info.value.details["config_key"] == "secret_key"
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_unset_environment_rejects_short_api_key(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _unset_environment(monkeypatch)
+        configure_production_sign_in(monkeypatch)
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
+        monkeypatch.setenv("LLC_MANAGER_API_KEY", "short")
+        with pytest.raises(ConfigurationError) as exc_info:
+            Settings(_env_file=None)
+        assert exc_info.value.details["config_key"] == "api_key"
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_unset_environment_with_good_keys_passes(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _unset_environment(monkeypatch)
+        configure_production_sign_in(monkeypatch)
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
+        monkeypatch.setenv("LLC_MANAGER_API_KEY", "k" * 40)
+        settings = Settings(_env_file=None)
+        assert settings.secret_key == "s" * 40
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_dotenv_production_rejects_default_secret_key(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        _unset_environment(monkeypatch)
+        configure_production_sign_in(monkeypatch)
+        env_file = tmp_path / ".env"
+        env_file.write_text("ENVIRONMENT=production\n")
+        with pytest.raises(ConfigurationError) as exc_info:
+            Settings(_env_file=str(env_file))
+        assert exc_info.value.details["config_key"] == "secret_key"
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_dotenv_development_allows_default_secret_key(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        _unset_environment(monkeypatch)
+        env_file = tmp_path / ".env"
+        env_file.write_text("ENVIRONMENT=development\n")
+        settings = Settings(_env_file=str(env_file))
+        assert settings.secret_key.startswith("change-")
+
+
+class TestPlaceholderSecretKeys:
+    """Shipped example values and any ``change-`` prefix are never real keys."""
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "change-this-in-production-use-a-long-random-string",
+            "change-me-please-" + "x" * 30,
+            "CHANGE-anything-" + "x" * 30,
+            "Change-Me-" + "x" * 30,
+        ],
+    )
+    def test_placeholder_rejected_in_production(
+        self, monkeypatch: pytest.MonkeyPatch, value: str
+    ) -> None:
+        monkeypatch.setenv("ENVIRONMENT", "production")
+        configure_production_sign_in(monkeypatch)
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", value)
+        assert len(value) >= 32
+        with pytest.raises(ConfigurationError) as exc_info:
+            Settings(_env_file=None)
+        assert exc_info.value.details["config_key"] == "secret_key"
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_placeholder_allowed_in_development(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ENVIRONMENT", "development")
+        value = "change-this-in-production-use-a-long-random-string"
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", value)
+        settings = Settings(_env_file=None)
+        assert settings.secret_key == value
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_blank_key_in_development_falls_back_to_the_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # ``.env.example`` ships ``LLC_MANAGER_SECRET_KEY=`` with no value, so a
+        # copied file must behave like no key at all, never an empty signing key.
+        monkeypatch.setenv("ENVIRONMENT", "development")
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "")
+        settings = Settings(_env_file=None)
+        assert settings.secret_key.startswith("change-")
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_blank_key_rejected_in_production(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ENVIRONMENT", "production")
+        configure_production_sign_in(monkeypatch)
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "  ")
+        with pytest.raises(ConfigurationError) as exc_info:
+            Settings(_env_file=None)
+        assert exc_info.value.details["config_key"] == "secret_key"
+
+    @pytest.mark.unit
+    @pytest.mark.security
+    def test_random_key_with_change_inside_is_accepted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ENVIRONMENT", "production")
+        configure_production_sign_in(monkeypatch)
+        value = "a1b2-change-" + "f" * 30
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", value)
+        settings = Settings(_env_file=None)
+        assert settings.secret_key == value
 
 
 class TestAuthentikConfigPlaceholders:

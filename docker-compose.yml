@@ -33,6 +33,29 @@ services:
       LLC_MANAGER_API_PORT: 8000
       LLC_MANAGER_CORS_ORIGINS: '["http://localhost:8000"]'
 
+      # Web sign-in (see docs/guides/authentik-setup.md). A key with no value
+      # is passed through from the shell or .env only when it is set there, so
+      # an unset name stays unset inside the container. Outside development
+      # the app refuses to start without LLC_MANAGER_PUBLIC_BASE_URL and a
+      # sign-in method, and without a real LLC_MANAGER_SECRET_KEY (32+
+      # characters; `openssl rand -hex 32`). Development works without them
+      # because ENVIRONMENT defaults to development above. Secrets (secret key,
+      # API key, client secret, password hash) come from the secrets manager,
+      # never from this file.
+      LLC_MANAGER_SECRET_KEY:
+      LLC_MANAGER_API_KEY:
+      LLC_MANAGER_PUBLIC_BASE_URL:
+      LLC_MANAGER_AUTHENTIK_ISSUER:
+      LLC_MANAGER_AUTHENTIK_CLIENT_ID:
+      LLC_MANAGER_AUTHENTIK_CLIENT_SECRET:
+      LLC_MANAGER_AUTHENTIK_GROUPS_CLAIM:
+      LLC_MANAGER_ADMIN_GROUP:
+      LLC_MANAGER_VIEWER_GROUP:
+      LLC_MANAGER_SESSION_MAX_AGE_SECONDS:
+      LLC_MANAGER_TRUSTED_PROXY_IPS:
+      LLC_MANAGER_LOCAL_ADMIN_ENABLED:
+      LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH:
+
       # Redis cache (if applicable)
       # REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
 

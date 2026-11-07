@@ -6,6 +6,7 @@ from base64 import b64decode, b64encode
 from typing import Any
 
 import itsdangerous
+import pytest
 
 TEST_API_KEY = "test-only-api-key-0123456789abcdef"  # pragma: allowlist secret
 AUTH_HEADERS = {"X-API-Key": TEST_API_KEY}
@@ -65,3 +66,21 @@ def user_session(
         },
         "csrf": csrf,
     }
+
+
+def configure_production_sign_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Set the environment a valid production deployment needs to sign users in.
+
+    Tests that build ``Settings`` for a production environment to check some
+    other rule call this so the sign-in requirement does not mask the result.
+
+    Args:
+        monkeypatch: The pytest monkeypatch fixture.
+    """
+    monkeypatch.setenv("LLC_MANAGER_PUBLIC_BASE_URL", "https://llc.example.com")
+    monkeypatch.setenv(
+        "LLC_MANAGER_AUTHENTIK_ISSUER",
+        "https://auth.example.com/application/o/llc-manager/",
+    )
+    monkeypatch.setenv("LLC_MANAGER_AUTHENTIK_CLIENT_ID", "llc-manager")
+    monkeypatch.setenv("LLC_MANAGER_AUTHENTIK_CLIENT_SECRET", "client-secret-value")

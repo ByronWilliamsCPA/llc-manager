@@ -11,6 +11,11 @@ services:
 
     environment:
       ENVIRONMENT: production
+      # The app reads the prefixed name first; set both so neither spelling
+      # can leave the container looking like development.
+      LLC_MANAGER_ENVIRONMENT: production
+      LLC_MANAGER_SECRET_KEY: ${LLC_MANAGER_SECRET_KEY:?set a 32+ character random key}
+      LLC_MANAGER_API_KEY: ${LLC_MANAGER_API_KEY:?set the API key}
       JSON_LOGS: "true"
       LOG_LEVEL: ${LOG_LEVEL:-WARNING}
 
@@ -67,6 +72,8 @@ services:
 # =============================================================================
 # 1. Set environment variables in .env file or export them:
 #    export DB_PASSWORD=secure-production-password
+#    export LLC_MANAGER_SECRET_KEY="$(openssl rand -hex 32)"
+#    export LLC_MANAGER_API_KEY=your-service-api-key-32-or-more-characters
 #    export SENTRY_DSN=your-sentry-dsn
 #    export VERSION=v1.0.0
 #

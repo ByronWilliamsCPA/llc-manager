@@ -122,9 +122,19 @@ jobs:
           LLC_MANAGER_SECRET_KEY="$(openssl rand -hex 32)"
           echo "::add-mask::${LLC_MANAGER_SECRET_KEY}"
           export LLC_MANAGER_SECRET_KEY
+          # Production also fails closed without a sign-in method. These
+          # placeholders satisfy the startup check only; OIDC discovery is
+          # lazy, so no request ever reaches the unresolvable issuer host.
+          LLC_MANAGER_AUTHENTIK_CLIENT_SECRET="$(openssl rand -hex 16)"
+          echo "::add-mask::${LLC_MANAGER_AUTHENTIK_CLIENT_SECRET}"
+          export LLC_MANAGER_AUTHENTIK_CLIENT_SECRET
           docker run -d --name llc-manager-smoke -p 18000:8000 \
             -e LLC_MANAGER_ENVIRONMENT=production \
             -e LLC_MANAGER_SECRET_KEY \
+            -e LLC_MANAGER_PUBLIC_BASE_URL=https://llc-manager-smoke.example.invalid \
+            -e LLC_MANAGER_AUTHENTIK_ISSUER=https://auth.example.invalid/application/o/smoke/ \
+            -e LLC_MANAGER_AUTHENTIK_CLIENT_ID=smoke-test \
+            -e LLC_MANAGER_AUTHENTIK_CLIENT_SECRET \
             -e LLC_MANAGER_DATABASE_HOST=db.example.invalid \
             llc-manager-smoke:ci
           ok=""
@@ -138,6 +148,28 @@ jobs:
             docker logs llc-manager-smoke || true
             exit 1
           fi
+          # The web UI must be gated: an anonymous request is redirected to the
+          # sign-in page, never served. Redirects are not followed. A gate
+          # regression in the built image fails here.
+          gate=$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' \
+            http://localhost:18000/entities)
+          gate_code="${gate%% *}"
+          gate_location="${gate#* }"
+          case "${gate_code}" in
+            303|307) ;;
+            *)
+              echo "anonymous GET /entities returned ${gate_code}, expected 303 or 307"
+              docker logs llc-manager-smoke || true
+              exit 1
+              ;;
+          esac
+          case "${gate_location}" in
+            */auth/login*) ;;
+            *)
+              echo "anonymous GET /entities redirected to '${gate_location}', expected /auth/login"
+              exit 1
+              ;;
+          esac
           # The container must not run as root.
           user=$(docker inspect --format '{{.Config.User}}' llc-manager-smoke:ci)
           if [ -z "${user}" ] || [ "${user%%:*}" = "0" ] || [ "${user}" = "root" ]; then

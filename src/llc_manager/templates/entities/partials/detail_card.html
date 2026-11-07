@@ -1,5 +1,7 @@
 <header class="card-header">
     <h1>{{ entity.legal_name }}</h1>
+    {% set user = current_user(request) %}
+    {% if user and user.is_admin %}
     <button
         type="button"
         class="btn btn-primary"
@@ -7,6 +9,7 @@
         hx-target="#entity-card"
         hx-swap="innerHTML"
     >Edit</button>
+    {% endif %}
 </header>
 
 <dl class="entity-fields">

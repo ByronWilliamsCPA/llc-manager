@@ -16,7 +16,8 @@
 
   {% block head %}{% endblock %}
 </head>
-<body class="h-full" hx-boost="true">
+{% set user = current_user(request) %}
+<body class="h-full" hx-boost="true"{% if user %} hx-headers='{{ {"X-CSRF-Token": csrf_token(request)}|tojson }}'{% endif %}>
 
   <!-- Navigation -->
   <nav class="bg-brand-600 text-white shadow-sm">
@@ -30,6 +31,15 @@
             <a href="/compliance" class="hover:text-brand-100 transition-colors">Compliance</a>
           </div>
         </div>
+        {% if user %}
+        <div class="flex items-center gap-4 text-sm">
+          <span data-testid="signed-in-user">{{ user.name or user.email or user.sub }} ({{ user.role.value }})</span>
+          <form method="post" action="/auth/logout" hx-boost="false">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}" />
+            <button type="submit" class="hover:text-brand-100 transition-colors">Sign out</button>
+          </form>
+        </div>
+        {% endif %}
       </div>
     </div>
   </nav>

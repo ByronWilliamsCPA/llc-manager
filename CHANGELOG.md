@@ -16,9 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   issuer is pinned to the configured `authentik_issuer`, and the session cookie
   is `Secure` unless the environment is explicitly development, local, or test
   (or the public URL is https). The gates
-  (`require_user`, `require_admin`, `verify_csrf`) are implemented and tested
-  but not yet attached to the web routes, so no page behaves differently. With
-  no sign-in settings, `/auth/login` answers 503.
+  (`require_user`, `require_admin`, `verify_csrf`) are attached to the web
+  routes by the web UI gate entry under Changed. With no sign-in settings,
+  `/auth/login` answers 503.
 - `feat(auth)`: break-glass local admin login at `/auth/local-login` (404
   unless `local_admin_enabled` and an argon2 hash are set). Each client is
   limited to 5 failures per 15 minutes (429 with `Retry-After`); an IPv6 client
@@ -55,8 +55,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the process or `.env`, is explicitly development, local, or test; an unset
   name does not count, and a plain-http `public_base_url` needs the same.
   `authlib`, `itsdangerous`, and `argon2-cffi` are now runtime dependencies.
-  No route behavior changes yet, and a host that sets none of the new
-  settings starts as before.
+  Outside development a host that sets none of the new settings no longer
+  starts; see the web UI gate entry under Changed.
+- `docs(auth)`: `docs/guides/authentik-setup.md` (Authentik application,
+  groups, groups-claim check, environment, proxy verification, break-glass
+  setup) and `docs/guides/authentik-outage-runbook.md`; commented sign-in
+  entries in `.env.example`; `docker-compose.yml` now passes the sign-in
+  settings through to the container.
 - `feat(cli)`: `import_documents --dry-run` (alias of `--validate-only`) prints one
   status line per manifest row and also checks that each file is readable and
   that no two rows hold identical bytes (SHA-256); it never touches the
@@ -204,6 +209,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `feat(auth)!`: **the web UI now requires sign-in, and the application fails
+  closed outside development. Deploy order matters: create the Authentik
+  application, the `llc-manager-admins` and `llc-manager-viewers` groups, and
+  set the environment variables in `docs/guides/authentik-setup.md` BEFORE
+  deploying this build to production.** Every page route requires a session
+  (anonymous browsers are redirected to `/auth/login`, HTMX requests get 401
+  with `HX-Redirect`); `GET` and `PATCH /entities/{id}/edit` require the admin
+  role (viewers get 403 and no Edit button); every non-safe web request needs
+  the CSRF token (`X-CSRF-Token` header, set on `<body>` for HTMX, or a
+  `csrf_token` form field); logout is a POST with CSRF. `/api/health/*`,
+  `/api/v1` (`X-API-Key`), and `/auth/*` are unchanged. Outside an explicit
+  development, local, or test environment startup raises a
+  `ConfigurationError` naming the missing settings unless
+  `LLC_MANAGER_PUBLIC_BASE_URL` is set and either the Authentik issuer, client
+  ID, and client secret are set or the break-glass login is enabled with a
+  password hash. An unset `LLC_MANAGER_ENVIRONMENT` (and `ENVIRONMENT`) is
+  treated as non-development, so a host that never named its environment must
+  now configure sign-in. The container smoke test in
+  `.github/workflows/build-image.yml` passes placeholder sign-in settings for
+  the same reason.
+- `fix(config)!`: **the secret key, API key, and sign-in checks now all treat
+  an unset environment name as production (breaking for hosts that relied on
+  the unset-is-development default; set `LLC_MANAGER_ENVIRONMENT=development`
+  locally).** Before, the key checks read only the process environment and
+  treated an unset name as development, so a host with no environment name (or
+  production named only in `.env`) started with the public default
+  `LLC_MANAGER_SECRET_KEY`, which let anyone forge an admin `llc_session`
+  cookie. All three checks now use the same rule as dev mode and the `.env`
+  file counts. Outside development the app also refuses the old
+  `.env.example` placeholder and any key starting with `change-`
+  (case-insensitive), and a blank key counts as unset; `.env.example` now ships
+  an empty `LLC_MANAGER_SECRET_KEY` with `openssl rand -hex 32` instructions.
+  `docker-compose.yml` passes `LLC_MANAGER_SECRET_KEY` and
+  `LLC_MANAGER_API_KEY` through to the container, and `docker-compose.prod.yml`
+  requires both and sets `LLC_MANAGER_ENVIRONMENT: production`. The gating
+  test now allows only an exact list of open routes, and the image smoke test
+  asserts that anonymous `/entities` redirects to `/auth/login`.
+- `test(auth)`: `tests/conftest.py` sets `ENVIRONMENT=test` (only when unset)
+  before the application settings are built, and a route-enumeration test
+  (`tests/unit/test_web_gating.py`) fails if any page route is added without
+  the sign-in gate.
 - `chore(ci)`: converted the Trivy suppressions from the plain-text `.trivyignore`
   to `.trivyignore.yaml`, with a `statement` and an `expired_at` revisit date on
   every entry. The org `python-container-security.yml` (bumped to `b7c661e`)
@@ -482,6 +528,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- `fix(security)`: the web UI edit routes (`GET` and `PATCH
+  /entities/{id}/edit`) and the dashboard were reachable without signing in,
+  and state-changing web requests carried no CSRF check. They now require a
+  session, the admin role (edit routes), and a CSRF token.
 - `fix(security)`: document unfixed libexpat1, libsqlite3-0 and zlib1g base
   image CVEs. Nine HIGH findings (CVE-2026-113351, CVE-2026-115506,
   CVE-2026-117610, CVE-2026-118370, CVE-2026-119373, CVE-2026-119374,

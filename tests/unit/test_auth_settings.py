@@ -38,8 +38,22 @@ def clean_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Start every test with no auth settings in the process environment."""
     for name in AUTH_ENV_NAMES:
         monkeypatch.delenv(f"LLC_MANAGER_{name}", raising=False)
-    monkeypatch.delenv("ENVIRONMENT", raising=False)
     monkeypatch.delenv("LLC_MANAGER_ENVIRONMENT", raising=False)
+    # Every test starts in an explicit development environment; tests about an
+    # unset or production name change it with ``_unset_environment`` or the
+    # ``production`` fixture. An unset name is not development (fail closed).
+    monkeypatch.setenv("ENVIRONMENT", "test")
+
+
+def _unset_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove the environment name so the process names no environment.
+
+    An unset name counts as production for the secret key check too, so this
+    also supplies a valid key; the tests that use it assert on other settings.
+    """
+    monkeypatch.delenv("LLC_MANAGER_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
 
 
 @pytest.fixture
@@ -104,38 +118,137 @@ class TestDefaults:
             Settings(_env_file=None)
 
 
-class TestUnconfiguredProductionIsUnchanged:
-    """PR 1 to 3 must not change startup for a production host with no auth set."""
+class TestProductionRequiresSignIn:
+    """Outside development the gated UI needs a way to sign in (fails closed)."""
 
-    def test_production_without_any_auth_setting_starts(self, production: None) -> None:
+    def test_production_without_any_auth_setting_is_refused(
+        self, production: None
+    ) -> None:
+        with pytest.raises(ConfigurationError, match="PUBLIC_BASE_URL") as excinfo:
+            Settings(_env_file=None)
+
+        assert "AUTHENTIK_ISSUER" in str(excinfo.value)
+
+    def test_unset_environment_name_is_not_development(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # #CRITICAL: a container that names no environment must fail closed.
+        _unset_environment(monkeypatch)
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
+
+        with pytest.raises(ConfigurationError, match="PUBLIC_BASE_URL"):
+            Settings(_env_file=None)
+
+    def test_blank_environment_name_is_not_development(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_ENVIRONMENT", " ")
+        monkeypatch.setenv("LLC_MANAGER_SECRET_KEY", "s" * 40)
+
+        with pytest.raises(ConfigurationError, match="PUBLIC_BASE_URL"):
+            Settings(_env_file=None)
+
+    def test_message_names_every_variable_an_operator_can_set(
+        self, production: None
+    ) -> None:
+        with pytest.raises(ConfigurationError) as excinfo:
+            Settings(_env_file=None)
+
+        message = str(excinfo.value)
+        for name in (
+            "LLC_MANAGER_PUBLIC_BASE_URL",
+            "LLC_MANAGER_AUTHENTIK_ISSUER",
+            "LLC_MANAGER_AUTHENTIK_CLIENT_ID",
+            "LLC_MANAGER_AUTHENTIK_CLIENT_SECRET",
+            "LLC_MANAGER_LOCAL_ADMIN_ENABLED",
+            "LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH",
+            "docs/guides/authentik-setup.md",
+        ):
+            assert name in message
+
+    @pytest.mark.parametrize("environment", ["development", "local", "test"])
+    def test_explicit_development_without_any_auth_setting_starts(
+        self, monkeypatch: pytest.MonkeyPatch, environment: str
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_ENVIRONMENT", environment)
+
         s = Settings(_env_file=None)
+
         assert s.oidc_configured is False
         assert s.local_admin_enabled is False
         assert s.auth_dev_mode is False
 
-    def test_unset_environment_without_any_auth_setting_starts(self) -> None:
-        s = Settings(_env_file=None)
-        assert s.oidc_configured is False
-        assert s.auth_dev_mode is False
-        assert s.explicit_development_environment is False
-
-    def test_legacy_issuer_alone_still_starts_in_production(
+    def test_complete_oidc_is_enough(
         self, monkeypatch: pytest.MonkeyPatch, production: None
     ) -> None:
-        # authentik_issuer was a standalone setting before ADR-003; a host that
-        # sets only it (even over http) must keep starting until PR 4.
+        _oidc_env(monkeypatch)
+
+        assert Settings(_env_file=None).oidc_configured is True
+
+    def test_break_glass_alone_is_enough(
+        self, monkeypatch: pytest.MonkeyPatch, production: None
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_PUBLIC_BASE_URL", "https://llc.example.com")
+        monkeypatch.setenv("LLC_MANAGER_LOCAL_ADMIN_ENABLED", "true")
+        monkeypatch.setenv("LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH", ARGON2_HASH)
+
+        assert Settings(_env_file=None).local_admin_enabled is True
+
+    def test_public_base_url_is_required_for_break_glass_too(
+        self, monkeypatch: pytest.MonkeyPatch, production: None
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_LOCAL_ADMIN_ENABLED", "true")
+        monkeypatch.setenv("LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH", ARGON2_HASH)
+
+        with pytest.raises(ConfigurationError, match="PUBLIC_BASE_URL"):
+            Settings(_env_file=None)
+
+    def test_public_base_url_alone_is_not_enough(
+        self, monkeypatch: pytest.MonkeyPatch, production: None
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_PUBLIC_BASE_URL", "https://llc.example.com")
+
+        with pytest.raises(ConfigurationError, match="AUTHENTIK_ISSUER"):
+            Settings(_env_file=None)
+
+    def test_hash_without_the_switch_is_not_enough(
+        self, monkeypatch: pytest.MonkeyPatch, production: None
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_PUBLIC_BASE_URL", "https://llc.example.com")
+        monkeypatch.setenv("LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH", ARGON2_HASH)
+
+        with pytest.raises(ConfigurationError, match="LOCAL_ADMIN_ENABLED"):
+            Settings(_env_file=None)
+
+    def test_legacy_issuer_alone_is_refused_in_production(
+        self, monkeypatch: pytest.MonkeyPatch, production: None
+    ) -> None:
+        # authentik_issuer was a standalone placeholder before ADR-003; on its
+        # own it signs nobody in, so production no longer starts with it.
+        monkeypatch.setenv("LLC_MANAGER_PUBLIC_BASE_URL", "https://llc.example.com")
         monkeypatch.setenv(
-            "LLC_MANAGER_AUTHENTIK_ISSUER", "http://auth.example.com/application/o/x/"
+            "LLC_MANAGER_AUTHENTIK_ISSUER", "https://auth.example.com/application/o/x/"
         )
-        s = Settings(_env_file=None)
-        assert s.oidc_configured is False
 
-    def test_removed_bearer_jwt_env_vars_do_not_break_production(
+        with pytest.raises(ConfigurationError, match="AUTHENTIK_CLIENT_ID"):
+            Settings(_env_file=None)
+
+    def test_dev_mode_does_not_satisfy_the_requirement(
         self, monkeypatch: pytest.MonkeyPatch, production: None
     ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_AUTH_DEV_MODE", "true")
+
+        with pytest.raises(ConfigurationError):
+            Settings(_env_file=None)
+
+    def test_removed_bearer_jwt_env_vars_do_not_break_a_configured_production(
+        self, monkeypatch: pytest.MonkeyPatch, production: None
+    ) -> None:
+        _oidc_env(monkeypatch)
         monkeypatch.setenv("LLC_MANAGER_AUTHENTIK_JWKS_URL", "https://x/jwks/")
         monkeypatch.setenv("LLC_MANAGER_AUTHENTIK_AUDIENCE", "llc-manager-api")
-        assert Settings(_env_file=None).oidc_configured is False
+
+        assert Settings(_env_file=None).oidc_configured is True
 
 
 class TestOidcConsistency:
@@ -236,11 +349,15 @@ class TestPublicBaseUrl:
     def test_http_is_rejected_when_the_environment_name_is_unset(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        _unset_environment(monkeypatch)
         monkeypatch.setenv("LLC_MANAGER_PUBLIC_BASE_URL", "http://localhost:8000")
         with pytest.raises(ConfigurationError, match="https://"):
             Settings(_env_file=None)
 
-    def test_http_is_rejected_when_dotenv_says_production(self, tmp_path: Path) -> None:
+    def test_http_is_rejected_when_dotenv_says_production(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        _unset_environment(monkeypatch)
         env_file = tmp_path / ".env"
         env_file.write_text(
             "ENVIRONMENT=production\nLLC_MANAGER_PUBLIC_BASE_URL=http://llc.example.com\n"
@@ -260,6 +377,7 @@ class TestBreakGlassSettings:
     def test_enabled_with_argon2_hash_is_accepted(
         self, monkeypatch: pytest.MonkeyPatch, production: None
     ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_PUBLIC_BASE_URL", "https://llc.example.com")
         monkeypatch.setenv("LLC_MANAGER_LOCAL_ADMIN_ENABLED", "true")
         monkeypatch.setenv("LLC_MANAGER_LOCAL_ADMIN_PASSWORD_HASH", ARGON2_HASH)
         s = Settings(_env_file=None)
@@ -312,6 +430,7 @@ class TestDevMode:
     def test_refused_when_the_environment_name_is_unset(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        _unset_environment(monkeypatch)
         monkeypatch.setenv("LLC_MANAGER_AUTH_DEV_MODE", "true")
         with pytest.raises(ConfigurationError, match="AUTH_DEV_MODE"):
             Settings(_env_file=None)
@@ -330,21 +449,24 @@ class TestDevMode:
     ) -> None:
         env_file = tmp_path / ".env"
         env_file.write_text("ENVIRONMENT=production\n")
+        _unset_environment(monkeypatch)
         monkeypatch.setenv("LLC_MANAGER_AUTH_DEV_MODE", "true")
         with pytest.raises(ConfigurationError, match="AUTH_DEV_MODE"):
             Settings(_env_file=str(env_file))
 
     def test_dotenv_cannot_enable_dev_mode_without_naming_the_environment(
-        self, tmp_path: Path
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        _unset_environment(monkeypatch)
         env_file = tmp_path / ".env"
         env_file.write_text("LLC_MANAGER_AUTH_DEV_MODE=true\n")
         with pytest.raises(ConfigurationError, match="AUTH_DEV_MODE"):
             Settings(_env_file=str(env_file))
 
     def test_dotenv_naming_a_development_environment_allows_dev_mode(
-        self, tmp_path: Path
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        _unset_environment(monkeypatch)
         env_file = tmp_path / ".env"
         env_file.write_text(
             "\n".join(
