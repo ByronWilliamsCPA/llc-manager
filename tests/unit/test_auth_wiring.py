@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.middleware.sessions import SessionMiddleware
 
 from llc_manager.auth.session import SESSION_COOKIE
 from llc_manager.core.config import settings
@@ -91,3 +92,37 @@ def test_no_dev_mode_warning_when_dev_mode_is_off(
         pass
 
     assert "auth_dev_mode_enabled" not in caplog.text
+
+
+def _session_https_only() -> object:
+    app = create_app()
+    for middleware in app.user_middleware:
+        if middleware.cls is SessionMiddleware:
+            return middleware.kwargs["https_only"]
+    pytest.fail("SessionMiddleware is not installed")
+
+
+@pytest.mark.parametrize(
+    ("base_url", "environment", "expected"),
+    [
+        (None, None, True),
+        (None, "production", True),
+        ("http://llc.example.test", None, True),
+        ("https://llc.example.test", None, True),
+        ("https://llc.example.test", "development", True),
+        (None, "development", False),
+        (None, "local", False),
+        (None, "test", False),
+        ("http://localhost:8000", "development", False),
+    ],
+)
+def test_session_cookie_is_secure_unless_explicitly_development(
+    monkeypatch: pytest.MonkeyPatch,
+    base_url: str | None,
+    environment: str | None,
+    expected: bool,
+) -> None:
+    monkeypatch.setattr(settings, "public_base_url", base_url)
+    monkeypatch.setattr(settings, "environment", environment)
+
+    assert _session_https_only() is expected

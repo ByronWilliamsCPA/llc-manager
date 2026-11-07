@@ -110,10 +110,23 @@ class TestLogin:
         assert "samesite=lax" in cookie
         assert "max-age=28800" in cookie
 
+    def test_session_cookie_is_secure_for_a_plain_http_url_outside_development(
+        self, provider: FakeProvider, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _configure(monkeypatch, "http://localhost:8000")
+        monkeypatch.setattr(settings, "environment", None)
+        app = create_app()
+        app.state.oidc_client = provider.client
+        with TestClient(app, follow_redirects=False) as local_client:
+            response = local_client.get("/auth/login")
+
+        assert "secure" in response.headers["set-cookie"].lower()
+
     def test_session_cookie_is_not_secure_for_a_plain_http_public_url(
         self, provider: FakeProvider, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _configure(monkeypatch, "http://localhost:8000")
+        monkeypatch.setattr(settings, "environment", "development")
         app = create_app()
         app.state.oidc_client = provider.client
         with TestClient(app, follow_redirects=False) as local_client:

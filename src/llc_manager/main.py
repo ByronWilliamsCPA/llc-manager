@@ -55,6 +55,24 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # Shutdown
 
 
+def _session_cookie_is_secure() -> bool:
+    """Decide whether the session cookie carries the ``Secure`` flag.
+
+    Returns:
+        bool: True for an https ``public_base_url`` and for any environment
+        that is not explicitly development, local, or test. Only an explicit
+        development-class environment with no https URL may issue a cookie
+        over plain http.
+    """
+    # #CRITICAL: Security - an unset public_base_url or environment name must
+    # not downgrade the cookie, because a later login method may issue a
+    # session cookie without OIDC being configured.
+    # #VERIFY: tests/unit/test_auth_wiring.py parametrizes both inputs.
+    if (settings.public_base_url or "").startswith("https://"):
+        return True
+    return not settings.explicit_development_environment
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -114,7 +132,8 @@ def create_app() -> FastAPI:
     app.add_middleware(SSRFPreventionMiddleware)
 
     # Cookie session for the browser UI. Added after the middleware above so it
-    # wraps them, and the cookie is Secure whenever the public URL is https.
+    # wraps them. The cookie is Secure unless the environment is explicitly
+    # development, local, or test and the public URL is not https.
     # #ASSUME: the site is served over https in production (enforced by the
     # public_base_url validator).
     # #VERIFY: test_session_cookie_is_hardened asserts the Secure flag.
@@ -124,7 +143,7 @@ def create_app() -> FastAPI:
         session_cookie=SESSION_COOKIE,
         max_age=settings.session_max_age_seconds,
         same_site="lax",
-        https_only=(settings.public_base_url or "").startswith("https://"),
+        https_only=_session_cookie_is_secure(),
     )
     app.state.oidc_client = build_oidc_client(settings)
 
