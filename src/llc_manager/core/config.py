@@ -419,7 +419,7 @@ class Settings(BaseSettings):
     @field_validator("trusted_proxy_ips", mode="after")
     @classmethod
     def _check_proxy_ips(cls, value: list[str]) -> list[str]:
-        """Require every entry to be a narrow private or loopback address range.
+        """Require each entry to be a single host or a narrow private network.
 
         Args:
             value (list[str]): The configured entries.
@@ -429,12 +429,13 @@ class Settings(BaseSettings):
 
         Raises:
             ConfigurationError: If an entry is not an IP address or network, has
-                host bits set, is not private or loopback, or is broader than
-                ``/8`` (IPv4) or ``/16`` (IPv6).
+                host bits set, is a network that is not private or loopback, or
+                is a network broader than ``/8`` (IPv4) or ``/16`` (IPv6).
         """
         # #CRITICAL: Security - whoever is trusted here can choose the client IP
-        # that the break-glass throttle keys on, so a public or very wide range
-        # would let any caller dodge it.
+        # that the break-glass throttle keys on, so a public or very wide
+        # network would let any caller dodge it. A single host is allowed even
+        # when public, because a reverse proxy may sit on a public address.
         # #VERIFY: tests/unit/test_auth_settings.py::TestTrustedProxyIps.
         for entry in value:
             try:
@@ -444,12 +445,14 @@ class Settings(BaseSettings):
                     _invalid_proxy_entry_message(entry),
                     details={"config_key": "trusted_proxy_ips"},
                 ) from exc
+            if network.num_addresses == 1:
+                continue
             limit = _MIN_PROXY_PREFIX[network.version]
             if not (network.is_private or network.is_loopback):
                 message = (
-                    "LLC_MANAGER_TRUSTED_PROXY_IPS entries must be private or "
-                    f"loopback addresses (the proxy sits inside your network); "
-                    f"got {entry!r}."
+                    "LLC_MANAGER_TRUSTED_PROXY_IPS networks must be private or "
+                    "loopback; a public proxy must be listed as a single "
+                    f"address, not a network; got {entry!r}."
                 )
                 raise ConfigurationError(
                     message, details={"config_key": "trusted_proxy_ips"}

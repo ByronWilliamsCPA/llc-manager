@@ -414,9 +414,14 @@ class TestTrustedProxyIps:
             "fd00::/16",
             "fd12:3456::/32",
             "10.0.0.5, 172.18.0.0/16, ::1",
+            "8.8.8.8",
+            "8.8.8.8/32",
+            "2001:4860::1",
+            "2001:4860::1/128",
+            "10.0.0.5,8.8.8.8",
         ],
     )
-    def test_private_and_loopback_entries_are_accepted(
+    def test_private_loopback_and_single_host_entries_are_accepted(
         self, monkeypatch: pytest.MonkeyPatch, value: str
     ) -> None:
         monkeypatch.setenv("LLC_MANAGER_TRUSTED_PROXY_IPS", value)
@@ -439,19 +444,28 @@ class TestTrustedProxyIps:
         [
             "0.0.0.0/0",
             "::/0",
-            "8.8.8.8",
+            "8.8.8.0/24",
             "203.0.114.0/24",
             "100.64.0.0/10",
             "2001:4860::/32",
-            "10.0.0.5,8.8.8.8",
+            "10.0.0.5,8.8.8.0/24",
         ],
     )
-    def test_public_ranges_are_rejected(
+    def test_public_networks_are_rejected(
         self, monkeypatch: pytest.MonkeyPatch, value: str
     ) -> None:
         monkeypatch.setenv("LLC_MANAGER_TRUSTED_PROXY_IPS", value)
         with pytest.raises(ConfigurationError, match="TRUSTED_PROXY_IPS"):
             Settings(_env_file=None)
+
+    def test_the_public_network_message_points_at_the_single_host_option(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("LLC_MANAGER_TRUSTED_PROXY_IPS", "8.8.8.0/24")
+        with pytest.raises(ConfigurationError) as caught:
+            Settings(_env_file=None)
+        assert "single" in str(caught.value)
+        assert "8.8.8.0/24" in str(caught.value)
 
     @pytest.mark.parametrize(
         "value", ["10.0.0.0/7", "172.0.0.0/8,0.0.0.0/4", "fc00::/7", "fd00::/15"]
