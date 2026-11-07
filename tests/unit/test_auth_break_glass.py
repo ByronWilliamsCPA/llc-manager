@@ -14,6 +14,7 @@ from pydantic import SecretStr
 
 from llc_manager.auth import routes
 from llc_manager.auth.session import SESSION_COOKIE
+from llc_manager.auth.throttle import GLOBAL_MAX_FAILURES
 from llc_manager.core.config import settings
 from llc_manager.main import create_app
 from tests.auth_helpers import decode_session_cookie, session_cookie_value
@@ -514,6 +515,69 @@ class TestGlobalBudget:
 
         assert "local_login_throttled" in caplog.text
         assert "global" in caplog.text
+
+
+@pytest.mark.usefixtures("enabled")
+class TestGlobalBudgetIsReservedAtAdmission:
+    """Slow verification must not let a burst slip past the global limit."""
+
+    def test_requests_over_the_limit_are_refused_while_verification_is_paused(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = create_app()
+        total = GLOBAL_MAX_FAILURES + 5
+        status_codes: dict[int, int] = {}
+
+        async def run() -> None:
+            gate = asyncio.Event()
+
+            async def paused(_password: str) -> bool:
+                await gate.wait()
+                return False
+
+            monkeypatch.setattr(routes, "_password_matches", paused)
+            clients = [
+                httpx.AsyncClient(
+                    transport=httpx.ASGITransport(app=app, client=(f"10.0.3.{i}", 1)),
+                    base_url=BASE_URL,
+                )
+                for i in range(total)
+            ]
+            tokens: list[str] = []
+            for client in clients:
+                html = (await client.get("/auth/local-login")).text
+                marker = 'name="csrf_token" value="'
+                start = html.index(marker) + len(marker)
+                tokens.append(html[start : html.index('"', start)])
+
+            async def attempt(index: int) -> int:
+                response = await clients[index].post(
+                    "/auth/local-login",
+                    data={"password": "wrong", "csrf_token": tokens[index]},
+                )
+                return response.status_code
+
+            tasks = [asyncio.create_task(attempt(i)) for i in range(total)]
+            for _ in range(200):
+                if sum(task.done() for task in tasks) >= 5:
+                    break
+                await asyncio.sleep(0.025)
+            await asyncio.sleep(0.1)  # let any wrongly admitted request surface
+
+            # Verification has not completed for anyone: the gate is still shut.
+            assert not gate.is_set()
+            finished = [task.result() for task in tasks if task.done()]
+            assert finished == [429] * 5
+
+            gate.set()
+            for code in await asyncio.gather(*tasks):
+                status_codes[code] = status_codes.get(code, 0) + 1
+            for client in clients:
+                await client.aclose()
+
+        asyncio.run(run())
+
+        assert status_codes == {401: GLOBAL_MAX_FAILURES, 429: 5}
 
 
 @pytest.mark.usefixtures("enabled")
