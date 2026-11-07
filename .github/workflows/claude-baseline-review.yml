@@ -36,7 +36,7 @@ jobs:
     # ByronWilliamsCPA/.github main. `gh api
     # repos/ByronWilliamsCPA/.github/compare/main...<sha> --jq .status` must not
     # return "diverged". Renovate tracks this pin.
-    uses: ByronWilliamsCPA/.github/.github/workflows/claude-baseline-review.yml@b7c661ec3bfeb04370ce3a9c748bd8c4e93bfe89  # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/claude-baseline-review.yml@79bf84c73af866a34f968262f2631f938c659d77  # main
     with:
       repo-description: >-
         a web application for managing LLC entities, tracking compliance
