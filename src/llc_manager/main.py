@@ -7,10 +7,14 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from llc_manager.api.health import router as health_router
 from llc_manager.api.ui import router as ui_router
 from llc_manager.api.v1 import router as v1_router
+from llc_manager.auth.oidc import build_oidc_client
+from llc_manager.auth.routes import router as auth_router
+from llc_manager.auth.session import SESSION_COOKIE
 from llc_manager.core.config import settings
 from llc_manager.middleware.correlation import CorrelationMiddleware
 from llc_manager.middleware.security import (
@@ -41,6 +45,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         logger.error(
             "api_key_not_configured",
             effect="every /api/v1 request is refused with 503",
+        )
+    if settings.auth_dev_mode:
+        logger.warning(
+            "auth_dev_mode_enabled",
+            effect="every web request is treated as a signed-in administrator",
         )
     yield
     # Shutdown
@@ -104,9 +113,25 @@ def create_app() -> FastAPI:
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(SSRFPreventionMiddleware)
 
+    # Cookie session for the browser UI. Added after the middleware above so it
+    # wraps them, and the cookie is Secure whenever the public URL is https.
+    # #ASSUME: the site is served over https in production (enforced by the
+    # public_base_url validator).
+    # #VERIFY: test_session_cookie_is_hardened asserts the Secure flag.
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.secret_key,
+        session_cookie=SESSION_COOKIE,
+        max_age=settings.session_max_age_seconds,
+        same_site="lax",
+        https_only=(settings.public_base_url or "").startswith("https://"),
+    )
+    app.state.oidc_client = build_oidc_client(settings)
+
     # Include routers
     app.include_router(health_router, prefix="/api", tags=["Health"])
     app.include_router(v1_router, prefix="/api/v1")
+    app.include_router(auth_router)
     app.include_router(ui_router)
     app.include_router(web_router)
 
