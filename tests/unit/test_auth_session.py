@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import SecretStr
 
 from llc_manager.auth.roles import Role
 from llc_manager.auth.session import (
@@ -12,6 +13,7 @@ from llc_manager.auth.session import (
     load_user,
     store_user,
 )
+from llc_manager.core.config import settings
 
 pytestmark = [pytest.mark.unit, pytest.mark.security]
 
@@ -102,3 +104,100 @@ def test_csrf_token_is_minted_once_and_stable() -> None:
     assert token
     assert csrf_token(session) == token
     assert expected_csrf_token(session) == token
+
+
+LOCAL_USER = SessionUser(
+    sub="local-admin",
+    email=None,
+    name="Local administrator",
+    role=Role.ADMIN,
+    auth_method="local",
+)
+HASH_A = "$argon2id$v=19$m=8,t=1,p=1$c2FsdHNhbHQ$aGFzaGhhc2hoYXNo"  # pragma: allowlist secret
+HASH_B = (
+    "$argon2id$v=19$m=8,t=1,p=1$c2FsdHNhbHQ$b3RoZXJvdGhlcg"  # pragma: allowlist secret
+)
+
+
+@pytest.fixture
+def break_glass_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Enable the break-glass login with ``HASH_A`` configured."""
+    monkeypatch.setattr(settings, "local_admin_enabled", True)
+    monkeypatch.setattr(settings, "local_admin_password_hash", SecretStr(HASH_A))
+
+
+@pytest.mark.usefixtures("break_glass_on")
+class TestLocalSessionBinding:
+    """A break-glass session lives only while its configuration does."""
+
+    def test_unchanged_settings_keep_the_session_valid(self) -> None:
+        session: dict[str, object] = {}
+        store_user(session, LOCAL_USER, max_age=100, now=1000.0)
+
+        assert load_user(session, now=1050.0) == LOCAL_USER
+
+    def test_the_hash_itself_is_not_stored_in_the_cookie(self) -> None:
+        session: dict[str, object] = {}
+        store_user(session, LOCAL_USER, max_age=100, now=1000.0)
+
+        assert HASH_A not in repr(session)
+
+    def test_disabling_break_glass_signs_the_session_out(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        session: dict[str, object] = {}
+        store_user(session, LOCAL_USER, max_age=100, now=1000.0)
+
+        monkeypatch.setattr(settings, "local_admin_enabled", False)
+
+        assert load_user(session, now=1050.0) is None
+
+    def test_removing_the_hash_signs_the_session_out(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        session: dict[str, object] = {}
+        store_user(session, LOCAL_USER, max_age=100, now=1000.0)
+
+        monkeypatch.setattr(settings, "local_admin_password_hash", None)
+
+        assert load_user(session, now=1050.0) is None
+
+    def test_rotating_the_hash_signs_the_session_out(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        session: dict[str, object] = {}
+        store_user(session, LOCAL_USER, max_age=100, now=1000.0)
+
+        monkeypatch.setattr(settings, "local_admin_password_hash", SecretStr(HASH_B))
+
+        assert load_user(session, now=1050.0) is None
+
+    def test_a_local_session_without_a_fingerprint_is_rejected(self) -> None:
+        session: dict[str, object] = {}
+        store_user(session, LOCAL_USER, max_age=100, now=1000.0)
+        user = session["user"]
+        assert isinstance(user, dict)
+        user.pop("fp", None)
+
+        assert load_user(session, now=1050.0) is None
+
+    def test_rotating_the_secret_key_signs_the_session_out(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        session: dict[str, object] = {}
+        store_user(session, LOCAL_USER, max_age=100, now=1000.0)
+
+        monkeypatch.setattr(settings, "secret_key", "r" * 40)
+
+        assert load_user(session, now=1050.0) is None
+
+    def test_oidc_sessions_ignore_the_break_glass_settings(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        session: dict[str, object] = {}
+        store_user(session, USER, max_age=100, now=1000.0)
+
+        monkeypatch.setattr(settings, "local_admin_enabled", False)
+        monkeypatch.setattr(settings, "local_admin_password_hash", None)
+
+        assert load_user(session, now=1050.0) == USER

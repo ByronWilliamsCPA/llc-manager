@@ -1,5 +1,7 @@
 """Signed-cookie session helpers: the signed-in user and the CSRF token."""
 
+import hashlib
+import hmac
 import secrets
 import time
 from collections.abc import MutableMapping
@@ -7,10 +9,12 @@ from dataclasses import dataclass
 from typing import Literal, cast, get_args
 
 from llc_manager.auth.roles import Role
+from llc_manager.core.config import settings
 
 SESSION_COOKIE = "llc_session"
 _USER_KEY = "user"
 _CSRF_KEY = "csrf"
+_FINGERPRINT_KEY = "fp"
 
 AuthMethod = Literal["oidc", "local", "dev"]
 _AUTH_METHODS: tuple[str, ...] = get_args(AuthMethod)
@@ -31,6 +35,26 @@ class SessionUser:
     def is_admin(self) -> bool:
         """Whether this user may edit data."""
         return self.role is Role.ADMIN
+
+
+def _local_fingerprint() -> str | None:
+    """Fingerprint the configured break-glass hash, or ``None`` if unusable.
+
+    The value is an HMAC keyed by the application secret, so the cookie never
+    carries the hash and cannot be used to test guesses against it.
+
+    Returns:
+        str | None: The hex digest, or ``None`` when break-glass is off or has
+        no hash configured.
+    """
+    stored = settings.local_admin_password_hash
+    if not settings.local_admin_enabled or stored is None:
+        return None
+    return hmac.new(
+        settings.secret_key.encode("utf-8"),
+        stored.get_secret_value().encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 def store_user(
@@ -60,7 +84,7 @@ def store_user(
     # #VERIFY: tests/unit/test_auth_session.py asserts pre-login keys are gone.
     issued = time.time() if now is None else now
     session.clear()
-    session[_USER_KEY] = {
+    record: dict[str, object] = {
         "sub": user.sub,
         "email": user.email,
         "name": user.name,
@@ -68,6 +92,13 @@ def store_user(
         "auth_method": user.auth_method,
         "exp": issued + max_age,
     }
+    if user.auth_method == "local":
+        # #CRITICAL: a break-glass session must die when break-glass is turned
+        # off or its password hash is rotated, which is how an operator
+        # revokes a stolen cookie before `exp`.
+        # #VERIFY: tests/unit/test_auth_session.py::TestLocalSessionBinding.
+        record[_FINGERPRINT_KEY] = _local_fingerprint()
+    session[_USER_KEY] = record
     session[_CSRF_KEY] = secrets.token_urlsafe(32)
 
 
@@ -91,6 +122,22 @@ def _optional_text(value: object) -> str | None:
     raise TypeError(message)
 
 
+def _local_session_is_current(stored: object) -> bool:
+    """Whether a stored break-glass fingerprint matches today's configuration.
+
+    Args:
+        stored (object): The fingerprint saved in the session.
+
+    Returns:
+        bool: ``True`` only when break-glass is enabled with a hash and the
+        fingerprint matches it.
+    """
+    expected = _local_fingerprint()
+    if expected is None or not isinstance(stored, str):
+        return False
+    return hmac.compare_digest(stored, expected)
+
+
 def load_user(session: Session, *, now: float | None = None) -> SessionUser | None:
     """Return the signed-in user, or ``None`` if absent, expired or malformed.
 
@@ -112,6 +159,8 @@ def load_user(session: Session, *, now: float | None = None) -> SessionUser | No
     sub = data.get("sub")
     method = data.get("auth_method")
     if not isinstance(sub, str) or not sub or method not in _AUTH_METHODS:
+        return None
+    if method == "local" and not _local_session_is_current(data.get(_FINGERPRINT_KEY)):
         return None
     try:
         return SessionUser(
