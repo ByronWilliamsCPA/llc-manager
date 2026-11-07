@@ -27,7 +27,7 @@ permissions:
 jobs:
   publish:
     name: Publish Package
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-publish-pypi.yml@b7c661ec3bfeb04370ce3a9c748bd8c4e93bfe89 # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-publish-pypi.yml@79bf84c73af866a34f968262f2631f938c659d77 # main
     permissions:
       contents: read
       id-token: write  # Required for OIDC trusted publishing
