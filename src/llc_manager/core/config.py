@@ -33,8 +33,34 @@ _DEFAULT_SECRET_KEY_PLACEHOLDER = "change-me-in-production"  # noqa: S105  # nos
 # and signed-cookie keys. See SECURITY-FINDINGS.md A02-1.
 _MIN_SECRET_KEY_LENGTH = 32
 
+# Widest network a trusted proxy entry may name, by IP version.
+_MIN_PROXY_PREFIX = {4: 8, 6: 16}
+
 # Environment names that count as non-production for the startup checks below.
 _DEVELOPMENT_ENVIRONMENTS = frozenset({"development", "local", "test"})
+
+
+def _invalid_proxy_entry_message(entry: str) -> str:
+    """Explain why a trusted proxy entry did not parse as a strict network.
+
+    Args:
+        entry (str): The rejected entry.
+
+    Returns:
+        str: A message that names the setting and, for a network with host bits
+            set, the corrected network.
+    """
+    try:
+        corrected = ipaddress.ip_network(entry, strict=False)
+    except ValueError:
+        return (
+            "LLC_MANAGER_TRUSTED_PROXY_IPS entries must be IP addresses or CIDR "
+            f"networks; got {entry!r}."
+        )
+    return (
+        f"LLC_MANAGER_TRUSTED_PROXY_IPS entry {entry!r} has host bits set, which "
+        f"uvicorn would silently never match; use {corrected} instead."
+    )
 
 
 def _is_development_environment() -> bool:
@@ -393,7 +419,7 @@ class Settings(BaseSettings):
     @field_validator("trusted_proxy_ips", mode="after")
     @classmethod
     def _check_proxy_ips(cls, value: list[str]) -> list[str]:
-        """Require every entry to be an IP address or a CIDR network.
+        """Require every entry to be a narrow private or loopback address range.
 
         Args:
             value (list[str]): The configured entries.
@@ -402,19 +428,41 @@ class Settings(BaseSettings):
             list[str]: The entries, unchanged.
 
         Raises:
-            ConfigurationError: If an entry is not an IP address or network.
+            ConfigurationError: If an entry is not an IP address or network, has
+                host bits set, is not private or loopback, or is broader than
+                ``/8`` (IPv4) or ``/16`` (IPv6).
         """
+        # #CRITICAL: Security - whoever is trusted here can choose the client IP
+        # that the break-glass throttle keys on, so a public or very wide range
+        # would let any caller dodge it.
+        # #VERIFY: tests/unit/test_auth_settings.py::TestTrustedProxyIps.
         for entry in value:
             try:
-                ipaddress.ip_network(entry, strict=False)
+                network = ipaddress.ip_network(entry, strict=True)
             except ValueError as exc:
+                raise ConfigurationError(
+                    _invalid_proxy_entry_message(entry),
+                    details={"config_key": "trusted_proxy_ips"},
+                ) from exc
+            limit = _MIN_PROXY_PREFIX[network.version]
+            if not (network.is_private or network.is_loopback):
                 message = (
-                    "LLC_MANAGER_TRUSTED_PROXY_IPS entries must be IP addresses "
-                    f"or CIDR networks; got {entry!r}."
+                    "LLC_MANAGER_TRUSTED_PROXY_IPS entries must be private or "
+                    f"loopback addresses (the proxy sits inside your network); "
+                    f"got {entry!r}."
                 )
                 raise ConfigurationError(
                     message, details={"config_key": "trusted_proxy_ips"}
-                ) from exc
+                )
+            if network.prefixlen < limit:
+                message = (
+                    "LLC_MANAGER_TRUSTED_PROXY_IPS entries must not be broader "
+                    f"than /{limit} for IPv{network.version}; got {entry!r}. "
+                    "List the proxy's address or its container network."
+                )
+                raise ConfigurationError(
+                    message, details={"config_key": "trusted_proxy_ips"}
+                )
         return value
 
     @property
