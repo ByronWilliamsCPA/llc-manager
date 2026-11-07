@@ -16,7 +16,11 @@ from llc_manager.api.v1 import router as v1_router
 from llc_manager.auth.oidc import build_oidc_client
 from llc_manager.auth.routes import router as auth_router
 from llc_manager.auth.session import SESSION_COOKIE
-from llc_manager.auth.throttle import LoginThrottle
+from llc_manager.auth.throttle import (
+    GLOBAL_MAX_FAILURES,
+    GLOBAL_WINDOW_SECONDS,
+    LoginThrottle,
+)
 from llc_manager.core.config import settings
 from llc_manager.middleware.correlation import CorrelationMiddleware
 from llc_manager.middleware.security import (
@@ -173,6 +177,10 @@ def create_app() -> FastAPI:
     )
     app.state.oidc_client = build_oidc_client(settings)
     app.state.login_throttle = LoginThrottle()
+    app.state.global_login_throttle = LoginThrottle(
+        max_failures=GLOBAL_MAX_FAILURES,
+        window_seconds=GLOBAL_WINDOW_SECONDS,
+    )
     _warn_if_throttle_key_is_shared()
 
     # Trust X-Forwarded-For and X-Forwarded-Proto only from the configured

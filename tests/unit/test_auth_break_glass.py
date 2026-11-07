@@ -381,6 +381,119 @@ class TestRateLimit:
             assert _submit(first, PASSWORD, token_first).status_code == 429
 
 
+def _client_at(app: "FastAPI", host: str) -> TestClient:
+    return TestClient(app, base_url=BASE_URL, follow_redirects=False, client=(host, 1))
+
+
+def _fail_from(app: "FastAPI", host: str, times: int) -> TestClient:
+    """Fail ``times`` attempts from ``host`` and return that client."""
+    client = _client_at(app, host)
+    token = _token(client)
+    for _ in range(times):
+        assert _submit(client, "wrong", token).status_code == 401
+    return client
+
+
+@pytest.mark.usefixtures("enabled")
+class TestClientKeys:
+    def test_one_ipv6_slash_64_shares_a_budget(self) -> None:
+        app = create_app()
+        _fail_from(app, "2001:db8:1:2::1", 5)
+
+        other = _client_at(app, "2001:db8:1:2::ffff")
+        response = _submit(other, PASSWORD, _token(other))
+
+        assert response.status_code == 429
+
+    def test_other_ipv6_networks_are_not_affected(self) -> None:
+        app = create_app()
+        _fail_from(app, "2001:db8:1:2::1", 5)
+
+        other = _client_at(app, "2001:db8:1:3::1")
+
+        assert _submit(other, PASSWORD, _token(other)).status_code == 303
+
+    def test_an_ipv4_mapped_address_shares_the_ipv4_budget(self) -> None:
+        app = create_app()
+        _fail_from(app, "203.0.113.9", 5)
+
+        mapped = _client_at(app, "::ffff:203.0.113.9")
+
+        assert _submit(mapped, PASSWORD, _token(mapped)).status_code == 429
+
+
+@pytest.mark.usefixtures("enabled")
+class TestGlobalBudget:
+    """20 failures per 15 minutes across all clients, then everyone gets 429."""
+
+    def test_four_clients_exhaust_the_budget_for_everyone(self) -> None:
+        app = create_app()
+        for index in range(4):
+            _fail_from(app, f"10.0.1.{index}", 5)
+
+        fresh = _client_at(app, "10.0.2.1")
+        response = _submit(fresh, PASSWORD, _token(fresh))
+
+        assert response.status_code == 429
+        assert int(response.headers["retry-after"]) > 0
+        assert "user" not in decode_session_cookie(
+            settings.secret_key, fresh.cookies[SESSION_COOKIE]
+        )
+
+    def test_nineteen_failures_leave_the_login_open(self) -> None:
+        app = create_app()
+        for index in range(3):
+            _fail_from(app, f"10.0.1.{index}", 5)
+        _fail_from(app, "10.0.1.9", 4)
+
+        fresh = _client_at(app, "10.0.2.1")
+
+        assert _submit(fresh, PASSWORD, _token(fresh)).status_code == 303
+
+    def test_a_success_does_not_clear_the_global_budget(self) -> None:
+        app = create_app()
+        for index in range(3):
+            _fail_from(app, f"10.0.1.{index}", 5)
+        _fail_from(app, "10.0.1.9", 4)
+        ok = _client_at(app, "10.0.2.1")
+        assert _submit(ok, PASSWORD, _token(ok)).status_code == 303
+
+        _fail_from(app, "10.0.1.10", 1)  # the 20th failure
+
+        other = _client_at(app, "10.0.2.2")
+        assert _submit(other, PASSWORD, _token(other)).status_code == 429
+
+    def test_a_success_does_not_use_up_a_global_slot(self) -> None:
+        app = create_app()
+        for index in range(3):
+            _fail_from(app, f"10.0.1.{index}", 5)
+        _fail_from(app, "10.0.1.9", 3)  # 18 failures
+        for host in ("10.0.2.1", "10.0.2.2"):
+            ok = _client_at(app, host)
+            assert _submit(ok, PASSWORD, _token(ok)).status_code == 303
+
+        # 18 failures plus two successes: still one failure short of the limit.
+        _fail_from(app, "10.0.1.10", 1)
+        last = _client_at(app, "10.0.2.3")
+
+        assert _submit(last, PASSWORD, _token(last)).status_code == 303
+
+    def test_the_global_block_is_logged_with_its_scope(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        app = create_app()
+        for index in range(4):
+            _fail_from(app, f"10.0.1.{index}", 5)
+        fresh = _client_at(app, "10.0.2.1")
+        token = _token(fresh)
+        caplog.set_level("WARNING")
+
+        _submit(fresh, "wrong", token)
+
+        assert "local_login_throttled" in caplog.text
+        assert "global" in caplog.text
+
+
 @pytest.mark.usefixtures("enabled")
 class TestLogging:
     def test_every_attempt_is_logged_at_warning(

@@ -27,7 +27,7 @@ from llc_manager.auth.oidc import (
 from llc_manager.auth.redirects import safe_next
 from llc_manager.auth.roles import Role, resolve_role
 from llc_manager.auth.session import SessionUser, csrf_token, store_user
-from llc_manager.auth.throttle import LoginThrottle
+from llc_manager.auth.throttle import GLOBAL_KEY, LoginThrottle, client_key
 from llc_manager.core.config import settings
 from llc_manager.core.templates import templates
 from llc_manager.middleware.correlation import get_correlation_id
@@ -67,6 +67,21 @@ def get_login_throttle(request: Request) -> LoginThrottle:
 
 
 ThrottleDep = Annotated[LoginThrottle, Depends(get_login_throttle)]
+
+
+def get_global_login_throttle(request: Request) -> LoginThrottle:
+    """FastAPI dependency: the failure budget shared by all clients.
+
+    Args:
+        request (Request): The incoming request.
+
+    Returns:
+        LoginThrottle: The app-wide budget.
+    """
+    return cast("LoginThrottle", request.app.state.global_login_throttle)
+
+
+GlobalThrottleDep = Annotated[LoginThrottle, Depends(get_global_login_throttle)]
 
 
 def require_local_login_enabled() -> None:
@@ -474,6 +489,7 @@ async def local_login_form(
 async def local_login_submit(
     request: Request,
     throttle: ThrottleDep,
+    global_throttle: GlobalThrottleDep,
     password: Annotated[str, Form()],
     next_: Annotated[str | None, Form(alias="next")] = None,
 ) -> Response:
@@ -490,7 +506,9 @@ async def local_login_submit(
 
     Args:
         request (Request): The incoming request.
-        throttle (ThrottleDep): The failure throttle.
+        throttle (ThrottleDep): The per-client failure throttle.
+        global_throttle (GlobalThrottleDep): The failure budget shared by all
+            clients.
         password (Annotated[str, Form()]): The submitted password.
         next_ (Annotated[str | None, Form(alias="next")]): Relative path to
             return to after sign-in.
@@ -501,12 +519,25 @@ async def local_login_submit(
     """
     target = safe_next(next_)
     client_ip = _client_ip(request)
+    key = client_key(client_ip)
     correlation_id = get_correlation_id()
 
-    if throttle.is_blocked(client_ip):
+    # #CRITICAL: two budgets. The per-client one (keyed by address, IPv6 by /64)
+    # stops one source; the global one stops a distributed guesser, at the cost
+    # of locking the real operator out too while it is exhausted.
+    # #VERIFY: tests/unit/test_auth_break_glass.py::TestGlobalBudget.
+    blocked_scope = (
+        "client"
+        if throttle.is_blocked(key)
+        else "global"
+        if global_throttle.is_blocked(GLOBAL_KEY)
+        else None
+    )
+    if blocked_scope is not None:
         logger.warning(
             "local_login_throttled",
             client_ip=client_ip,
+            scope=blocked_scope,
             correlation_id=correlation_id,
         )
         response = _message(
@@ -515,14 +546,21 @@ async def local_login_submit(
             message="Too many failed attempts. Try again later.",
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         )
-        response.headers["Retry-After"] = str(throttle.retry_after(client_ip))
+        retry_after = max(
+            throttle.retry_after(key) if throttle.is_blocked(key) else 0,
+            global_throttle.retry_after(GLOBAL_KEY)
+            if global_throttle.is_blocked(GLOBAL_KEY)
+            else 0,
+        )
+        response.headers["Retry-After"] = str(retry_after)
         return response
 
     # #EDGE: concurrent guesses. The attempt is counted before the slow hash
     # check, with no await in between, so parallel requests cannot all pass
     # the check above; a success clears the count again.
     # #VERIFY: test_the_attempt_is_counted_before_the_hash_is_checked.
-    throttle.record_failure(client_ip)
+    throttle.record_failure(key)
+    global_throttle.record_failure(GLOBAL_KEY)
     if not await _password_matches(password):
         logger.warning(
             "local_login_failed",
@@ -536,7 +574,10 @@ async def local_login_submit(
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
-    throttle.reset(client_ip)
+    throttle.reset(key)
+    # The shared budget only gives back this attempt: a success must not erase
+    # failures that other clients made.
+    global_throttle.forget_latest(GLOBAL_KEY)
     # #CRITICAL: session fixation - store_user clears the pre-login session
     # and mints a new CSRF token before the user is written.
     # #VERIFY: test_session_is_rebuilt_not_reused_on_success.

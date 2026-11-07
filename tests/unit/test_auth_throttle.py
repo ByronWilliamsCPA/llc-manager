@@ -2,7 +2,12 @@
 
 import pytest
 
-from llc_manager.auth.throttle import LoginThrottle
+from llc_manager.auth.throttle import (
+    GLOBAL_MAX_FAILURES,
+    GLOBAL_WINDOW_SECONDS,
+    LoginThrottle,
+    client_key,
+)
 
 pytestmark = [pytest.mark.unit, pytest.mark.security]
 
@@ -126,3 +131,57 @@ def test_memory_is_bounded(clock: _Clock) -> None:
     assert small.is_blocked("client-9")
     assert not small.is_blocked("client-0")
     assert small.tracked_clients == 3
+
+
+def test_forget_latest_gives_back_one_failure(throttle: LoginThrottle) -> None:
+    _fail(throttle, "k", 5)
+    assert throttle.is_blocked("k")
+
+    throttle.forget_latest("k")
+
+    assert not throttle.is_blocked("k")
+    throttle.record_failure("k")
+    assert throttle.is_blocked("k")
+
+
+def test_forget_latest_drops_an_emptied_client(throttle: LoginThrottle) -> None:
+    throttle.record_failure("k")
+
+    throttle.forget_latest("k")
+
+    assert throttle.tracked_clients == 0
+    throttle.forget_latest("never-seen")  # must not raise
+
+
+def test_the_global_budget_is_twenty_failures_per_fifteen_minutes() -> None:
+    assert GLOBAL_MAX_FAILURES == 20
+    assert GLOBAL_WINDOW_SECONDS == 15 * 60
+
+
+class TestClientKey:
+    def test_ipv4_is_kept_as_is(self) -> None:
+        assert client_key("203.0.113.9") == "203.0.113.9"
+
+    def test_ipv4_mapped_ipv6_is_unwrapped(self) -> None:
+        assert client_key("::ffff:203.0.113.9") == "203.0.113.9"
+
+    def test_ipv6_is_keyed_by_its_slash_64(self) -> None:
+        first = client_key("2001:db8:1:2:3:4:5:6")
+        second = client_key("2001:db8:1:2:ffff:ffff:ffff:ffff")
+
+        assert first == second == "2001:db8:1:2::/64"
+
+    def test_different_ipv6_slash_64_networks_stay_apart(self) -> None:
+        assert client_key("2001:db8:1:2::1") != client_key("2001:db8:1:3::1")
+
+    def test_spellings_of_one_ipv6_address_share_a_key(self) -> None:
+        assert client_key("2001:0db8:0000:0000:0000:0000:0000:0001") == client_key(
+            "2001:db8::1"
+        )
+
+    def test_an_ipv6_zone_id_is_ignored(self) -> None:
+        assert client_key("fe80::1%eth0") == client_key("fe80::2")
+
+    @pytest.mark.parametrize("value", ["testclient", "unknown", "", "999.1.1.1"])
+    def test_unparseable_values_fall_back_to_the_raw_string(self, value: str) -> None:
+        assert client_key(value) == value
