@@ -107,12 +107,13 @@ Required in production:
 
 | Variable | Value |
 | --- | --- |
-| `LLC_MANAGER_ENVIRONMENT` | `production` (any name other than `development`, `local`, `test`; an unset name counts as production for the sign-in requirement) |
+| `LLC_MANAGER_ENVIRONMENT` | `production` (any name other than `development`, `local`, `test`). An unset or blank name counts as production for every startup check: the sign-in requirement, the secret key, and the API key length. The name may also come from a `.env` file |
 | `LLC_MANAGER_PUBLIC_BASE_URL` | `https://<your-host>` (https only, no path) |
 | `LLC_MANAGER_AUTHENTIK_ISSUER` | `https://<authentik-host>/application/o/<slug>/` (https) |
 | `LLC_MANAGER_AUTHENTIK_CLIENT_ID` | the provider's client ID |
 | `LLC_MANAGER_AUTHENTIK_CLIENT_SECRET` | the provider's client secret |
-| `LLC_MANAGER_SECRET_KEY` | 32 or more random characters; it signs the session cookie, and rotating it signs everyone out |
+| `LLC_MANAGER_SECRET_KEY` | 32 or more random characters (`openssl rand -hex 32`); it signs the session cookie, and rotating it signs everyone out. The default and any value starting with `change-` are refused at startup |
+| `LLC_MANAGER_API_KEY` | 32 or more characters for the service API (`/api/v1`); unset makes every `/api/v1` call answer 503. `docker-compose.prod.yml` refuses to start without it |
 
 The issuer, client ID, client secret, and public base URL must be set
 together. The break-glass login can replace the three Authentik values (see
@@ -123,7 +124,6 @@ Strongly recommended:
 | Variable | Value |
 | --- | --- |
 | `LLC_MANAGER_TRUSTED_PROXY_IPS` | comma-separated IPs or CIDR networks of your reverse proxy; empty trusts none |
-| `LLC_MANAGER_API_KEY` | 32 or more characters for the service API (`/api/v1`); unset makes every `/api/v1` call answer 503 |
 
 Optional, with defaults:
 
@@ -182,3 +182,5 @@ Set `LLC_MANAGER_ENVIRONMENT=development` (the `.env.example` default
 `ENVIRONMENT=development` does this) and `LLC_MANAGER_AUTH_DEV_MODE=true` to
 skip Authentik and act as a fixed admin user. A development environment starts
 without any sign-in settings; every other environment name does not.
+An unset name is not development: it needs a real secret key as well as the
+sign-in settings, so set the name explicitly on every local machine.

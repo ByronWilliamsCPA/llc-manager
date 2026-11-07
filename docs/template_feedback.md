@@ -315,8 +315,15 @@ entries for every setting the app validates at startup, and have the plan
 synthesizer rewrite the roadmap milestone table when it renumbers milestones,
 or generate one from the other.
 
-**Affected Files**: `docker-compose.yml`, `docs/planning/roadmap.md`,
-`docs/planning/PROJECT-PLAN.md`
+**Resolution (this repo)**: The compose gap is fixed here. `docker-compose.yml`
+now passes `LLC_MANAGER_SECRET_KEY` and `LLC_MANAGER_API_KEY` through as
+value-less entries, and `docker-compose.prod.yml` requires both with
+`${VAR:?message}` and sets `LLC_MANAGER_ENVIRONMENT: production`;
+`tests/unit/test_compose_files.py` pins this. The template should adopt the
+same entries. The roadmap numbering mismatch is still open.
+
+**Affected Files**: `docker-compose.yml`, `docker-compose.prod.yml`,
+`docs/planning/roadmap.md`, `docs/planning/PROJECT-PLAN.md`
 
 ---
 

@@ -37,8 +37,13 @@ services:
       # is passed through from the shell or .env only when it is set there, so
       # an unset name stays unset inside the container. Outside development
       # the app refuses to start without LLC_MANAGER_PUBLIC_BASE_URL and a
-      # sign-in method. Secrets (client secret, password hash) come from the
-      # secrets manager, never from this file.
+      # sign-in method, and without a real LLC_MANAGER_SECRET_KEY (32+
+      # characters; `openssl rand -hex 32`). Development works without them
+      # because ENVIRONMENT defaults to development above. Secrets (secret key,
+      # API key, client secret, password hash) come from the secrets manager,
+      # never from this file.
+      LLC_MANAGER_SECRET_KEY:
+      LLC_MANAGER_API_KEY:
       LLC_MANAGER_PUBLIC_BASE_URL:
       LLC_MANAGER_AUTHENTIK_ISSUER:
       LLC_MANAGER_AUTHENTIK_CLIENT_ID:
