@@ -312,6 +312,32 @@ class TestCallback:
         session_cookie = response.headers.get("set-cookie", "").lower()
         assert "expires=thu, 01 jan 1970" in session_cookie
 
+    def test_a_token_claiming_the_break_glass_subject_is_rejected(
+        self, client: TestClient, provider: FakeProvider
+    ) -> None:
+        _, params = _start_login(client, provider)
+
+        response = _finish_login(client, provider, params, sub="local-admin")
+
+        assert response.status_code == 403
+        assert (
+            "expires=thu, 01 jan 1970" in response.headers.get("set-cookie", "").lower()
+        )
+
+    def test_the_rejected_break_glass_subject_is_logged_without_its_value(
+        self,
+        client: TestClient,
+        provider: FakeProvider,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        _, params = _start_login(client, provider)
+
+        with caplog.at_level("WARNING"):
+            _finish_login(client, provider, params, sub="local-admin")
+
+        assert "oidc_reserved_subject_rejected" in caplog.text
+        assert "local-admin" not in caplog.text
+
     def test_user_without_a_groups_claim_gets_403_page(
         self, client: TestClient, provider: FakeProvider
     ) -> None:

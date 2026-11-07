@@ -188,6 +188,28 @@ class TestEnabled:
         assert response.status_code == 403
         assert "user" not in _session(client)
 
+    def test_an_over_long_password_is_refused_without_hashing(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        token = _token(client)
+        hashed: list[str] = []
+        real = routes._verify
+        monkeypatch.setattr(
+            routes,
+            "_verify",
+            lambda stored, password: hashed.append(password) or real(stored, password),
+        )
+
+        response = _submit(client, "x" * 1025, token)
+
+        assert response.status_code == 422
+        assert hashed == []
+
+    def test_a_password_at_the_limit_is_still_checked(self, client: TestClient) -> None:
+        response = _submit(client, "x" * 1024, _token(client))
+
+        assert response.status_code == 401
+
     def test_corrupt_stored_hash_fails_closed(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:

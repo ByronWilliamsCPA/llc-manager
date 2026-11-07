@@ -42,6 +42,8 @@ _LOGIN_NEXT_KEY = "login_next"
 OidcDep = Annotated[OidcClient | None, Depends(get_oidc_client)]
 
 LOCAL_ADMIN_SUB = "local-admin"
+# Longer input is refused before any hashing: argon2 cost grows with input size.
+_MAX_PASSWORD_LENGTH = 1024
 _password_hasher = PasswordHasher()
 
 # #CRITICAL: one argon2 verification allocates 64 MiB with the default
@@ -365,24 +367,41 @@ async def callback(request: Request, oidc: OidcDep) -> Response:
             show_login=True,
         )
 
-    role = resolve_role(
-        claims,
-        groups_claim=settings.authentik_groups_claim,
-        admin_group=settings.admin_group,
-        viewer_group=settings.viewer_group,
+    # #CRITICAL: the break-glass identity is reserved. A directory account with
+    # this subject would otherwise be indistinguishable from the local
+    # administrator in logs and audit trails.
+    # #VERIFY: test_a_token_claiming_the_break_glass_subject_is_rejected.
+    reserved = sub == LOCAL_ADMIN_SUB
+    role = (
+        None
+        if reserved
+        else resolve_role(
+            claims,
+            groups_claim=settings.authentik_groups_claim,
+            admin_group=settings.admin_group,
+            viewer_group=settings.viewer_group,
+        )
     )
     if role is None:
-        logger.warning(
-            "oidc_user_without_role",
-            sub=sub,
-            correlation_id=get_correlation_id(),
-        )
+        if reserved:
+            logger.warning(
+                "oidc_reserved_subject_rejected",
+                correlation_id=get_correlation_id(),
+            )
+        else:
+            logger.warning(
+                "oidc_user_without_role",
+                sub=sub,
+                correlation_id=get_correlation_id(),
+            )
         request.session.clear()
         return _message(
             request,
             title="Access denied",
             message=(
-                "Your account is not a member of a group that may use "
+                "This account cannot sign in to LLC Manager."
+                if reserved
+                else "Your account is not a member of a group that may use "
                 "LLC Manager. Ask an administrator to add you."
             ),
             status_code=status.HTTP_403_FORBIDDEN,
@@ -490,7 +509,7 @@ async def local_login_submit(
     request: Request,
     throttle: ThrottleDep,
     global_throttle: GlobalThrottleDep,
-    password: Annotated[str, Form()],
+    password: Annotated[str, Form(max_length=_MAX_PASSWORD_LENGTH)],
     next_: Annotated[str | None, Form(alias="next")] = None,
 ) -> Response:
     """Check the break-glass password and start an administrator session.
@@ -509,7 +528,8 @@ async def local_login_submit(
         throttle (ThrottleDep): The per-client failure throttle.
         global_throttle (GlobalThrottleDep): The failure budget shared by all
             clients.
-        password (Annotated[str, Form()]): The submitted password.
+        password (Annotated[str, Form(max_length=_MAX_PASSWORD_LENGTH)]): The
+            submitted password, at most 1024 characters.
         next_ (Annotated[str | None, Form(alias="next")]): Relative path to
             return to after sign-in.
 
