@@ -18,6 +18,7 @@ from starlette.routing import BaseRoute, Mount, Route
 from llc_manager.auth.csrf import SAFE_METHODS, verify_csrf
 from llc_manager.auth.dependencies import require_admin, require_user
 from llc_manager.auth.session import SESSION_COOKIE
+from llc_manager.core.auth import require_api_key
 from llc_manager.core.config import settings
 from llc_manager.db.session import get_async_session
 from llc_manager.main import create_app
@@ -30,11 +31,34 @@ from tests.unit.test_web_entities import FIXTURE_ID, _make_entity, _StubSession
 
 pytestmark = [pytest.mark.unit, pytest.mark.security]
 
-# Path prefixes that are deliberately not behind the browser sign-in:
-# /api/v1 uses the X-API-Key header, /api/health must stay open for probes,
-# /api/docs, /api/redoc and /api/openapi.json are the API documentation, and
-# /auth is the sign-in flow itself.
-OPEN_PREFIXES = ("/api/", "/auth/")
+# Routes that are deliberately not behind the browser sign-in, as exact
+# (method, path) pairs. Anything else that is not gated fails the enumeration.
+# /api/health must stay open for probes; /auth is the sign-in flow itself. The
+# OIDC callback is a GET (the provider redirects the browser to it), so it has
+# no CSRF token to check; every other /auth route that changes state is a POST
+# and carries ``verify_csrf``.
+OPEN_ROUTES = frozenset(
+    {
+        ("GET", "/api/health/"),
+        ("GET", "/api/health/live"),
+        ("GET", "/api/health/ready"),
+        ("GET", "/api/health/startup"),
+        ("GET", "/auth/login"),
+        ("GET", "/auth/callback"),
+        ("GET", "/auth/local-login"),
+        ("POST", "/auth/local-login"),
+        ("POST", "/auth/logout"),
+    }
+)
+# Routes FastAPI and Starlette register themselves: the API documentation and
+# the Swagger OAuth redirect. They are not ``APIRoute`` instances.
+FRAMEWORK_PATHS = frozenset(
+    {"/api/docs", "/api/redoc", "/api/openapi.json", "/docs/oauth2-redirect"}
+)
+# Open /auth routes that change state but cannot carry a CSRF token. None
+# today: confirmed by reading auth/routes.py, the callback is a GET.
+CSRF_EXEMPT_OPEN_ROUTES: frozenset[tuple[str, str]] = frozenset()
+API_V1_PREFIX = "/api/v1/"
 ADMIN_ONLY = {
     ("GET", "/entities/{entity_id}/edit"),
     ("PATCH", "/entities/{entity_id}/edit"),
@@ -115,30 +139,39 @@ def _unexpected_routes(app: FastAPI) -> list[str]:
         if isinstance(item, Mount):
             if path != "/static":
                 found.append(f"unexpected mount {path}")
-        elif not (
-            isinstance(item, Route) and path.startswith((*OPEN_PREFIXES, "/docs/"))
-        ):
+        elif not (isinstance(item, Route) and path in FRAMEWORK_PATHS):
             found.append(f"unexpected route {path}")
     return found
+
+
+def _open_route_findings(method: str, info: RouteInfo) -> list[str]:
+    """List the gates an intentionally open route is still missing."""
+    if (
+        info.path.startswith("/auth/")
+        and method not in SAFE_METHODS
+        and (method, info.path) not in CSRF_EXEMPT_OPEN_ROUTES
+        and verify_csrf not in info.calls
+    ):
+        return [f"{method} {info.path}: missing verify_csrf"]
+    return []
 
 
 def _gate_findings(info: RouteInfo) -> list[str]:
     """List the gates a single route is missing."""
     findings: list[str] = []
-    if info.path.startswith(OPEN_PREFIXES):
-        return findings
-    if require_user not in info.calls:
-        findings.append(f"{info.path}: missing require_user")
-    findings.extend(
-        f"{method} {info.path}: missing verify_csrf"
-        for method in sorted(info.methods - SAFE_METHODS)
-        if verify_csrf not in info.calls
-    )
-    findings.extend(
-        f"{method} {info.path}: missing require_admin"
-        for method in sorted(info.methods)
-        if (method, info.path) in ADMIN_ONLY and require_admin not in info.calls
-    )
+    for method in sorted(info.methods):
+        if (method, info.path) in OPEN_ROUTES:
+            findings.extend(_open_route_findings(method, info))
+        elif info.path.startswith(API_V1_PREFIX):
+            if require_api_key not in info.calls:
+                findings.append(f"{method} {info.path}: missing require_api_key")
+        else:
+            if require_user not in info.calls:
+                findings.append(f"{method} {info.path}: missing require_user")
+            if method not in SAFE_METHODS and verify_csrf not in info.calls:
+                findings.append(f"{method} {info.path}: missing verify_csrf")
+            if (method, info.path) in ADMIN_ONLY and require_admin not in info.calls:
+                findings.append(f"{method} {info.path}: missing require_admin")
     return findings
 
 
@@ -184,7 +217,7 @@ def test_enumeration_detects_an_ungated_route() -> None:
 
     findings = ungated_findings(app)
 
-    assert "/forgotten: missing require_user" in findings
+    assert "GET /forgotten: missing require_user" in findings
     assert "DELETE /entities/{entity_id}/remove: missing verify_csrf" in findings
 
 
@@ -200,7 +233,98 @@ def test_enumeration_detects_an_ungated_router_included_later() -> None:
 
     app.include_router(router)
 
-    assert "/sneaky: missing require_user" in ungated_findings(app)
+    assert "GET /sneaky: missing require_user" in ungated_findings(app)
+
+
+def test_enumeration_detects_an_ungated_route_under_api() -> None:
+    # /api/ used to be exempt wholesale; only the exact open routes are now.
+    app = create_app()
+
+    @app.get("/api/leak")
+    async def leak() -> dict[str, bool]:
+        return {"oops": True}
+
+    @app.get("/api/health/details")
+    async def details() -> dict[str, bool]:
+        return {"oops": True}
+
+    findings = ungated_findings(app)
+
+    assert "GET /api/leak: missing require_user" in findings
+    assert "GET /api/health/details: missing require_user" in findings
+
+
+def test_enumeration_detects_an_api_v1_route_without_the_key() -> None:
+    app = create_app()
+
+    @app.get("/api/v1/leak")
+    async def leak() -> dict[str, bool]:
+        return {"oops": True}
+
+    assert "GET /api/v1/leak: missing require_api_key" in ungated_findings(app)
+
+
+def test_enumeration_detects_an_unlisted_auth_route() -> None:
+    app = create_app()
+
+    @app.get("/auth/debug")
+    async def debug() -> dict[str, bool]:
+        return {"oops": True}
+
+    @app.post("/auth/reset")
+    async def reset() -> dict[str, bool]:
+        return {"oops": True}
+
+    findings = ungated_findings(app)
+
+    assert "GET /auth/debug: missing require_user" in findings
+    assert "POST /auth/reset: missing require_user" in findings
+    assert "POST /auth/reset: missing verify_csrf" in findings
+
+
+def test_enumeration_detects_an_unlisted_framework_route() -> None:
+    app = create_app()
+
+    @app.get("/docs/secret", include_in_schema=False)
+    async def secret_docs() -> dict[str, bool]:
+        return {"oops": True}
+
+    assert "GET /docs/secret: missing require_user" in ungated_findings(app)
+
+
+def test_every_state_changing_open_auth_route_checks_the_csrf_token() -> None:
+    for info in web_routes(create_app()):
+        for method in info.methods - SAFE_METHODS:
+            if info.path.startswith("/auth/"):
+                assert (method, info.path) in OPEN_ROUTES
+                assert (
+                    verify_csrf in info.calls
+                    or (method, info.path) in CSRF_EXEMPT_OPEN_ROUTES
+                )
+
+
+def test_oidc_callback_is_a_get() -> None:
+    # The only open route allowed to skip CSRF is a GET, because the identity
+    # provider redirects the browser to it.
+    callback = [i for i in web_routes(create_app()) if i.path == "/auth/callback"]
+
+    assert [i.methods for i in callback] == [frozenset({"GET"})]
+
+
+def test_open_allow_list_has_no_stale_entries() -> None:
+    app = create_app()
+    real = {(m, i.path) for i in web_routes(app) for m in i.methods}
+    framework = {getattr(r, "path", "") for r in app.routes if isinstance(r, Route)}
+
+    assert real >= OPEN_ROUTES
+    assert framework >= FRAMEWORK_PATHS
+
+
+def test_api_v1_routes_require_the_key() -> None:
+    routes = [i for i in web_routes(create_app()) if i.path.startswith(API_V1_PREFIX)]
+
+    assert routes
+    assert all(require_api_key in info.calls for info in routes)
 
 
 def test_enumeration_detects_an_unknown_mount() -> None:
