@@ -33,7 +33,7 @@ permissions:
 jobs:
   docs:
     name: Build & Deploy Docs
-    uses: ByronWilliamsCPA/.github/.github/workflows/python-docs.yml@b7c661ec3bfeb04370ce3a9c748bd8c4e93bfe89 # main
+    uses: ByronWilliamsCPA/.github/.github/workflows/python-docs.yml@79bf84c73af866a34f968262f2631f938c659d77 # main
     permissions:
       contents: write  # For GitHub Pages deployment
       pages: write
